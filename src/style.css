@@ -1,0 +1,76 @@
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden; background: #1a0d08; color: #fff;
+  font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  touch-action: none; overscroll-behavior: none;
+}
+[hidden] { display: none !important; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* ---------- Indicadores ---------- */
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+#crosshair {
+  position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px;
+  border-radius: 50%; background: rgba(255,255,255,.85); box-shadow: 0 0 0 1px rgba(0,0,0,.5);
+}
+#stance {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  font-size: 12px; letter-spacing: 2px; padding: 4px 10px; border-radius: 4px;
+  background: rgba(0,0,0,.35); color: #ffd9b0;
+}
+#stance.crouch { background: rgba(255,170,90,.75); color: #2a1208; }
+#btnPause {
+  pointer-events: auto; position: absolute;
+  top: calc(10px + env(safe-area-inset-top)); right: calc(14px + env(safe-area-inset-right));
+  width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4);
+  background: rgba(0,0,0,.35); color: #fff; font-weight: 700; font-size: 14px;
+}
+
+/* ---------- Táctil ---------- */
+#touch { position: fixed; inset: 0; z-index: 4; }
+#joyZone { position: absolute; left: 0; top: 0; width: 45%; height: 100%; }
+#lookZone { position: absolute; right: 0; top: 0; width: 55%; height: 100%; }
+.tbtn {
+  position: absolute; width: 92px; height: 92px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.55); background: rgba(0,0,0,.3); color: #fff;
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+}
+.tbtn.on { background: rgba(255,170,90,.7); color: #2a1208; }
+#btnCrouch {
+  right: calc(28px + env(safe-area-inset-right));
+  bottom: calc(28px + env(safe-area-inset-bottom));
+}
+body.gamepad #touch { display: none; }
+
+/* ---------- Menú ---------- */
+#menu {
+  position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+  background: rgba(26,13,8,.62); padding: 12px;
+  padding-left: calc(12px + env(safe-area-inset-left)); padding-right: calc(12px + env(safe-area-inset-right));
+}
+.panel { width: min(440px, 100%); max-height: 100%; overflow: auto; text-align: center; }
+h1 { margin: 0; font-size: 40px; letter-spacing: 10px; color: #ffcf9a; }
+h2 { margin: 2px 0 14px; font-size: 14px; letter-spacing: 6px; font-weight: 400; color: #ffe8d0; }
+button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
+.big {
+  width: 100%; padding: 14px; font-size: 18px; letter-spacing: 4px; font-weight: 700;
+  border: 0; border-radius: 8px; background: #ffb060; color: #2a1208;
+}
+#settings { margin-top: 14px; text-align: left; font-size: 14px; }
+#settings label { display: block; margin-bottom: 10px; }
+#settings input[type=range] { width: 100%; margin-top: 6px; accent-color: #ffb060; touch-action: pan-x; }
+#sensVal { float: right; color: #ffcf9a; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.seg { display: flex; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; overflow: hidden; }
+.seg button { padding: 9px 14px; border: 0; background: transparent; color: #fff; font-size: 14px; }
+.seg button.on { background: #ffb060; color: #2a1208; font-weight: 700; }
+.help { margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #f3d6bd; white-space: pre-line; }
+
+/* ---------- Aviso de girar el móvil ---------- */
+#rotate {
+  display: none; position: fixed; inset: 0; z-index: 20; background: #1a0d08;
+  align-items: center; justify-content: center; text-align: center; font-size: 20px; line-height: 1.6;
+}
+@media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Geonosis" />
+  <meta name="theme-color" content="#1a0d08" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <link rel="icon" type="image/png" href="./favicon.png" />
+  <title>Geonosis: Última Defensa</title>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Indicadores en pantalla -->
+  <div id="hud" hidden>
+    <div id="crosshair"></div>
+    <div id="stance">DE PIE</div>
+    <button id="btnPause" aria-label="Pausa">II</button>
+  </div>
+
+  <!-- Controles táctiles -->
+  <div id="touch" hidden>
+    <div id="joyZone"></div>
+    <div id="lookZone"></div>
+    <button id="btnCrouch" class="tbtn">AGACHARSE</button>
+  </div>
+
+  <!-- Menú de inicio / pausa -->
+  <div id="menu">
+    <div class="panel">
+      <h1>GEONOSIS</h1>
+      <h2 id="menuSub">ÚLTIMA DEFENSA</h2>
+      <p id="loading">Cargando…</p>
+      <button id="btnPlay" class="big" hidden>JUGAR</button>
+
+      <div id="settings" hidden>
+        <label>Sensibilidad al apuntar
+          <span id="sensVal"></span>
+          <input id="sens" type="range" min="0.3" max="3" step="0.1" />
+        </label>
+        <div class="row">
+          <span>Calidad gráfica</span>
+          <div id="quality" class="seg">
+            <button data-q="low">Baja</button>
+            <button data-q="medium">Media</button>
+            <button data-q="high">Alta</button>
+          </div>
+        </div>
+      </div>
+
+      <p id="help" class="help"></p>
+    </div>
+  </div>
+
+  <div id="rotate"><div>↻<br />Gira el móvil en horizontal</div></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
