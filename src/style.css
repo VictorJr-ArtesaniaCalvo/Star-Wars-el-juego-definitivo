@@ -98,6 +98,55 @@ button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 .seg button.on { background: #ffb060; color: #2a1208; font-weight: 700; }
 .help { margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: #f3d6bd; white-space: pre-line; }
 
+/* ---------- Vida, ronda, avisos ---------- */
+#vitals {
+  position: absolute; left: calc(14px + env(safe-area-inset-left)); top: calc(12px + env(safe-area-inset-top));
+  width: min(200px, 30vw);
+}
+#hpBar { position: relative; height: 16px; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.45); }
+#hpFill { height: 100%; width: 100%; background: #6fd36f; transition: width .15s; }
+#hpLabel { position: absolute; inset: 0; text-align: center; font-size: 10px; line-height: 15px; letter-spacing: 2px; font-weight: 700; text-shadow: 0 0 2px #000; }
+#hpBar.low #hpFill { background: #ff4a3a; }
+#hpBar.low { animation: blink .6s steps(2) infinite; }
+#testTag { margin-top: 6px; font-size: 10px; letter-spacing: 2px; color: #ffd060; text-shadow: 0 0 2px #000; }
+#fps { margin-top: 4px; font-size: 11px; font-family: ui-monospace, Menlo, monospace; color: #b8ffb8; text-shadow: 0 0 2px #000; }
+#roundBox {
+  position: absolute; left: 50%; transform: translateX(-50%); top: calc(10px + env(safe-area-inset-top));
+  text-align: center; text-shadow: 0 0 3px #000;
+}
+#roundNum { font-size: 16px; font-weight: 700; letter-spacing: 4px; color: #ffcf9a; }
+#enemyLeft { font-size: 11px; letter-spacing: 1px; color: #fff; opacity: .85; }
+#banner { position: absolute; left: 0; right: 0; top: 24%; text-align: center; text-shadow: 0 0 6px #000; animation: bannerIn .5s ease-out; }
+#bannerTitle { font-size: clamp(26px, 6vw, 44px); letter-spacing: 8px; font-weight: 800; color: #ffcf9a; }
+#bannerSub { margin-top: 4px; font-size: 14px; letter-spacing: 3px; }
+@keyframes bannerIn { from { opacity: 0; transform: scale(1.25); } to { opacity: 1; transform: scale(1); } }
+#damage {
+  position: absolute; inset: 0; opacity: 0;
+  box-shadow: inset 0 0 90px 28px rgba(220,30,10,.75);
+}
+#dmgDir { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
+#dmgDir .wedge {
+  position: absolute; left: -55px; top: calc(-1 * min(150px, 30vh)); width: 110px; height: 26px; border-radius: 50% 50% 0 0;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255,50,30,.95), rgba(255,50,30,0) 70%);
+}
+
+/* ---------- Menú: extras ---------- */
+.ghost { width: 100%; margin-top: 8px; padding: 10px; font-size: 13px; letter-spacing: 3px; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; background: transparent; color: #fff; }
+#testPanel { margin-top: 14px; padding: 10px 12px; border: 1px dashed #ffd060; border-radius: 8px; text-align: left; font-size: 14px; background: rgba(0,0,0,.35); }
+#testPanel .row { margin-top: 8px; }
+.testTitle { font-size: 11px; letter-spacing: 3px; color: #ffd060; }
+.stepper { display: flex; align-items: center; gap: 12px; }
+.stepper button { width: 38px; height: 38px; border-radius: 8px; border: 1px solid rgba(255,255,255,.5); background: transparent; color: #fff; font-size: 20px; }
+.stepper span { min-width: 28px; text-align: center; font-weight: 700; color: #ffcf9a; }
+
+/* ---------- Fin de partida ---------- */
+#gameover { position: fixed; inset: 0; z-index: 12; display: flex; align-items: center; justify-content: center; background: rgba(40,6,2,.78); padding: 12px; }
+h1.red { color: #ff7a60; }
+.stats { display: flex; justify-content: center; gap: 28px; margin: 6px 0 10px; }
+.stats div { display: flex; flex-direction: column; align-items: center; }
+.stats b { font-size: 40px; color: #ffcf9a; line-height: 1.1; }
+.stats span { font-size: 11px; letter-spacing: 1px; opacity: .85; }
+
 /* ---------- Aviso de girar el móvil ---------- */
 #rotate {
   display: none; position: fixed; inset: 0; z-index: 20; background: #1a0d08;

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 const BOLT_SPEED = 170; // m/s
 const BOLT_LENGTH = 2.2;
+const ENEMY_BOLT_SPEED = 95;
 
 interface Bolt { mesh: THREE.Mesh; dir: THREE.Vector3; left: number; active: boolean }
 interface Flash { mesh: THREE.Mesh; life: number; active: boolean }
@@ -11,6 +12,7 @@ interface Flash { mesh: THREE.Mesh; life: number; active: boolean }
 export class Effects {
   private bolts: Bolt[] = [];
   private flashes: Flash[] = [];
+  private enemyBolts: Bolt[] = [];
 
   constructor(scene: THREE.Scene) {
     const boltGeo = new THREE.BoxGeometry(0.045, 0.045, BOLT_LENGTH);
@@ -22,8 +24,18 @@ export class Effects {
       scene.add(mesh);
       this.bolts.push({ mesh, dir: new THREE.Vector3(), left: 0, active: false });
     }
+    // Rayos rojos de los droides (más gruesos y algo más lentos, para poder verlos venir).
+    const eGeo = new THREE.BoxGeometry(0.07, 0.07, 1.6);
+    eGeo.translate(0, 0, 0.8);
+    const eMat = new THREE.MeshBasicMaterial({ color: 0xff3a30, fog: false });
+    for (let i = 0; i < 40; i++) {
+      const mesh = new THREE.Mesh(eGeo, eMat);
+      mesh.visible = false;
+      scene.add(mesh);
+      this.enemyBolts.push({ mesh, dir: new THREE.Vector3(), left: 0, active: false });
+    }
     const flashGeo = new THREE.IcosahedronGeometry(0.22, 0);
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 16; i++) {
       const mesh = new THREE.Mesh(flashGeo, new THREE.MeshBasicMaterial({ color: 0xbfe2ff, transparent: true, fog: false }));
       mesh.visible = false;
       scene.add(mesh);
@@ -43,15 +55,41 @@ export class Effects {
     b.active = true;
   }
 
-  flash(at: THREE.Vector3) {
+  flash(at: THREE.Vector3, color = 0xbfe2ff) {
     const f = this.flashes.find((x) => !x.active) ?? this.flashes[0];
+    (f.mesh.material as THREE.MeshBasicMaterial).color.setHex(color);
     f.mesh.position.copy(at);
     f.life = 1;
     f.active = true;
     f.mesh.visible = true;
   }
 
+  /** Rayo rojo disparado por un droide. */
+  enemyBolt(from: THREE.Vector3, to: THREE.Vector3) {
+    const b = this.enemyBolts.find((x) => !x.active) ?? this.enemyBolts[0];
+    b.dir.copy(to).sub(from);
+    b.left = b.dir.length();
+    b.dir.normalize();
+    b.mesh.position.copy(from);
+    b.mesh.lookAt(to);
+    b.mesh.visible = true;
+    b.active = true;
+  }
+
+  /** Quita todos los rayos y chispazos de la pantalla. */
+  clear() {
+    for (const b of [...this.bolts, ...this.enemyBolts]) { b.active = false; b.mesh.visible = false; }
+    for (const f of this.flashes) { f.active = false; f.mesh.visible = false; }
+  }
+
   update(dt: number) {
+    for (const b of this.enemyBolts) {
+      if (!b.active) continue;
+      const step = ENEMY_BOLT_SPEED * dt;
+      b.left -= step;
+      b.mesh.position.addScaledVector(b.dir, step);
+      if (b.left <= 0) { b.active = false; b.mesh.visible = false; }
+    }
     for (const b of this.bolts) {
       if (!b.active) continue;
       const step = BOLT_SPEED * dt;

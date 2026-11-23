@@ -11,7 +11,8 @@
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",
     "nipplejs": "^1.0.4",
-    "three": "^0.187.0"
+    "three": "^0.187.0",
+    "yuka": "^0.7.8"
   },
   "devDependencies": {
     "@types/three": "^0.187.0",

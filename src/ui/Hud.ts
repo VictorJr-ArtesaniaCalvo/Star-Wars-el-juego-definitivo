@@ -1,26 +1,91 @@
-// Indicadores en pantalla: punto de mira, postura, calor del bláster y botón de pausa.
-// Vida, granadas y ronda se añadirán en sus fases.
+// Indicadores en pantalla: vida, ronda, calor del bláster, avisos, daño recibido y pausa.
+// Las granadas se añadirán en la Fase 4.
+const $ = (id: string) => document.getElementById(id)!;
+
 export class Hud {
-  private root = document.getElementById('hud')!;
-  private touch = document.getElementById('touch')!;
-  private stance = document.getElementById('stance')!;
-  private btnCrouch = document.getElementById('btnCrouch')!;
+  private root = $('hud');
+  private touch = $('touch');
+  private stance = $('stance');
+  private btnCrouch = $('btnCrouch');
   private crouching: boolean | null = null;
-  private heat = document.getElementById('heat')!;
-  private heatFill = document.getElementById('heatFill')!;
-  private heatLabel = document.getElementById('heatLabel')!;
-  private hitmark = document.getElementById('hitmark')!;
+  private heat = $('heat');
+  private heatFill = $('heatFill');
+  private heatLabel = $('heatLabel');
+  private hitmark = $('hitmark');
   private hitLife = 0;
   private lastHeat = -1;
   private lastLocked: boolean | null = null;
 
+  private hpBar = $('hpBar');
+  private hpFill = $('hpFill');
+  private hpLabel = $('hpLabel');
+  private lastHp = -1;
+  private roundNum = $('roundNum');
+  private enemyLeft = $('enemyLeft');
+  private lastRound = -1;
+  private lastLeft = -1;
+  private banner = $('banner');
+  private bannerLife = 0;
+  private damage = $('damage');
+  private dmgDir = $('dmgDir');
+  private dmgLife = 0;
+  private dirLife = 0;
+  private fps = $('fps');
+  private frames = 0;
+  private fpsTime = 0;
+
   constructor(onPause: () => void) {
-    document.getElementById('btnPause')!.addEventListener('click', onPause);
+    $('btnPause').addEventListener('click', onPause);
   }
 
   setVisible(v: boolean, touch: boolean) {
     this.root.hidden = !v;
     this.touch.hidden = !(v && touch);
+  }
+
+  setHealth(hp: number) {
+    const v = Math.max(0, Math.ceil(hp));
+    if (v === this.lastHp) return;
+    this.lastHp = v;
+    this.hpFill.style.width = v + '%';
+    this.hpLabel.textContent = 'VIDA ' + v;
+    this.hpBar.classList.toggle('low', v <= 30);
+  }
+
+  setRound(round: number, left: number) {
+    if (round !== this.lastRound) { this.lastRound = round; this.roundNum.textContent = 'RONDA ' + round; }
+    if (left !== this.lastLeft) { this.lastLeft = left; this.enemyLeft.textContent = left > 0 ? `Droides: ${left}` : ''; }
+  }
+
+  showBanner(title: string, sub: string, seconds: number) {
+    $('bannerTitle').textContent = title;
+    $('bannerSub').textContent = sub;
+    this.banner.hidden = false;
+    this.bannerLife = seconds;
+    // Reinicia la animación de entrada.
+    this.banner.style.animation = 'none';
+    void this.banner.offsetWidth;
+    this.banner.style.animation = '';
+  }
+
+  hideBanner() {
+    this.bannerLife = 0;
+    this.banner.hidden = true;
+  }
+
+  /** Destello rojo al recibir daño y flecha hacia el lugar de donde viene (ángulo en grados, 0 = delante). */
+  damaged(amount: number, angleDeg: number) {
+    this.dmgLife = Math.min(1, 0.45 + amount / 14);
+    this.dirLife = 1;
+    this.dmgDir.style.transform = `rotate(${angleDeg}deg)`;
+  }
+
+  setTestTag(on: boolean) {
+    $('testTag').hidden = !on;
+  }
+
+  setFpsVisible(on: boolean) {
+    this.fps.hidden = !on;
   }
 
   setHeat(heat: number, locked: boolean) {
@@ -45,9 +110,30 @@ export class Hud {
   }
 
   update(dt: number) {
-    if (this.hitLife <= 0) return;
-    this.hitLife = Math.max(0, this.hitLife - dt * 4);
-    this.hitmark.style.opacity = String(this.hitLife);
+    if (this.hitLife > 0) {
+      this.hitLife = Math.max(0, this.hitLife - dt * 4);
+      this.hitmark.style.opacity = String(this.hitLife);
+    }
+    if (this.bannerLife > 0) {
+      this.bannerLife -= dt;
+      if (this.bannerLife <= 0) this.banner.hidden = true;
+    }
+    if (this.dmgLife > 0) {
+      this.dmgLife = Math.max(0, this.dmgLife - dt * 1.4);
+      this.damage.style.opacity = String(this.dmgLife);
+    }
+    if (this.dirLife > 0) {
+      this.dirLife = Math.max(0, this.dirLife - dt * 1.1);
+      this.dmgDir.style.opacity = String(this.dirLife);
+    }
+    // Contador de fotogramas por segundo (solo si está activado en el modo de pruebas).
+    this.frames++;
+    this.fpsTime += dt;
+    if (this.fpsTime >= 0.5) {
+      if (!this.fps.hidden) this.fps.textContent = Math.round(this.frames / this.fpsTime) + ' FPS';
+      this.frames = 0;
+      this.fpsTime = 0;
+    }
   }
 
   setCrouching(c: boolean) {

@@ -7,6 +7,10 @@ const SPIRE = 0xa2552f;
 const RUIN = 0x7d5a48;
 const METAL = 0x4a4744;
 
+/** Obstáculo del mapa: lo usan los droides para esquivar y para buscar cobertura. */
+export interface Obstacle { x: number; z: number; radius: number; height: number }
+export const OBSTACLES: Obstacle[] = [];
+
 // Deformación repetible: el mismo punto siempre se mueve igual (así la roca no se "abre").
 function hash(x: number, y: number, z: number, seed: number) {
   const r = (v: number) => Math.round(v * 1000) / 1000;
@@ -44,6 +48,7 @@ function boulderGeometry(seed: number) {
 }
 
 export function buildRocks(b: Builder) {
+  OBSTACLES.length = 0;
   const rng = makeRng(WORLD_SEED);
   const range = (a: number, c: number) => a + rng() * (c - a);
   let seed = 1;
@@ -57,12 +62,14 @@ export function buildRocks(b: Builder) {
       const ox = main ? 0 : range(-1, 1) * 5 * big;
       const oz = main ? 0 : range(-1, 1) * 5 * big;
       const y = terrainHeight(x + ox, z + oz) - 1.5;
+      OBSTACLES.push({ x: x + ox, z: z + oz, radius: r * 0.9, height: h });
       b.addHull(spireGeometry(r, h, seed++, range(-0.12, 0.12)), place(x + ox, y, z + oz, range(0, 6.28)), SPIRE, range(0.8, 1.1));
     }
   };
 
   const boulder = (x: number, z: number, r: number) => {
     const s = new THREE.Vector3(r * range(0.8, 1.3), r * range(0.55, 0.9), r * range(0.8, 1.3));
+    OBSTACLES.push({ x, z, radius: Math.max(s.x, s.z) * 0.95, height: s.y * 1.6 });
     b.addHull(boulderGeometry(seed++), place(x, terrainHeight(x, z) + s.y * 0.3, z, range(0, 6.28), 0, 0, s), ROCK, range(0.75, 1.1));
   };
 
@@ -80,6 +87,7 @@ export function buildRocks(b: Builder) {
   for (let i = 0; i < 26; i++) {
     const x = range(-65, 65), z = range(-95, -17);
     const w = range(3, 6.5), h = range(1.3, 2.3);
+    OBSTACLES.push({ x, z, radius: w * 0.5, height: h });
     b.addBox([w, h, 0.6], place(x, terrainHeight(x, z) + h / 2 - 0.35, z, range(-0.6, 0.6), 0, range(-0.06, 0.06)), RUIN);
     if (rng() < 0.5) {
       // tramo caído al lado
@@ -91,6 +99,7 @@ export function buildRocks(b: Builder) {
   for (let i = 0; i < 18; i++) {
     const x = range(-60, 60), z = range(-85, -16);
     const sx = range(1, 2.6), sy = range(0.8, 1.6), sz = range(0.8, 1.8);
+    OBSTACLES.push({ x, z, radius: Math.max(sx, sz) * 0.6, height: sy });
     b.addBox([sx, sy, sz], place(x, terrainHeight(x, z) + sy * 0.3, z, range(0, 6.28), range(-0.3, 0.3), range(-0.3, 0.3)), METAL);
   }
 

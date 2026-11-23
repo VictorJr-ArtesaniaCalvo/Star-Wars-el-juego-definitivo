@@ -14,7 +14,7 @@ const GRAVITY = 22;
 // Mueve a un jugador por el mundo respetando suelo, rocas y coberturas.
 export class PlayerController {
   readonly body: RAPIER.RigidBody;
-  private collider: RAPIER.Collider;
+  readonly collider: RAPIER.Collider;
   private controller: RAPIER.KinematicCharacterController;
   private half = HALF_STAND;
   private vy = 0;

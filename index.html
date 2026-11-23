@@ -17,7 +17,16 @@
 
   <!-- Indicadores en pantalla -->
   <div id="hud" hidden>
+    <div id="damage"></div>
+    <div id="dmgDir"><div class="wedge"></div></div>
     <div id="crosshair"></div>
+    <div id="vitals">
+      <div id="hpBar"><div id="hpFill"></div><span id="hpLabel">VIDA 100</span></div>
+      <div id="testTag" hidden>MODO PRUEBAS</div>
+      <div id="fps" hidden></div>
+    </div>
+    <div id="roundBox"><div id="roundNum">RONDA 1</div><div id="enemyLeft"></div></div>
+    <div id="banner" hidden><div id="bannerTitle"></div><div id="bannerSub"></div></div>
     <div id="hitmark"></div>
     <div id="stance">DE PIE</div>
     <div id="heat"><div id="heatFill"></div><span id="heatLabel">BLÁSTER</span></div>
@@ -35,10 +44,12 @@
   <!-- Menú de inicio / pausa -->
   <div id="menu">
     <div class="panel">
-      <h1>GEONOSIS</h1>
+      <h1 id="title">GEONOSIS</h1>
       <h2 id="menuSub">ÚLTIMA DEFENSA</h2>
       <p id="loading">Cargando…</p>
       <button id="btnPlay" class="big" hidden>JUGAR</button>
+      <button id="btnQuit" class="ghost" hidden>ABANDONAR PARTIDA</button>
+      <p id="best" class="help" hidden></p>
 
       <div id="settings" hidden>
         <label>Sensibilidad al apuntar
@@ -62,7 +73,40 @@
         </div>
       </div>
 
+      <div id="testPanel" hidden>
+        <div class="testTitle">MODO DE PRUEBAS</div>
+        <div class="row">
+          <span>Empezar en la ronda</span>
+          <div class="stepper">
+            <button id="roundMinus">−</button><span id="roundVal">1</span><button id="roundPlus">+</button>
+          </div>
+        </div>
+        <div class="row">
+          <span>Invencible</span>
+          <div id="god" class="seg"><button data-v="1">Sí</button><button data-v="0">No</button></div>
+        </div>
+        <div class="row">
+          <span>Mostrar FPS</span>
+          <div id="fpsOpt" class="seg"><button data-v="1">Sí</button><button data-v="0">No</button></div>
+        </div>
+      </div>
+
       <p id="help" class="help"></p>
+    </div>
+  </div>
+
+  <!-- Fin de partida -->
+  <div id="gameover" hidden>
+    <div class="panel">
+      <h1 class="red">HAS CAÍDO</h1>
+      <h2>LOS DROIDES TOMAN LA POSICIÓN</h2>
+      <div class="stats">
+        <div><b id="goRound">1</b><span>Ronda alcanzada</span></div>
+        <div><b id="goKills">0</b><span>Droides destruidos</span></div>
+      </div>
+      <p id="goBest" class="help"></p>
+      <button id="btnRetry" class="big">REINTENTAR</button>
+      <button id="btnToMenu" class="ghost">MENÚ</button>
     </div>
   </div>
 

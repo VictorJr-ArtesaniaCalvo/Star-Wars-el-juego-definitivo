@@ -5,10 +5,23 @@ export interface SettingsData {
   sensitivity: number;
   quality: Quality;
   aimAssist: boolean; // ayuda al apuntar con controles táctiles
+  best: number; // mejor ronda alcanzada (solo en partidas normales)
+  // Modo de pruebas (menú oculto)
+  testRound: number;
+  invincible: boolean;
+  showFps: boolean;
 }
 
 const KEY = 'geonosis.settings.v1';
-const DEFAULTS: SettingsData = { sensitivity: 1, quality: 'medium', aimAssist: true };
+const DEFAULTS: SettingsData = {
+  sensitivity: 1,
+  quality: 'medium',
+  aimAssist: true,
+  best: 0,
+  testRound: 1,
+  invincible: false,
+  showFps: false,
+};
 
 export class Settings {
   data: SettingsData = { ...DEFAULTS };

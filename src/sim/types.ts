@@ -30,12 +30,15 @@ export interface EnemyState {
   z: number;
   yaw: number;
   health: number;
-  alive: boolean;
+  alive: boolean; // false = destruido (o sin usar)
+  active: boolean; // false = guardado en la reserva, no existe en el mundo
 }
 
 export interface GameState {
   players: PlayerState[]; // lista: hoy hay uno, mañana podrán ser dos
   enemies: EnemyState[];
+  round: number;
+  kills: number;
 }
 
 export const TICK = 1 / 60; // pasos de simulación por segundo

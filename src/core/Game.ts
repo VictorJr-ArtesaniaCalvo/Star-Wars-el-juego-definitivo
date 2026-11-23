@@ -4,8 +4,10 @@ import { EnemyManager } from '../enemies/EnemyManager';
 import { InputManager } from '../input/InputManager';
 import { EYE_CROUCH, EYE_STAND, PlayerController } from '../player/PlayerController';
 import { TICK, type GameState, type InputCommand } from '../sim/types';
+import { GameOver } from '../ui/GameOver';
 import { Hud } from '../ui/Hud';
 import { Menu } from '../ui/Menu';
+import { WaveManager } from '../waves/WaveManager';
 import { SPAWN } from '../world/defenseZone';
 import { Blaster, BLASTER } from '../weapons/Blaster';
 import { Effects } from '../weapons/Effects';
@@ -13,7 +15,8 @@ import { ViewModel } from '../weapons/ViewModel';
 import { World } from '../world/World';
 import { QUALITY, Settings } from './Settings';
 
-type Mode = 'menu' | 'playing' | 'paused';
+type Mode = 'menu' | 'playing' | 'paused' | 'gameover';
+const HEAL_BETWEEN_ROUNDS = 30;
 const PITCH_LIMIT = (85 * Math.PI) / 180;
 const ASSIST_CONE = (6 * Math.PI) / 180;
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -28,8 +31,11 @@ export class Game {
   private input: InputManager;
   private menu: Menu;
   private hud: Hud;
+  private gameOver: GameOver;
+  private waves!: WaveManager;
+  private testMode = false;
 
-  private state: GameState = { players: [], enemies: [] };
+  private state: GameState = { players: [], enemies: [], round: 0, kills: 0 };
   private enemies!: EnemyManager;
   private blaster = new Blaster();
   private effects!: Effects;
@@ -56,8 +62,12 @@ export class Game {
     this.camera.rotation.order = 'YXZ';
 
     this.input = new InputManager(canvas, document.getElementById('touch')!);
-    this.menu = new Menu(this.settings, () => this.play());
+    this.menu = new Menu(this.settings, {
+      onPlay: () => (this.mode === 'paused' ? this.resume() : this.startRun()),
+      onQuit: () => this.quitToMenu(),
+    });
     this.hud = new Hud(() => this.pause());
+    this.gameOver = new GameOver(() => this.startRun(), () => this.quitToMenu());
 
     this.settings.onChange(() => this.applySettings());
     window.addEventListener('resize', () => this.resize());
@@ -81,9 +91,21 @@ export class Game {
 
     this.state.players.push({ id: 0, x: SPAWN.x, y: 0, z: SPAWN.z, yaw: 0, pitch: 0, crouching: false, health: 100 });
     this.localPlayer = new PlayerController(RAPIER, this.physics, this.state.players[0]);
-    this.enemies = new EnemyManager(this.scene, RAPIER, this.physics, this.state);
-    this.enemies.spawnTestDroid();
     this.effects = new Effects(this.scene);
+    const pl = this.localPlayer;
+    this.enemies = new EnemyManager(this.scene, RAPIER, this.physics, this.state, {
+      effects: this.effects,
+      player: () => pl.state,
+      playerCollider: () => pl.collider.handle,
+      damagePlayer: (amount, fx, fz) => this.damagePlayer(amount, fx, fz),
+    });
+    this.waves = new WaveManager(this.enemies, {
+      onBanner: (title, sub, sec) => this.hud.showBanner(title, sub, sec),
+      onRoundCleared: () => {
+        const p = this.state.players[0];
+        p.health = Math.min(100, p.health + HEAL_BETWEEN_ROUNDS);
+      },
+    });
     this.scene.add(this.camera);
     this.viewModel = new ViewModel(this.camera);
     this.physics.step();
@@ -104,6 +126,7 @@ export class Game {
     const q = QUALITY[this.settings.data.quality];
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pixelRatio));
     this.world?.setQuality(this.settings.data.quality);
+    this.hud?.setFpsVisible(this.settings.data.showFps);
     this.dirty = true;
   }
 
@@ -115,7 +138,68 @@ export class Game {
     this.dirty = true;
   }
 
-  private play() {
+  /** Empieza una partida nueva desde cero (con las opciones del modo de pruebas, si las hay). */
+  private startRun() {
+    const s = this.settings.data;
+    this.testMode = s.invincible || s.testRound > 1;
+    this.enemies.clear();
+    this.effects.clear();
+    const p = this.state.players[0];
+    p.health = 100;
+    this.localPlayer.teleport(SPAWN.x, SPAWN.z);
+    this.yaw = 0;
+    this.pitch = 0;
+    this.wantCrouch = false;
+    this.blaster = new Blaster();
+    this.state.kills = 0;
+    this.shots = 0;
+    this.hits = 0;
+    this.gameOver.hide();
+    this.hud.setTestTag(this.testMode);
+    this.hud.setHealth(p.health);
+    this.waves.start(s.testRound);
+    this.resume();
+  }
+
+  private quitToMenu() {
+    this.waves.stop();
+    this.enemies.clear();
+    this.effects.clear();
+    this.hud.hideBanner();
+    this.hud.setVisible(false, false);
+    this.gameOver.hide();
+    this.mode = 'menu';
+    this.menu.show(false);
+    this.dirty = true;
+  }
+
+  private endRun() {
+    this.mode = 'gameover';
+    this.waves.stop();
+    this.input.touch?.reset();
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.hud.setVisible(false, false);
+    const round = this.waves.round;
+    const record = !this.testMode && round > this.settings.data.best;
+    if (record) this.settings.set({ best: round });
+    this.gameOver.show(round, this.state.kills, this.settings.data.best, record, this.testMode);
+  }
+
+  /** El jugador recibe un disparo. `fx, fz` = de dónde viene. */
+  private damagePlayer(amount: number, fx: number, fz: number) {
+    if (this.mode !== 'playing') return;
+    const p = this.state.players[0];
+    // Dirección de donde viene el disparo, respecto a hacia dónde mira el jugador.
+    const dx = fx - p.x, dz = fz - p.z;
+    const fwd = dx * -Math.sin(this.yaw) + dz * -Math.cos(this.yaw);
+    const right = dx * Math.cos(this.yaw) + dz * -Math.sin(this.yaw);
+    this.hud.damaged(amount, (Math.atan2(right, fwd) * 180) / Math.PI);
+    if (this.settings.data.invincible) return;
+    p.health = Math.max(0, p.health - amount);
+    if (p.health <= 0) this.endRun();
+  }
+
+  private resume() {
     if (this.mode === 'playing') return;
     this.mode = 'playing';
     this.menu.hide();
@@ -141,7 +225,7 @@ export class Game {
     const inp = this.input.poll(dt, this.settings.data.sensitivity);
     if (inp.pausePressed) {
       if (this.mode === 'playing') this.pause();
-      else if (this.mode === 'paused' && this.input.gamepadActive) this.play();
+      else if (this.mode === 'paused' && this.input.gamepadActive) this.resume();
     }
 
     if (this.mode === 'playing') {
@@ -158,6 +242,8 @@ export class Game {
         this.enemies.update(TICK);
         this.physics.step();
         if (this.blaster.update(TICK, cmd.fire)) this.shoot();
+        this.waves.update(TICK);
+        if (this.mode !== 'playing') break; // la partida acaba en mitad del paso
         this.acc -= TICK;
         steps++;
       }
@@ -167,6 +253,9 @@ export class Game {
 
       this.hud.setCrouching(this.localPlayer.state.crouching);
       this.hud.setHeat(this.blaster.heat, this.blaster.locked);
+      this.hud.setHealth(this.state.players[0].health);
+      this.hud.setRound(this.waves.round, this.waves.remaining);
+      this.state.round = this.waves.round;
       this.hud.update(dt);
       this.syncCamera(dt);
       this.effects.update(dt);
@@ -208,9 +297,10 @@ export class Game {
       this.effects.flash(end);
       const droid = this.enemies.find(hit.collider.handle);
       if (droid) {
-        droid.hit(BLASTER.damage);
+        const killed = droid.hit(BLASTER.damage, this.enemies.context);
         this.hits++;
-        this.hud.hit(!droid.state.alive);
+        if (killed) this.state.kills++;
+        this.hud.hit(killed);
       }
     }
     this.camera.updateMatrixWorld();
@@ -262,13 +352,46 @@ export class Game {
     this.pitch = pitch;
   }
 
-  /** Solo para pruebas: deja quietos a los droides. */
-  debugFreeze(frozen: boolean) {
-    for (const d of this.enemies.droids) d.patrol = !frozen;
+  /** Solo para pruebas: hace daño al jugador desde un punto del mapa. */
+  debugHurt(amount: number, fx = 0, fz = -20) {
+    this.damagePlayer(amount, fx, fz);
+  }
+
+  /** Solo para pruebas: qué objeto se ve en un punto de la pantalla (-1..1). */
+  debugPick(nx: number, ny: number) {
+    this.camera.updateMatrixWorld();
+    const rc = new THREE.Raycaster();
+    rc.setFromCamera(new THREE.Vector2(nx, ny), this.camera);
+    return rc.intersectObjects(this.scene.children, true).slice(0, 3).map((h) => ({
+      dist: +h.distance.toFixed(1),
+      type: (h.object as THREE.Mesh).geometry?.type,
+      verts: (h.object as THREE.Mesh).geometry?.attributes?.position?.count,
+      point: h.point.toArray().map((v) => +v.toFixed(1)),
+    }));
+  }
+
+  /** Solo para pruebas: avanza la simulación unos segundos de golpe, sin dibujar (jugador quieto). */
+  debugSim(seconds: number, crouch = false) {
+    const cmd: InputCommand = { moveX: 0, moveZ: 0, yaw: this.yaw, pitch: this.pitch, crouch, fire: false };
+    const t0 = performance.now();
+    let n = 0;
+    for (; n < Math.round(seconds / TICK) && this.mode === 'playing'; n++) {
+      this.localPlayer.step(cmd, TICK);
+      this.enemies.update(TICK);
+      this.physics.step();
+      this.waves.update(TICK);
+      this.effects.update(TICK);
+    }
+    return { ticks: n, msPerTick: (performance.now() - t0) / Math.max(1, n) };
+  }
+
+  /** Solo para pruebas: destruye a todos los droides vivos. */
+  debugKillAll() {
+    for (const d of this.enemies.droids) if (d.state.alive) { d.hit(9999, this.enemies.context); this.state.kills++; }
   }
 
   /** Solo para pruebas automáticas. */
   debug() {
-    return { heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
+    return { round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
   }
 }

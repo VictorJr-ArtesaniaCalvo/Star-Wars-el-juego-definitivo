@@ -2,59 +2,39 @@ import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { EnemyState } from '../sim/types';
 import { terrainHeight } from '../world/terrain';
+import { b1Geometry, DROID_HEIGHT } from './B1Model';
+import { DroidBrain, type BrainContext, type BrainParams } from './DroidBrain';
 
-const TAN = 0xc9b48c;
-const HEIGHT = 1.9;
+const CORPSE_TIME = 2.2;
+const LIFT = 0.08; // el cuerpo sólido flota un poco sobre el suelo para no engancharse
 
-/** Droide de combate B1 (modelo provisional hecho con cajas). */
-function b1Model(mat: THREE.Material): THREE.Group {
-  const g = new THREE.Group();
-  const box = (w: number, h: number, d: number, x: number, y: number, z: number, rx = 0) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-    m.position.set(x, y, z);
-    m.rotation.x = rx;
-    m.castShadow = true;
-    g.add(m);
-  };
-  box(0.09, 0.85, 0.09, -0.13, 0.43, 0); // piernas
-  box(0.09, 0.85, 0.09, 0.13, 0.43, 0);
-  box(0.34, 0.14, 0.16, 0, 0.9, 0); // cadera
-  box(0.3, 0.5, 0.18, 0, 1.2, 0); // torso
-  box(0.26, 0.4, 0.12, 0, 1.25, 0.14); // mochila
-  box(0.07, 0.6, 0.07, -0.23, 1.15, -0.08, 0.5); // brazos (sujetando el arma)
-  box(0.07, 0.6, 0.07, 0.23, 1.15, -0.08, 0.5);
-  box(0.06, 0.06, 0.5, 0.12, 1.0, -0.42); // bláster
-  box(0.06, 0.22, 0.06, 0, 1.55, 0); // cuello
-  box(0.13, 0.13, 0.42, 0, 1.72, -0.1, 0.35); // cabeza alargada
-  return g;
-}
-
-// Un droide: su aspecto, su cuerpo sólido (para recibir disparos) y su estado.
+// Un droide: aspecto, cuerpo sólido (recibe disparos) y cerebro. Se reutilizan siempre
+// los mismos (reserva) para no cargar el móvil creando y destruyendo objetos.
 export class Droid {
-  readonly group: THREE.Group;
+  readonly group: THREE.Mesh;
   readonly body: RAPIER.RigidBody;
   readonly collider: RAPIER.Collider;
-  private mat = new THREE.MeshLambertMaterial({ color: TAN });
+  readonly brain = new DroidBrain();
+  private mat = new THREE.MeshLambertMaterial({ vertexColors: true });
   private flash = 0;
   private deadTime = 0;
-  private t = Math.random() * 10;
-  private anchorX: number;
-  /** Si es false, el droide se queda quieto (para pruebas). */
-  patrol = true;
+  private t = 0;
+  private out = { dx: 0, dz: 0 };
 
   constructor(
     scene: THREE.Scene,
     rapier: typeof RAPIER,
     physics: RAPIER.World,
+    private controller: RAPIER.KinematicCharacterController,
     public state: EnemyState,
   ) {
-    this.group = b1Model(this.mat);
+    this.group = new THREE.Mesh(b1Geometry(), this.mat);
+    this.group.castShadow = true;
+    this.group.visible = false;
     scene.add(this.group);
-    this.anchorX = state.x;
     this.body = physics.createRigidBody(rapier.RigidBodyDesc.kinematicPositionBased());
-    this.collider = physics.createCollider(rapier.ColliderDesc.capsule(HEIGHT / 2 - 0.28, 0.28), this.body);
-    this.place();
-    this.body.setTranslation({ x: state.x, y: state.y + HEIGHT / 2, z: state.z }, true);
+    this.collider = physics.createCollider(rapier.ColliderDesc.capsule(DROID_HEIGHT / 2 - 0.28, 0.28), this.body);
+    this.collider.setEnabled(false);
   }
 
   /** Punto al que conviene apuntar (el pecho). */
@@ -62,42 +42,52 @@ export class Droid {
     return out.set(this.state.x, this.state.y + 1.25, this.state.z);
   }
 
-  private place() {
+  private syncBody() {
     const s = this.state;
-    s.y = terrainHeight(s.x, s.z);
-    this.group.position.set(s.x, s.y, s.z);
-    this.group.rotation.y = s.yaw;
-    this.body.setNextKinematicTranslation({ x: s.x, y: s.y + HEIGHT / 2, z: s.z });
+    this.body.setTranslation({ x: s.x, y: s.y + DROID_HEIGHT / 2 + LIFT, z: s.z }, true);
   }
 
-  hit(damage: number) {
-    if (!this.state.alive) return;
-    this.state.health -= damage;
-    this.flash = 1;
-    if (this.state.health <= 0) {
-      this.state.alive = false;
-      this.deadTime = 0;
-      this.collider.setEnabled(false);
-    }
-  }
-
-  /** Vuelve a aparecer en otro sitio (solo para el droide de pruebas). */
-  respawn(x: number, z: number, health: number) {
+  activate(x: number, z: number, health: number, params: BrainParams, ctx: BrainContext) {
     const s = this.state;
-    s.x = this.anchorX = x;
-    s.z = z;
+    s.x = x; s.z = z; s.y = terrainHeight(x, z);
     s.health = health;
     s.alive = true;
-    this.t = 0;
+    s.active = true;
+    this.flash = 0;
+    this.deadTime = 0;
+    this.t = Math.random() * 10;
     this.group.rotation.set(0, 0, 0);
+    this.group.visible = true;
     this.collider.setEnabled(true);
-    this.place();
-    this.body.setTranslation({ x: s.x, y: s.y + HEIGHT / 2, z: s.z }, true);
+    this.syncBody();
+    this.brain.reset(x, z, params, ctx);
+    this.group.position.set(s.x, s.y, s.z);
   }
 
-  /** Devuelve los segundos que lleva destruido (0 si sigue en pie). */
-  update(dt: number): number {
+  deactivate(ctx: BrainContext) {
+    this.brain.release(ctx);
+    this.state.active = false;
+    this.state.alive = false;
+    this.group.visible = false;
+    this.collider.setEnabled(false);
+  }
+
+  /** Recibe daño. Devuelve true si este disparo lo destruye. */
+  hit(damage: number, ctx: BrainContext): boolean {
+    if (!this.state.alive) return false;
+    this.state.health -= damage;
+    this.flash = 1;
+    if (this.state.health > 0) return false;
+    this.state.alive = false;
+    this.deadTime = 0;
+    this.collider.setEnabled(false);
+    this.brain.release(ctx);
+    return true;
+  }
+
+  update(dt: number, ctx: BrainContext) {
     const s = this.state;
+    if (!s.active) return;
     this.flash = Math.max(0, this.flash - dt * 7);
     this.mat.emissive.setRGB(this.flash, this.flash * 0.8, this.flash * 0.6);
 
@@ -106,17 +96,29 @@ export class Droid {
       // Se desploma hacia atrás.
       this.group.rotation.x = Math.min(Math.PI / 2, this.deadTime * 5);
       this.group.position.y = s.y + Math.min(0.12, this.deadTime * 0.5);
-      return this.deadTime;
+      if (this.deadTime > CORPSE_TIME) this.deactivate(ctx);
+      return;
     }
 
-    // Comportamiento de pruebas: patrulla despacio de lado a lado.
-    if (this.patrol) this.t += dt;
-    const prev = s.x;
-    s.x = this.anchorX + Math.sin(this.t * 0.45) * 5;
-    s.yaw = s.x > prev ? -Math.PI / 2 : Math.PI / 2;
-    this.place();
+    this.brain.think(dt, s.x, s.y, s.z, ctx, this.out);
+
+    if (this.out.dx !== 0 || this.out.dz !== 0) {
+      // El cuerpo sólido ajusta el movimiento para no atravesar rocas, muros ni a otros droides.
+      const nx0 = s.x + this.out.dx, nz0 = s.z + this.out.dz;
+      const dy = terrainHeight(nx0, nz0) - s.y;
+      this.controller.computeColliderMovement(this.collider, { x: this.out.dx, y: dy, z: this.out.dz });
+      const m = this.controller.computedMovement();
+      s.x += m.x;
+      s.z += m.z;
+      s.y = terrainHeight(s.x, s.z);
+      this.syncBody();
+      this.t += dt * (Math.hypot(m.x, m.z) / Math.max(dt, 1e-4)) * 2.2;
+    }
+
+    s.yaw = this.brain.yaw;
+    this.group.position.set(s.x, s.y, s.z);
+    this.group.rotation.y = s.yaw;
     // Balanceo al andar.
-    this.group.rotation.z = Math.sin(this.t * 6) * 0.04;
-    return 0;
+    this.group.rotation.z = this.brain.moving ? Math.sin(this.t) * 0.045 : 0;
   }
 }
