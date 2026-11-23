@@ -13,7 +13,7 @@ const GRAVITY = 22;
 
 // Mueve a un jugador por el mundo respetando suelo, rocas y coberturas.
 export class PlayerController {
-  private body: RAPIER.RigidBody;
+  readonly body: RAPIER.RigidBody;
   private collider: RAPIER.Collider;
   private controller: RAPIER.KinematicCharacterController;
   private half = HALF_STAND;
@@ -60,6 +60,14 @@ export class PlayerController {
     this.collider.setHalfHeight(newHalf);
     this.half = newHalf;
     this.state.crouching = crouch;
+  }
+
+  /** Coloca al jugador en un punto del mapa (para pruebas y, más adelante, reapariciones). */
+  teleport(x: number, z: number) {
+    const y = terrainHeight(x, z) + 0.05;
+    this.body.setTranslation({ x, y: y + this.half + RADIUS, z }, true);
+    this.state.x = x; this.state.y = y; this.state.z = z;
+    this.vy = 0;
   }
 
   step(cmd: InputCommand, dt: number) {

@@ -8,6 +8,7 @@ export class KeyboardMouse implements InputSource {
   private crouch = false;
   private pause = false;
   private lockedAt = 0;
+  private mouseDown = false;
 
   constructor(private canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
@@ -17,7 +18,9 @@ export class KeyboardMouse implements InputSource {
       if (e.code === 'KeyP' || e.code === 'Escape') this.pause = true;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => this.keys.clear());
+    window.addEventListener('blur', () => { this.keys.clear(); this.mouseDown = false; });
+    canvas.addEventListener('mousedown', (e) => { if (e.button === 0 && document.pointerLockElement === canvas) this.mouseDown = true; });
+    window.addEventListener('mouseup', (e) => { if (e.button === 0) this.mouseDown = false; });
     document.addEventListener('pointerlockchange', () => (this.lockedAt = performance.now()));
     document.addEventListener('mousemove', (e) => {
       // Se ignora el primer instante tras capturar el ratón (suele llegar un salto brusco).
@@ -48,6 +51,7 @@ export class KeyboardMouse implements InputSource {
     return out;
   }
 
+  fire() { return this.mouseDown || this.keys.has('Space'); }
   consumeCrouch() { const v = this.crouch; this.crouch = false; return v; }
   consumePause() { const v = this.pause; this.pause = false; return v; }
 }

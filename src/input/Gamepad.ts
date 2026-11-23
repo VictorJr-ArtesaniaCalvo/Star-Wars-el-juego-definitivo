@@ -8,7 +8,8 @@ const axis = (v: number) => {
 };
 
 // Mando Bluetooth (PlayStation / Xbox). Distribución estándar:
-// stick izquierdo mover, stick derecho mirar, B/Círculo o pulsar stick derecho agacharse, Options/Menu pausa.
+// stick izquierdo mover, stick derecho mirar, gatillo derecho (RT/R2) disparar,
+// B/Círculo o pulsar stick derecho agacharse, Options/Menu pausa.
 export class GamepadInput implements InputSource {
   private prev: boolean[] = [];
   private crouch = false;
@@ -41,6 +42,10 @@ export class GamepadInput implements InputSource {
     return { yaw: x * Math.abs(x) * 3.0 * dt * sens, pitch: y * Math.abs(y) * 2.0 * dt * sens };
   }
 
+  fire() {
+    const b = this.pad?.buttons;
+    return !!b && (!!b[7]?.pressed || (b[7]?.value ?? 0) > 0.3 || !!b[5]?.pressed);
+  }
   consumeCrouch() { const v = this.crouch; this.crouch = false; return v; }
   consumePause() { const v = this.pause; this.pause = false; return v; }
 }

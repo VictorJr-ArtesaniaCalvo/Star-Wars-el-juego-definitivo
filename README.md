@@ -6,16 +6,16 @@ Proyecto personal y experimental.
 ## Estado
 
 - **Fase 1 (hecha):** moverse en primera persona, agacharse, escenario y zona de defensa con coberturas.
-- Fase 2: bláster con sobrecalentamiento y droide de prueba.
+- **Fase 2 (hecha):** bláster con sobrecalentamiento, droide B1 de prueba y ayuda al apuntar.
 - Fase 3: oleadas. · Fase 4: granadas. · Fase 5: más enemigos. · Fase 6: mejoras visuales y sonido.
 
 ## Controles
 
-| | Moverse | Mirar | Agacharse | Pausa |
-|---|---|---|---|---|
-| Táctil | Joystick (mitad izquierda) | Deslizar (mitad derecha) | Botón | Botón II |
-| Mando | Stick izquierdo | Stick derecho | B / Círculo | Options / Menu |
-| Teclado | WASD | Ratón o flechas | C | P |
+| | Moverse | Mirar | Disparar | Agacharse | Pausa |
+|---|---|---|---|---|---|
+| Táctil | Joystick (mitad izquierda) | Deslizar (mitad derecha) | Botón (se puede apuntar sin soltarlo) | Botón | Botón II |
+| Mando | Stick izquierdo | Stick derecho | RT / R2 | B / Círculo | Options / Menu |
+| Teclado | WASD | Ratón o flechas | Clic o Espacio | C | P |
 
 ## Instalar en el iPhone
 
@@ -25,7 +25,8 @@ Abrir el enlace del juego en Safari → Compartir → «Añadir a pantalla de in
 
 - `src/core` arranque, bucle del juego, ajustes · `src/world` escenario · `src/player` jugador
 - `src/input` controles · `src/ui` menús e indicadores · `src/sim` reglas del juego
-- `src/net`, `src/weapons`, `src/enemies`, `src/waves`, `src/audio`: reservados para fases posteriores
+- `src/weapons` bláster y efectos · `src/enemies` droides
+- `src/net`, `src/waves`, `src/audio`: reservados para fases posteriores
 
 ## Para desarrollo
 

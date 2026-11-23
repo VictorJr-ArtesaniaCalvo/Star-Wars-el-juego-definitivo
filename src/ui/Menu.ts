@@ -11,6 +11,7 @@ export class Menu {
 
   constructor(settings: Settings, onPlay: () => void) {
     this.btnPlay.addEventListener('click', onPlay);
+    this.bindAssist(settings);
 
     const sens = $<HTMLInputElement>('sens');
     const sensVal = $('sensVal');
@@ -29,6 +30,18 @@ export class Menu {
       b.addEventListener('click', () => {
         settings.set({ quality: b.dataset.q as Quality });
         showQ();
+      }),
+    );
+  }
+
+  private bindAssist(settings: Settings) {
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('#assist button'));
+    const show = () => buttons.forEach((b) => b.classList.toggle('on', (b.dataset.a === '1') === settings.data.aimAssist));
+    show();
+    buttons.forEach((b) =>
+      b.addEventListener('click', () => {
+        settings.set({ aimAssist: b.dataset.a === '1' });
+        show();
       }),
     );
   }

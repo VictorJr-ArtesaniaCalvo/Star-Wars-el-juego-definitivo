@@ -19,10 +19,23 @@ export interface InputCommand {
   yaw: number;
   pitch: number;
   crouch: boolean;
+  fire: boolean;
+}
+
+export interface EnemyState {
+  id: number;
+  kind: 'b1'; // más adelante: 'b2', 'droideka'
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  health: number;
+  alive: boolean;
 }
 
 export interface GameState {
   players: PlayerState[]; // lista: hoy hay uno, mañana podrán ser dos
+  enemies: EnemyState[];
 }
 
 export const TICK = 1 / 60; // pasos de simulación por segundo

@@ -5,6 +5,8 @@ export interface InputSource {
   /** Giro de la vista acumulado desde la última consulta, en radianes. */
   consumeLook(dt: number, sensitivity: number): { yaw: number; pitch: number };
   /** Pulsaciones puntuales desde la última consulta. */
+  /** ¿Se está manteniendo pulsado el disparo? */
+  fire(): boolean;
   consumeCrouch(): boolean;
   consumePause(): boolean;
 }

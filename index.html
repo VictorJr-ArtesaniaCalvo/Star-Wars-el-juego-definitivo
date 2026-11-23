@@ -18,7 +18,9 @@
   <!-- Indicadores en pantalla -->
   <div id="hud" hidden>
     <div id="crosshair"></div>
+    <div id="hitmark"></div>
     <div id="stance">DE PIE</div>
+    <div id="heat"><div id="heatFill"></div><span id="heatLabel">BLÁSTER</span></div>
     <button id="btnPause" aria-label="Pausa">II</button>
   </div>
 
@@ -26,6 +28,7 @@
   <div id="touch" hidden>
     <div id="joyZone"></div>
     <div id="lookZone"></div>
+    <button id="btnFire" class="tbtn">DISPARAR</button>
     <button id="btnCrouch" class="tbtn">AGACHARSE</button>
   </div>
 
@@ -48,6 +51,13 @@
             <button data-q="low">Baja</button>
             <button data-q="medium">Media</button>
             <button data-q="high">Alta</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <span>Ayuda al apuntar (táctil)</span>
+          <div id="assist" class="seg">
+            <button data-a="1">Sí</button>
+            <button data-a="0">No</button>
           </div>
         </div>
       </div>

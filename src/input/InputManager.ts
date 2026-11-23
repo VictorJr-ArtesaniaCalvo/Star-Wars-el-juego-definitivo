@@ -7,6 +7,9 @@ export interface FrameInput {
   moveZ: number;
   yaw: number;
   pitch: number;
+  fire: boolean;
+  /** true si la vista se está moviendo con controles táctiles (para la ayuda al apuntar) */
+  touchAim: boolean;
   crouchPressed: boolean;
   pausePressed: boolean;
 }
@@ -37,7 +40,7 @@ export class InputManager {
       this.touch?.reset();
     }
 
-    const out: FrameInput = { moveX: 0, moveZ: 0, yaw: 0, pitch: 0, crouchPressed: false, pausePressed: false };
+    const out: FrameInput = { moveX: 0, moveZ: 0, yaw: 0, pitch: 0, fire: false, touchAim: false, crouchPressed: false, pausePressed: false };
     const sources = [this.keyboard, this.gamepad, ...(this.touch && !pad ? [this.touch] : [])];
     for (const s of sources) {
       const m = s.move();
@@ -46,6 +49,8 @@ export class InputManager {
       const l = s.consumeLook(dt, sensitivity);
       out.yaw += l.yaw;
       out.pitch += l.pitch;
+      out.fire = s.fire() || out.fire;
+      if (s === this.touch && (l.yaw !== 0 || l.pitch !== 0 || s.fire())) out.touchAim = true;
       out.crouchPressed = s.consumeCrouch() || out.crouchPressed;
       out.pausePressed = s.consumePause() || out.pausePressed;
     }

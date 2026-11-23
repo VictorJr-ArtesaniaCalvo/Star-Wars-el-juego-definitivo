@@ -12,9 +12,11 @@ export class Touch implements InputSource {
   private dx = 0;
   private dy = 0;
   private lookId: number | null = null;
+  private fireId: number | null = null;
   private lastX = 0;
   private lastY = 0;
   private crouch = false;
+  private firing = false;
   /** true cuando se ha tocado la pantalla hace poco (para saber qué control se está usando) */
   used = false;
 
@@ -22,6 +24,7 @@ export class Touch implements InputSource {
     const joyZone = root.querySelector<HTMLElement>('#joyZone')!;
     const lookZone = root.querySelector<HTMLElement>('#lookZone')!;
     const btnCrouch = root.querySelector<HTMLElement>('#btnCrouch')!;
+    const btnFire = root.querySelector<HTMLElement>('#btnFire')!;
 
     const joy = nipplejs.create({
       zone: joyZone,
@@ -41,16 +44,21 @@ export class Touch implements InputSource {
     joy.on('end', () => { this.mx = this.mz = 0; });
 
     const opts = { passive: false } as const;
-    lookZone.addEventListener('touchstart', (e) => {
+    // El botón de disparo también sirve para apuntar: se puede disparar y deslizar con el mismo dedo.
+    const startLook = (fire: boolean) => (e: TouchEvent) => {
       if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
       this.used = true;
-      if (this.lookId !== null) return;
       const t = e.changedTouches[0];
+      if (fire) { this.firing = true; this.fireId = t.identifier; btnFire.classList.add('on'); }
+      if (this.lookId !== null) return;
       this.lookId = t.identifier;
       this.lastX = t.clientX;
       this.lastY = t.clientY;
-    }, opts);
-    lookZone.addEventListener('touchmove', (e) => {
+    };
+    lookZone.addEventListener('touchstart', startLook(false), opts);
+    btnFire.addEventListener('touchstart', startLook(true), opts);
+    const move = (e: TouchEvent) => {
       if (e.cancelable) e.preventDefault();
       for (const t of Array.from(e.changedTouches)) {
         if (t.identifier !== this.lookId) continue;
@@ -59,12 +67,18 @@ export class Touch implements InputSource {
         this.lastX = t.clientX;
         this.lastY = t.clientY;
       }
-    }, opts);
-    const end = (e: TouchEvent) => {
-      for (const t of Array.from(e.changedTouches)) if (t.identifier === this.lookId) this.lookId = null;
     };
-    lookZone.addEventListener('touchend', end);
-    lookZone.addEventListener('touchcancel', end);
+    const end = (e: TouchEvent) => {
+      for (const t of Array.from(e.changedTouches)) {
+        if (t.identifier === this.lookId) this.lookId = null;
+        if (t.identifier === this.fireId) { this.fireId = null; this.firing = false; btnFire.classList.remove('on'); }
+      }
+    };
+    for (const el of [lookZone, btnFire]) {
+      el.addEventListener('touchmove', move, opts);
+      el.addEventListener('touchend', end);
+      el.addEventListener('touchcancel', end);
+    }
 
     btnCrouch.addEventListener('touchstart', (e) => {
       if (e.cancelable) e.preventDefault();
@@ -80,7 +94,9 @@ export class Touch implements InputSource {
 
   reset() {
     this.mx = this.mz = this.dx = this.dy = 0;
-    this.lookId = null;
+    this.lookId = this.fireId = null;
+    this.firing = false;
+    document.getElementById('btnFire')?.classList.remove('on');
   }
 
   move() { return { x: this.mx, z: this.mz }; }
@@ -91,6 +107,7 @@ export class Touch implements InputSource {
     return out;
   }
 
+  fire() { return this.firing; }
   consumeCrouch() { const v = this.crouch; this.crouch = false; return v; }
   consumePause() { return false; }
 }

@@ -4,10 +4,11 @@ export type Quality = 'low' | 'medium' | 'high';
 export interface SettingsData {
   sensitivity: number;
   quality: Quality;
+  aimAssist: boolean; // ayuda al apuntar con controles táctiles
 }
 
 const KEY = 'geonosis.settings.v1';
-const DEFAULTS: SettingsData = { sensitivity: 1, quality: 'medium' };
+const DEFAULTS: SettingsData = { sensitivity: 1, quality: 'medium', aimAssist: true };
 
 export class Settings {
   data: SettingsData = { ...DEFAULTS };
