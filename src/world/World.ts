@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { Builder } from './builder';
 import { Atmosphere } from './atmosphere';
+import { buildDroidWreck, WRECK_FIRES } from './wreck';
 import { buildDefenseZone } from './defenseZone';
 import { buildRocks } from './rocks';
 import { buildSky, SUN_DIR } from './sky';
@@ -26,11 +27,12 @@ export class World {
     this.sky = sky;
     this.sun = sun;
     this.skyMat = material;
-    this.atmosphere = new Atmosphere(scene);
     const b = new Builder(rapier, physics);
     buildRocks(b);
     buildDefenseZone(b);
+    buildDroidWreck(b);
     b.finish(scene);
+    this.atmosphere = new Atmosphere(scene, WRECK_FIRES);
   }
 
   setQuality(q: Quality) {

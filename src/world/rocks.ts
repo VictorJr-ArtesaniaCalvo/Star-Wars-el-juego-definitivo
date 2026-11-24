@@ -197,6 +197,16 @@ export function buildRocks(b: Builder) {
     n++;
   }
 
+  // --- Más allá de las grietas: el cañón sigue, solo para mirar (sin cuerpo sólido) ---
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 70; i++) boulder(range(-HW, HW), side * range(CANYON_HALF_L + 20, 270), range(1.2, 3.4));
+    for (let i = 0; i < 12; i++) {
+      const x = range(-HW + 6, HW - 6), z = side * range(CANYON_HALF_L + 24, 250), r = range(4, 9), h = range(5, 12);
+      b.addStrataHull(mesaGeometry(r, h, seed++), place(x, terrainHeight(x, z) - 1, z, range(0, 6.28)), STRATA, 1.9, false);
+    }
+    for (let i = 0; i < 18; i++) spireCluster(range(-HW, HW), side * range(CANYON_HALF_L + 22, 260), range(0.8, 1.5), true);
+  }
+
   // --- Pie de las paredes: rocas caídas ---
   for (let i = 0; i < 40; i++) {
     const side = rng() < 0.5 ? -1 : 1;

@@ -2,13 +2,23 @@ import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 
 export const WORLD_SEED = 1138;
-export const MAP_SIZE = 270; // metros de lado
-const SEGMENTS = 160;
+// La malla del terreno es mucho más larga que la zona jugable: el cañón sigue a lo lejos.
+const GRID_STEP = 1.7; // detalle (m) en la zona cercana
+const X_FINE = 74, X_MAX = 260; // medio ancho: zona detallada y total
+const Z_FINE = 116, Z_MAX = 330; // medio largo: zona detallada y total
 
 // El campo de batalla es un cañón: suelo de 80 m de ancho (de la columna E a la H del mapa)
 // y 192 m de largo, con paredes altas en terrazas y los dos extremos cerrados.
 export const CANYON_HALF_W = 40;
-export const CANYON_HALF_L = 96;
+export const CANYON_HALF_L = 96; // hasta aquí se puede caminar
+const VIS_L = 320; // el cañón sigue (sin poder llegar) hasta aquí
+// Grieta que corta el cañón en cada extremo: el final de la zona jugable.
+const CHASM_Z = 105; // centro, medido desde tu posición
+const CHASM_HALF = 6.5; // medio ancho
+const CHASM_DEPTH = 34;
+
+/** Dónde quedó la nave droide estrellada (al fondo del cañón, por delante, tras la grieta). */
+export const WRECK = { x: -7, z: -142, yaw: 0.28 };
 const WALL_H = 34; // altura de las paredes
 const WALL_SPAN = 16; // grosor de la pared (de la base a la cima)
 
@@ -66,9 +76,15 @@ export function crashField(x: number, z: number) {
   return { h, scorch };
 }
 
+/** Grieta de cada extremo: 1 dentro, 0 fuera, bordes casi verticales. */
+function chasm(x: number, z: number) {
+  const edge = smoothstep(0, 2.2, CHASM_HALF - Math.abs(Math.abs(z) - CHASM_Z));
+  return edge * (1 - smoothstep(41, 46, Math.abs(x)));
+}
+
 /** Distancia al suelo del cañón (0 = dentro). Crece al adentrarse en las paredes. */
 function wallDistance(x: number, z: number) {
-  return Math.hypot(Math.max(Math.abs(x) - CANYON_HALF_W, 0), Math.max(Math.abs(z) - CANYON_HALF_L, 0));
+  return Math.hypot(Math.max(Math.abs(x) - CANYON_HALF_W, 0), Math.max(Math.abs(z) - VIS_L, 0));
 }
 
 // Altura del suelo en cualquier punto.
@@ -88,6 +104,8 @@ export function terrainHeight(x: number, z: number): number {
   let h = dunes * prog * flat;
   h += 9 * Math.pow(smoothstep(30, 100, az), 1.3) * flat; // el suelo sube hacia los extremos
   h += 3 * smoothstep(18, 40, ax) * flat; // y se levanta un poco junto a las paredes
+  h += 0.05 * Math.max(az - 112, 0); // pasada la grieta, el cañón sigue subiendo despacio
+  h -= chasm(x, z) * CHASM_DEPTH;
   const wd = wallDistance(x, z);
   if (wd > 0) h += terrace(wd / WALL_SPAN) * WALL_H;
   return h + crashField(x, z).h;
@@ -111,7 +129,7 @@ function sandTexture(): THREE.Texture {
   g.putImageData(img, 0, 0);
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(70, 70);
+  t.repeat.set(1, 1);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   return t;
@@ -120,11 +138,44 @@ function sandTexture(): THREE.Texture {
 // Colores de las capas de roca de las paredes (como los estratos del Gran Cañón).
 const STRATA = [0xa84a2a, 0xc2693c, 0x8a3a22, 0xb85a32, 0x74301c, 0xcf7a44].map((c) => new THREE.Color(c));
 
+/** Coordenadas de una malla: fina cerca del centro y cada vez más gruesa hacia los bordes. */
+function axis(fine: number, max: number): number[] {
+  const half: number[] = [0];
+  let v = 0;
+  while (v < fine) { v += GRID_STEP; half.push(v); }
+  let step = GRID_STEP;
+  while (v < max) { step *= 1.16; v = Math.min(max, v + step); half.push(v); }
+  return [...half.slice(1).reverse().map((c) => -c), ...half];
+}
+
 export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics: RAPIER.World) {
-  const geo = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE, SEGMENTS, SEGMENTS);
-  geo.rotateX(-Math.PI / 2);
+  const xs = axis(X_FINE, X_MAX);
+  const zs = axis(Z_FINE, Z_MAX);
+  const nx = xs.length, nz = zs.length;
+  const positions = new Float32Array(nx * nz * 3);
+  const uvs = new Float32Array(nx * nz * 2);
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      positions[k * 3] = xs[i];
+      positions[k * 3 + 1] = terrainHeight(xs[i], zs[j]);
+      positions[k * 3 + 2] = zs[j];
+      uvs[k * 2] = xs[i] / 3.9;
+      uvs[k * 2 + 1] = zs[j] / 3.9;
+    }
+  }
+  const index: number[] = [];
+  for (let j = 0; j < nz - 1; j++) {
+    for (let i = 0; i < nx - 1; i++) {
+      const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1;
+      index.push(a, c, b, b, c, d);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geo.setIndex(index);
   const pos = geo.attributes.position as THREE.BufferAttribute;
-  for (let i = 0; i < pos.count; i++) pos.setY(i, terrainHeight(pos.getX(i), pos.getZ(i)));
   geo.computeVertexNormals();
   const nor = geo.attributes.normal as THREE.BufferAttribute;
 
@@ -150,8 +201,11 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
       const k = 0.5 + 0.5 * Math.sin(x * 0.05 + Math.sin(z * 0.08) * 2) * Math.cos(z * 0.043 + 1);
       tmp.copy(dark).lerp(light, Math.min(1, Math.max(0, k * 0.7 + h * 0.06 + 0.2)));
     }
-    const sc = crashField(x, z).scorch;
+    const sc = Math.max(crashField(x, z).scorch, 0.8 * (1 - smoothstep(10, 34, Math.hypot(x - WRECK.x, z - WRECK.z))));
     if (sc > 0.01) tmp.lerp(soot, Math.min(0.88, sc));
+    // La grieta se oscurece con la profundidad.
+    const cz = chasm(x, z);
+    if (cz > 0.01) tmp.lerp(soot, Math.min(0.9, cz * (0.35 + (-Math.min(h, 0) + 4) / 30)));
     colors.set([tmp.r, tmp.g, tmp.b], i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));

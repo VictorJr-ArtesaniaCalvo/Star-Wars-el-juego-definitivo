@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { makeRng, terrainHeight } from './terrain';
+import { makeRng, terrainHeight, WRECK } from './terrain';
 
 // Ambiente lejano: columnas de humo y enjambres de criaturas voladoras. Todo ligero:
 // el humo es un único objeto y los voladores son puntos.
@@ -18,16 +18,31 @@ function puffTexture(): THREE.Texture {
   return new THREE.CanvasTexture(c);
 }
 
+function glowTexture(): THREE.Texture {
+  const s = 64;
+  const c = document.createElement('canvas');
+  c.width = c.height = s;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  grad.addColorStop(0, 'rgba(255,240,200,1)');
+  grad.addColorStop(0.3, 'rgba(255,150,50,0.8)');
+  grad.addColorStop(1, 'rgba(255,80,0,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, s, s);
+  return new THREE.CanvasTexture(c);
+}
+
 export class Atmosphere {
   private flyers: THREE.Points;
+  private fires: Array<{ sprite: THREE.Sprite; size: number; phase: number }> = [];
   private t = 0;
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, fires: Array<{ x: number; y: number; z: number; size: number }> = []) {
     const rng = makeRng(777);
     const range = (a: number, b: number) => a + rng() * (b - a);
 
     // --- Columnas de humo, a lo lejos, detrás de las paredes del cañón ---
-    const plumes: Array<[number, number]> = [[-85, -125], [70, -135], [-100, 70], [95, 105], [30, 150], [-30, -170]];
+    const plumes: Array<[number, number]> = [[-85, -125], [70, -135], [-100, 70], [95, 105], [30, 150], [-30, -190], [WRECK.x + 4, WRECK.z - 6]];
     const pos: number[] = [], col: number[] = [], uv: number[] = [], idx: number[] = [];
     const up = new THREE.Vector3(0, 1, 0);
     const base = new THREE.Color(0x3a2412);
@@ -70,6 +85,16 @@ export class Atmosphere {
     smoke.renderOrder = 1;
     scene.add(smoke);
 
+    // --- Fuego en los restos de la nave droide (destellos que parpadean) ---
+    const glow = glowTexture();
+    for (const f of fires) {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true }));
+      sprite.position.set(f.x, f.y, f.z);
+      sprite.scale.setScalar(f.size);
+      scene.add(sprite);
+      this.fires.push({ sprite, size: f.size, phase: range(0, 6.28) });
+    }
+
     // --- Enjambres de criaturas voladoras (puntos oscuros que giran despacio) ---
     const n = 140;
     const p = new Float32Array(n * 3);
@@ -90,5 +115,9 @@ export class Atmosphere {
     this.t += dt;
     this.flyers.rotation.y += dt * 0.035;
     this.flyers.position.y = Math.sin(this.t * 0.4) * 2;
+    for (const f of this.fires) {
+      const k = 0.85 + 0.15 * Math.sin(this.t * 7 + f.phase) + 0.08 * Math.sin(this.t * 13.3 + f.phase * 2);
+      f.sprite.scale.setScalar(f.size * k);
+    }
   }
 }
