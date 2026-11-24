@@ -89,6 +89,7 @@ export function buildRocks(b: Builder) {
   const rng = makeRng(WORLD_SEED);
   const range = (a: number, c: number) => a + rng() * (c - a);
   let seed = 1;
+  let spireCount = 0;
   const HW = CANYON_HALF_W - 4; // las piezas del suelo se reparten por todo el ancho del cañón
   const HL = CANYON_HALF_L - 4;
 
@@ -103,8 +104,11 @@ export function buildRocks(b: Builder) {
       const oz = main ? 0 : range(-1, 1) * 5 * big;
       const y = terrainHeight(x + ox, z + oz) - 1.5;
       const floor = onFloor(x + ox, z + oz);
+      const lean = range(-0.12, 0.12), turn = range(0, 6.28), shade = range(0.8, 1.1);
+      // se quita una de cada dos agujas (repartidas por todo el mapa); se sigue gastando la misma cantidad de azar para que el resto del escenario no cambie
+      if (spireCount++ % 2 === 1) { seed++; continue; }
       if (floor) OBSTACLES.push({ x: x + ox, z: z + oz, radius: r * 0.9, height: h });
-      b.addHull(spireGeometry(r, h, seed++, range(-0.12, 0.12), floor), place(x + ox, y, z + oz, range(0, 6.28)), SPIRE, range(0.8, 1.1), floor, true);
+      b.addHull(spireGeometry(r, h, seed++, lean, floor), place(x + ox, y, z + oz, turn), SPIRE, shade, floor, true);
     }
   };
 
