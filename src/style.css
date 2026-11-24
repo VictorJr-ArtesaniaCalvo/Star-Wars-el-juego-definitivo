@@ -57,11 +57,16 @@ html, body {
   bottom: calc(178px + env(safe-area-inset-bottom));
 }
 #btnAim.on { background: rgba(102,184,255,.34); border-color: rgba(150,210,255,.6); color: rgba(255,255,255,.95); }
+/* Disparo desde la cadera: a la IZQUIERDA, encima de la zona del joystick (el pulgar izquierdo dispara,
+   el derecho apunta). El botón se coloca por su centro: left/bottom marcan el centro. */
 #btnHip {
   width: 76px; height: 76px; font-size: 9px;
-  right: calc(196px + env(safe-area-inset-right));
-  bottom: calc(112px + env(safe-area-inset-bottom));
+  left: calc(74px + env(safe-area-inset-left)); right: auto;
+  bottom: 46vh;
+  transform: translate(-50%, 50%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
 }
+#btnHip svg { width: 22px; height: 22px; fill: rgba(255,255,255,.65); }
 #btnHip.on { background: rgba(255,170,90,.34); color: rgba(255,255,255,.95); }
 #btnCrouch {
   font-size: 9px;
@@ -120,7 +125,7 @@ button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 /* ---------- Vida, ronda, avisos ---------- */
 #vitals {
   position: absolute; left: calc(14px + env(safe-area-inset-left)); top: calc(12px + env(safe-area-inset-top));
-  width: min(200px, 30vw);
+  width: min(190px, 26vw);
 }
 #hpBar { position: relative; height: 16px; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.45); }
 #hpFill { height: 100%; width: 100%; background: #6fd36f; transition: width .15s; }
@@ -155,7 +160,7 @@ button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 /* ---------- Brújula, bajas y curación ---------- */
 #compass {
   position: absolute; left: 50%; transform: translateX(-50%); top: calc(6px + env(safe-area-inset-top));
-  width: min(400px, 46vw); height: 58px; pointer-events: none;
+  width: min(400px, 44vw); height: 58px; pointer-events: none;
 }
 #pips { display: flex; gap: 6px; margin-top: 7px; }
 #pips i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(140,210,255,.65); background: transparent; transition: background .15s; }

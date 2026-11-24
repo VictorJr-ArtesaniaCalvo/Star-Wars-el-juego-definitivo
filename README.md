@@ -16,7 +16,7 @@ Proyecto personal y experimental.
 
 | | Moverse | Mirar | Disparar apuntando | Disparar desde la cadera | Apuntar | Saltar | Agacharse | Pausa |
 |---|---|---|---|---|---|---|---|---|
-| Táctil | Joystick | Deslizar (también con el dedo sobre un botón de disparo) | Botón DISPARAR | Botón CADERA | Botón APUNTAR (alterna) | Botón | Botón | Botón II |
+| Táctil | Joystick | Deslizar (también con el dedo sobre DISPARAR) | Botón DISPARAR (derecha) | Botón CADERA (izquierda, sobre el joystick) | Botón APUNTAR (alterna) | Botón | Botón | Botón II |
 | Mando | Stick izquierdo | Stick derecho | RT / R2 | RB / R1 | LT / L2 (mantener) | A / Cruz | B / Círculo | Options / Menu |
 | Teclado | WASD | Ratón o flechas | F | Clic izquierdo | Clic derecho (mantener) o Q (alterna) | Espacio | C | P |
 

@@ -58,7 +58,7 @@ export class Touch implements InputSource {
       this.used = true;
       const t = e.changedTouches[0];
       if (kind === 'main') { this.firing = true; this.mainId = t.identifier; btnFire.classList.add('on'); }
-      if (kind === 'hip') { this.firingHip = true; this.hipId = t.identifier; btnHip.classList.add('on'); }
+      if (kind === 'hip') { this.firingHip = true; this.hipId = t.identifier; btnHip.classList.add('on'); return; } // este botón no mueve la mira
       if (this.lookId !== null) return;
       this.lookId = t.identifier;
       this.lastX = t.clientX;
