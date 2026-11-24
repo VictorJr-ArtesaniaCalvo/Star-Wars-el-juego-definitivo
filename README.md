@@ -72,3 +72,8 @@ Cada subida a GitHub publica el juego automáticamente en GitHub Pages.
 
 - **Células de vida:** algunos droides las soltarán al morir para recogerlas. Cuando se hagan, se quita la curación de +10 de vida cada 3 bajas.
 - Ideas propuestas, aún sin decidir: editor de controles (arrastrar, tamaño, opacidad), apuntar con el giroscopio del iPhone, agacharse manteniendo pulsado.
+
+## Modelo del B1
+
+El B1 usa un modelo 3D real (`public/models/b1.bin`, 240 KB) con dos niveles de detalle (5.000 y 1.500 triángulos) y un esqueleto de 17 huesos.
+Se genera desde el OBJ original con `node tools/convert-b1.mjs <B1DROID.obj>` (necesita `npm install`; el OBJ original no está en el repositorio).

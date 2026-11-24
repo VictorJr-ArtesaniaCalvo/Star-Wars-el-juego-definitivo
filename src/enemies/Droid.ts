@@ -260,6 +260,10 @@ export class Droid {
     this.group.position.set(s.x, s.y, s.z);
     this.group.rotation.y = s.yaw;
     if (this.rig) {
+      // Detalle según la distancia: lejos se usa la versión simplificada
+      const T = ctx.player();
+      const lod = Math.hypot(T.x - s.x, T.z - s.z) > 42 ? 1 : 0;
+      if (this.group.geometry !== this.rig.lods[lod]) this.group.geometry = this.rig.lods[lod];
       this.walkBlend += ((this.brain.moving ? 1 : 0) - this.walkBlend) * Math.min(1, dt * 8);
       poseB1(this.rig, 1, this.walkBlend, this.t);
       this.group.rotation.z = 0;

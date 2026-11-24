@@ -79,6 +79,8 @@ export function b1Params(round: number): BrainParams {
     cooldown: [Math.max(0.8, 2.1 - 0.06 * r), Math.max(1.4, 3.4 - 0.1 * r)],
     burst: [2, 3],
     sfx: 'b1' as const,
+    muzzleY: 1.15, // el rifle va a la altura del pecho, algo adelantado
+    muzzleFwd: 0.65,
   };
 }
 
