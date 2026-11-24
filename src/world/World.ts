@@ -10,7 +10,8 @@ import { buildRocks } from './rocks';
 import { buildSky, SUN_DIR } from './sky';
 import { setWorldBump } from './materials';
 import { SkyLife } from './skyLife';
-import { buildTerrain } from './terrain';
+import { buildTerrain, CRASH, terrainHeight } from './terrain';
+import { buildScorch } from './scorch';
 import { QUALITY, type Quality } from '../core/Settings';
 
 // Monta todo el escenario: terreno, cielo, rocas y zona de defensa.
@@ -31,6 +32,7 @@ export class World {
     hooks: { skyFire?: (x: number, y: number, z: number) => void } = {},
   ) {
     buildTerrain(scene, rapier, physics);
+    buildScorch(scene); // marcas de quemado del accidente sobre el suelo
     const { sky, sun, material } = buildSky(scene);
     this.sky = sky;
     this.sun = sun;
@@ -42,7 +44,8 @@ export class World {
     b.finish(scene);
     this.atmosphere = new Atmosphere(scene, [...WRECK_FIRES, ...GUNSHIP_FIRES]);
     this.skyLife = new SkyLife(scene, hooks.skyFire);
-    if (laatReady()) this.crashFx = new CrashFx(scene); // humo, chispas y llamas de la cañonera derribada
+    // humo, columna de humo alta, brasas, chispas y llamas de la cañonera derribada (si falta el modelo, solo la columna desde el casco sencillo)
+    this.crashFx = new CrashFx(scene, undefined, laatReady() ? undefined : { x: CRASH.x - 5, y: terrainHeight(CRASH.x - 5, CRASH.z) + 2.6, z: CRASH.z });
   }
 
   /** Fuerza de la ráfaga de viento y arena (0 a 1). */
@@ -58,6 +61,7 @@ export class World {
     }
     (this.scene.fog as THREE.Fog).far = this.baseFar = cfg.viewDistance;
     this.atmosphere.gustDustOn = q !== 'low';
+    this.crashFx?.setQuality(q);
     setWorldBump(q !== 'low'); // el relieve de las texturas se apaga en calidad baja
   }
 

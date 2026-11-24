@@ -1,6 +1,8 @@
 import * as THREE from 'three';
+import type { Quality } from '../core/Settings';
 
-// Efectos de la cañonera derribada, sin tocar el modelo: humo continuo de los motores, chispas ocasionales, pequeños fuegos y polvo.
+// Efectos de la cañonera derribada, sin tocar el modelo: humo continuo de los motores, una columna de humo alta que se ve desde lejos,
+// chispas ocasionales, brasas que suben, pequeños fuegos y polvo.
 // Todo son puntos en una reserva fija (muy ligera para el móvil): un solo objeto por tipo. Cada punto dibuja una de las imágenes de partículas
 // de Kenney (CC0, ver assets/CREDITOS.md) reunidas en public/particles/atlas.png; si no se pudieran cargar, se dibuja una mancha suave.
 
@@ -182,8 +184,13 @@ export class SoftPoints {
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
+/** Cuánto de cada efecto se dibuja según la calidad gráfica (1 = todo). */
+const FX_SCALE: Record<Quality, number> = { low: 0.45, medium: 0.75, high: 1, ultra: 1 };
+
 export class CrashFx {
   private smoke: SoftPoints;
+  private column: SoftPoints;
+  private embers: SoftPoints;
   private sparks: SoftPoints;
   private flames: SoftPoints;
   private dust: SoftPoints;
@@ -191,10 +198,20 @@ export class CrashFx {
   private sparkT: number[];
   private flameAcc: number[];
   private dustAcc: number[];
+  private emberAcc: number[];
+  private colAcc = 0;
+  private k = 1; // escala de los efectos (calidad)
+  /** Dónde nace la columna de humo alta (por defecto, el primer motor humeante). */
+  private colSrc: { x: number; y: number; z: number };
 
-  constructor(scene: THREE.Scene, private fx = GUNSHIP_FX) {
+  constructor(scene: THREE.Scene, private fx = GUNSHIP_FX, column?: { x: number; y: number; z: number }) {
+    this.colSrc = column ?? (fx.smoke[0] ? { x: fx.smoke[0].x, y: fx.smoke[0].y, z: fx.smoke[0].z } : { x: 0, y: 2, z: 0 });
     // Humo: gris oscuro que sube, se ensancha y se aclara, empujado por el viento (hacia +x, como las brasas)
     this.smoke = new SoftPoints(scene, { n: 90, additive: false, gravity: 0, drag: 0.25, wind: [0.9, 0.55, 0.15], colorA: [0.1, 0.085, 0.075], colorB: [0.34, 0.29, 0.24], alpha: 0.55, sprites: SPRITES.smoke, spin: 0.5 });
+    // Columna alta: sube despacio durante casi 20 s hasta unos 70 m, inclinada por el viento, y se aclara hasta el color de la neblina
+    this.column = new SoftPoints(scene, { n: 64, additive: false, gravity: 0, drag: 0.06, wind: [0.18, 0.25, 0.04], colorA: [0.11, 0.095, 0.085], colorB: [0.62, 0.46, 0.31], alpha: 0.34, sprites: SPRITES.smoke, spin: 0.15 });
+    // Brasas: puntitos incandescentes que suben desde los fuegos y se van con el viento
+    this.embers = new SoftPoints(scene, { n: 50, additive: true, gravity: -0.5, drag: 0.3, wind: [0.7, 0, 0.1], colorA: [1, 0.7, 0.28], colorB: [0.8, 0.14, 0.03], alpha: 1, sprites: SPRITES.sparks, spin: 1.5 });
     // Chispas (caen) y llamas (suben): puntos que brillan, se suman a la luz
     this.sparks = new SoftPoints(scene, { n: 60, additive: true, gravity: 8, drag: 0.5, wind: [0, 0, 0], colorA: [1, 0.85, 0.45], colorB: [0.9, 0.25, 0.05], alpha: 1, sprites: SPRITES.sparks, spin: 3 });
     this.flames = new SoftPoints(scene, { n: 80, additive: true, gravity: -2.2, drag: 1.2, wind: [0.5, 0, 0.1], colorA: [1, 0.72, 0.25], colorB: [0.75, 0.12, 0.02], alpha: 0.9, sprites: SPRITES.fire, tilt: 0.3, spin: 0.35 });
@@ -204,17 +221,42 @@ export class CrashFx {
     this.sparkT = fx.sparks.map((s) => rnd(...s.every));
     this.flameAcc = fx.flames.map(() => Math.random());
     this.dustAcc = fx.dust.map(() => Math.random());
+    this.emberAcc = fx.flames.map(() => Math.random());
+    // la columna ya está formada al empezar (si no, tardaría casi 20 s en subir)
+    for (let t = 0; t < 18; t += 0.25) this.tickColumn(0.25);
+  }
+
+  /** Con calidad baja o media salen menos partículas (la columna alta y las brasas son lo que más se nota al fondo). */
+  setQuality(q: Quality) { this.k = FX_SCALE[q]; }
+
+  private tickColumn(dt: number) {
+    this.colAcc += 2.6 * this.k * dt;
+    const c = this.colSrc;
+    while (this.colAcc >= 1) {
+      this.colAcc -= 1;
+      this.column.emit(c.x + rnd(-0.4, 0.4), c.y + rnd(0, 0.4), c.z + rnd(-0.4, 0.4), rnd(-0.3, 0.3), rnd(3.0, 4.2), rnd(-0.3, 0.3), rnd(15, 20), 2.4, rnd(18, 26));
+    }
+    this.column.update(dt);
   }
 
   tick(dt: number) {
     if (dt <= 0) return;
     dt = Math.min(dt, 0.1);
+    this.tickColumn(dt);
     // humo continuo
     this.fx.smoke.forEach((s, i) => {
-      this.smokeAcc[i] += s.rate * dt;
+      this.smokeAcc[i] += s.rate * this.k * dt;
       while (this.smokeAcc[i] >= 1) {
         this.smokeAcc[i] -= 1;
         this.smoke.emit(s.x + rnd(-0.15, 0.15), s.y + rnd(0, 0.2), s.z + rnd(-0.15, 0.15), rnd(-0.35, 0.35) - 0.5, rnd(1.1, 1.9), rnd(-0.35, 0.35), rnd(4.4, 6.4), s.size * 0.8, s.size * rnd(2.2, 3.0));
+      }
+    });
+    // brasas que suben de los fuegos
+    this.fx.flames.forEach((f, i) => {
+      this.emberAcc[i] += 2.2 * this.k * dt;
+      while (this.emberAcc[i] >= 1) {
+        this.emberAcc[i] -= 1;
+        this.embers.emit(f.x + rnd(-0.3, 0.3), f.y + 0.2, f.z + rnd(-0.3, 0.3), rnd(-0.4, 0.9), rnd(0.9, 2.3), rnd(-0.4, 0.4), rnd(3, 6.5), 0.2, 0.06);
       }
     });
     // chispas ocasionales
@@ -245,6 +287,7 @@ export class CrashFx {
       }
     });
     this.smoke.update(dt);
+    this.embers.update(dt);
     this.sparks.update(dt);
     this.flames.update(dt);
     this.dust.update(dt);

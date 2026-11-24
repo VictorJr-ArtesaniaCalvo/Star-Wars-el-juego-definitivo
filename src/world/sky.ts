@@ -2,7 +2,8 @@ import * as THREE from 'three';
 
 // Neblina y horizonte: ámbar dorado, como el aire polvoriento de Geonosis.
 export const FOG_COLOR = 0xd9a45e;
-export const SUN_DIR = new THREE.Vector3(-0.62, 0.34, 0.5).normalize();
+// Sol bajo (unos 17° sobre el horizonte): sombras largas y luz muy cálida de costado
+export const SUN_DIR = new THREE.Vector3(-0.62, 0.27, 0.5).normalize();
 
 // Cielo dorado con nubes pesadas y sol bajo, dibujado por código (ligero para el móvil).
 export function buildSky(scene: THREE.Scene) {
@@ -66,8 +67,9 @@ export function buildSky(scene: THREE.Scene) {
 
   scene.fog = new THREE.Fog(FOG_COLOR, 14, 150);
 
-  scene.add(new THREE.HemisphereLight(0xffd9a0, 0x8a5430, 1.45));
-  const sun = new THREE.DirectionalLight(0xffb865, 2.9);
+  // luz ambiente teñida de naranja (cielo cálido arriba, tierra rojiza abajo)
+  scene.add(new THREE.HemisphereLight(0xffcf90, 0x8a5430, 1.45));
+  const sun = new THREE.DirectionalLight(0xffb865, 3.3);
   sun.shadow.mapSize.set(1024, 1024);
   const sc = sun.shadow.camera;
   sc.left = sc.bottom = -35;

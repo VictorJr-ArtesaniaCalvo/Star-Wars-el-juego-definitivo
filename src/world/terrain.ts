@@ -54,8 +54,9 @@ function terrace(t: number) {
 }
 
 /**
- * El hueco que dejó la nave al estrellarse: un cráter con borde de tierra levantada,
- * y un surco largo por donde vino arrastrándose. `scorch` marca el suelo quemado.
+ * El hueco que dejó la nave al estrellarse: un cráter con borde de tierra levantada, un surco largo y algo
+ * sinuoso por donde vino arrastrándose (con bordes de tierra removida) y un montón de arena empujada contra el morro.
+ * `scorch` marca el suelo quemado y `sand` la arena clara removida (se aclara el color del suelo).
  */
 export function crashField(x: number, z: number) {
   const dx = x - CRASH.x;
@@ -66,16 +67,26 @@ export function crashField(x: number, z: number) {
   let h = -1.2 * (1 - smoothstep(0.35, 1.0, e));
   h += 0.85 * Math.exp(-(((e - 1.12) / 0.2) ** 2));
   let scorch = 1 - smoothstep(0.6, 1.5, e);
+  let sand = 0;
   const back = -u;
-  if (back > 0 && back < 36) {
-    const m = smoothstep(0, 5, back) * (1 - smoothstep(24, 36, back));
-    const w = 1.9;
-    const av = Math.abs(v);
-    const depth = 0.95 * (1 - back / 36) + 0.15;
-    h += m * (-depth * (1 - smoothstep(0.55, 1.0, av / w)) + 0.4 * Math.exp(-(((av - w * 1.3) / 0.5) ** 2)));
-    scorch = Math.max(scorch, 0.55 * m * (1 - smoothstep(0.8, 1.6, av / w)));
+  if (back > 0 && back < 40) {
+    // el surco serpentea un poco y es más profundo y ancho junto a la nave
+    const m = smoothstep(0, 5, back) * (1 - smoothstep(28, 40, back));
+    const w = 2.3 + 0.35 * Math.sin(back * 0.21);
+    const av = Math.abs(v - 0.9 * Math.sin(back * 0.11));
+    const depth = 1.3 * (1 - back / 40) + 0.2;
+    const rough = Math.sin(back * 0.9 + v * 1.7) * Math.sin(v * 1.3 - back * 0.4); // tierra removida: bordes irregulares
+    const berm = Math.exp(-(((av - w * 1.3) / 0.55) ** 2));
+    h += m * (-depth * (1 - smoothstep(0.55, 1.0, av / w)) + (0.55 + 0.14 * rough) * berm);
+    scorch = Math.max(scorch, 0.6 * m * (1 - smoothstep(0.8, 1.6, av / w)));
+    sand = Math.max(sand, 0.85 * m * Math.exp(-(((av - w * 1.3) / 0.95) ** 2)));
   }
-  return { h, scorch };
+  // arena empujada contra el morro: un montón ancho justo delante de la punta (que queda un poco más abajo)
+  const pu = (u - 9) / 2.0, pv = (v + 1.1) / 3.2;
+  const pile = Math.exp(-(pu * pu + pv * pv));
+  h += 1.1 * pile;
+  sand = Math.max(sand, Math.min(1, pile * 1.3));
+  return { h, scorch, sand };
 }
 
 /** Grieta de cada extremo: 1 dentro, 0 fuera, bordes casi verticales. */
@@ -114,6 +125,7 @@ export function terrainHeight(x: number, z: number): number {
 }
 
 // Colores de las capas de roca de las paredes (como los estratos del Gran Cañón).
+const SAND = new THREE.Color(0xc98a58); // arena clara removida en el accidente
 const STRATA = [0xa84a2a, 0xc2693c, 0x8a3a22, 0xb85a32, 0x74301c, 0xcf7a44].map((c) => new THREE.Color(c));
 
 /** Coordenadas de una malla: fina cerca del centro y cada vez más gruesa hacia los bordes. */
@@ -179,7 +191,9 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
       const k = 0.5 + 0.5 * Math.sin(x * 0.05 + Math.sin(z * 0.08) * 2) * Math.cos(z * 0.043 + 1);
       tmp.copy(dark).lerp(light, Math.min(1, Math.max(0, k * 0.7 + h * 0.06 + 0.2)));
     }
-    const sc = Math.max(crashField(x, z).scorch, 0.8 * (1 - smoothstep(10, 34, Math.hypot(x - WRECK.x, z - WRECK.z))));
+    const cf = crashField(x, z);
+    if (cf.sand > 0.01) tmp.lerp(SAND, Math.min(0.75, cf.sand * 0.8)); // tierra clara removida por la nave
+    const sc = Math.max(cf.scorch, 0.8 * (1 - smoothstep(10, 34, Math.hypot(x - WRECK.x, z - WRECK.z))));
     if (sc > 0.01) tmp.lerp(soot, Math.min(0.88, sc));
     // La grieta se oscurece con la profundidad.
     const cz = chasm(x, z);

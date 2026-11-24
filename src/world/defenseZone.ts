@@ -47,17 +47,24 @@ function crashDebris(b: Builder) {
     }
     n++;
   }
-  // A lo largo del surco (más escasos conforme se alejan)
-  for (let n = 0; n < 12; n++) {
-    const back = range(6, 30);
-    const lat = range(-3.5, 3.5);
+  // A lo largo del surco (más escasos conforme se alejan): planchas dobladas, bloques chamuscados y puntales, algunos medio enterrados
+  const CHAR = [0x4a4540, 0x3a3733, 0x2b2b2e, 0x6d6b68];
+  for (let n = 0; n < 24; n++) {
+    const back = range(5, 36) * (0.55 + 0.45 * rng());
+    const lat = range(-3.4, 3.4) + 0.9 * Math.sin(back * 0.11);
     const x = CRASH.x - back * cos + lat * sin, z = CRASH.z + back * sin + lat * cos;
     if (!ok(x, z)) continue;
-    if (rng() < 0.6) {
-      b.addBox([range(0.8, 2), 0.14, range(0.6, 1.4)], place(x, gy(x, z) + 0.15, z, range(0, 3.14), range(-0.4, 0.4), range(-0.4, 0.4)), PIECES[Math.floor(rng() * PIECES.length)], false);
+    const k = rng();
+    if (k < 0.45) {
+      // plancha del casco, arrugada y semienterrada
+      b.addBox([range(0.8, 2.2), 0.12, range(0.6, 1.5)], place(x, gy(x, z) + range(0.02, 0.3), z, range(0, 3.14), range(-0.5, 0.5), range(-0.5, 0.5)), k < 0.2 ? WHITE : CHAR[Math.floor(rng() * CHAR.length)], false);
+    } else if (k < 0.72) {
+      // bloque de casco o de motor, chamuscado (cobertura baja)
+      const sz = range(0.5, 1.1);
+      b.addBox([sz, sz * range(0.6, 0.9), sz * range(0.8, 1.2)], place(x, gy(x, z) + sz * 0.3, z, range(0, 3.14), range(-0.3, 0.3), range(-0.2, 0.2)), CHAR[2 + Math.floor(rng() * 2)]);
     } else {
-      const s = range(0.5, 1.0);
-      b.addBox([s, s * 0.8, s], place(x, gy(x, z) + s * 0.35, z, range(0, 3.14), range(-0.3, 0.3), 0), GREY);
+      // puntal o tubo retorcido, de punta en el suelo
+      b.addBox([0.12, 0.12, range(1.4, 3.2)], place(x, gy(x, z) + range(0.15, 0.5), z, range(0, 3.14), range(-0.45, 0.45), range(-0.2, 0.2)), DARK, false);
     }
   }
 }

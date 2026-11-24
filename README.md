@@ -9,6 +9,8 @@ Proyecto personal y experimental.
 - **Fase 2 (hecha):** bláster con sobrecalentamiento, droide B1 de prueba y ayuda al apuntar.
 - **Fase 3 (hecha):** oleadas de droides B1 que avanzan usando las rocas como cobertura y disparan; vida, ronda, fin de partida y menú oculto de pruebas.
 - Escenario: cañón de 80 m de ancho con paredes en terrazas, nave estrellada en un cráter y droides que llegan por los dos extremos.
+- Ambiente: neblina ámbar que se espesa con la distancia (se cierra algo más en las ráfagas de arena), sol bajo y cálido (unos 17° sobre el horizonte; con calidad Alta o Ultra da sombras largas) y luz ambiente anaranjada, con polvo flotando, brasas y una ráfaga de viento y arena cada ~43 s.
+- Zona del accidente (`src/world/terrain.ts`, `scorch.ts`, `crashFx.ts`, `defenseZone.ts`): cráter con borde levantado, surco de arrastre con tierra removida a los lados, montón de arena empujado contra el morro, marcas de quemado nítidas en el suelo y hollín sobre el casco, restos metálicos a lo largo del surco, y una columna de humo alta (~70 m) visible desde todo el cañón, con brasas y chispas ocasionales. Con calidad Baja/Media salen menos partículas (45 % / 75 %).
 - Extras: salto, brújula azul, indicador de daño direccional, chispas y humo al destruir droides, y curación (kits médicos que sueltan los droides, +30 al superar una ronda).
 - **Fase 4 (hecha):** 4 granadas por partida, con explosión de área. · Fase 5: más enemigos. · Fase 6: mejoras visuales y sonido.
 
