@@ -194,12 +194,17 @@ export const setWorldBump = (on: boolean) => { bumpUniform.value = on ? 1 : 0; }
 const richUniform = { value: 0 };
 const pitMapUniform: { value: THREE.Texture | null } = { value: null };
 const pitScaleUniform = { value: 0.13 };
+const strataUniform: { value: THREE.Texture | null } = { value: null };
+const strataKUniform = { value: 1 };
 let richWanted = false;
 function applyRich() {
   const on = richWanted && !!rich;
   richUniform.value = on ? 1 : 0;
   pitMapUniform.value = on ? rich!.pitted : (real?.pits ?? neutral());
   pitScaleUniform.value = on ? 0.2 : 0.13;
+  // en las paredes y rocas la capa de roca pasa a ser Rock 029 (a otra escala)
+  strataUniform.value = on ? rich!.slab : strataTexture();
+  strataKUniform.value = on ? 2.3 : 1;
 }
 export const setWorldRich = (on: boolean) => { richWanted = on; applyRich(); };
 /** Textura de la roca de las lajas en 3D (solo si se cargaron las texturas nuevas). */
@@ -218,7 +223,9 @@ export function applyWorldTextures(mat: THREE.MeshLambertMaterial, o: Options) {
     shader.uniforms.groundMap = { value: o.ground };
     shader.uniforms.groundXMap = { value: o.groundX };
     shader.uniforms.slabMap = { value: o.slabs };
-    shader.uniforms.strataMap = { value: o.strata };
+    strataUniform.value ??= o.strata;
+    shader.uniforms.strataMap = strataUniform;
+    shader.uniforms.uStrataK = strataKUniform;
     if (pits) { shader.uniforms.pitMap = pitMapUniform; shader.uniforms.uPitScale = pitScaleUniform; }
     shader.uniforms.sandMap = { value: rich?.sand ?? neutral() };
     shader.uniforms.rockyMap = { value: rich?.rocky ?? neutral() };
@@ -227,7 +234,7 @@ export function applyWorldTextures(mat: THREE.MeshLambertMaterial, o: Options) {
     shader.uniforms.uBump = bumpUniform;
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vTexAmt;\nvarying float vKind;\nvarying float vRock;' + (o.rockOnly ? '\nattribute float texAmt;\nattribute float texKind;' : '') + (o.terrainRock ? '\nattribute float aRock;' : ''))
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(position, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvTexAmt = ' + (o.rockOnly ? 'texAmt' : '1.0') + ';\nvKind = ' + (o.rockOnly ? 'texKind' : '0.0') + ';\nvRock = ' + (o.terrainRock ? 'aRock' : '0.0') + ';');
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n#ifdef USE_INSTANCING\nvWPos = (modelMatrix * instanceMatrix * vec4(position, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * objectNormal);\n#else\nvWPos = (modelMatrix * vec4(position, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\n#endif\nvTexAmt = ' + (o.rockOnly ? 'texAmt' : '1.0') + ';\nvKind = ' + (o.rockOnly ? 'texKind' : '0.0') + ';\nvRock = ' + (o.terrainRock ? 'aRock' : '0.0') + ';');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
 varying vec3 vWPos;
@@ -242,6 +249,7 @@ uniform float uRich;
 uniform sampler2D groundXMap;
 uniform sampler2D slabMap;
 uniform sampler2D strataMap;
+uniform float uStrataK;
 ${pits ? 'uniform sampler2D pitMap;\nuniform float uPitScale;' : ''}
 ${sp ? 'uniform sampler2D spireMap;' + (sp.joints ? '\nuniform sampler2D jointMap;' : '') : ''}
 uniform float uBump;
@@ -272,7 +280,7 @@ vec4 aperiodic(sampler2D t, vec2 p, float s, out vec2 n) {
       .replace('#include <map_fragment>', `
   vec3 wn = normalize(vWNor);
   vec3 an = abs(wn);
-  vec3 tw = an * an;
+  vec3 tw = uRich > 0.5 ? pow(an, vec3(10.0)) : an * an; // en el suelo rico la proyección se decide con más firmeza (así no se estira en las cuestas)
   float steep = ${o.rockOnly ? '1.0' : 'smoothstep(0.5, 0.82, 1.0 - an.y)'};
   // suelo: tierra con grava (relieve y brillo en una sola imagen), una pasada grande para romper la repetición y parches de lajas, barro y arena
   vec4 g1 = texture2D(groundMap, vWPos.xz * ${gs.toFixed(4)});
@@ -334,7 +342,7 @@ ${sp.joints ? `    float jl; vec3 jb;
     rockTex *= mix(1.0, jl / 0.78, 0.65);
     rockBump += 0.6 * jb;` : ''}
   } else {` : ''}
-  tri(strataMap, vWPos, ${ss.toFixed(4)}, tw, rl, rb);
+  tri(strataMap, vWPos, ${ss.toFixed(4)} * uStrataK, tw, rl, rb);
   // las manchas de claro y oscuro a gran escala rompen la repetición de la imagen
   float macroR = 0.78 + 0.44 * vnoise(vec2(vWPos.x + vWPos.z, vWPos.y) * 0.045);
   rockTex = vec3(rl * macroR) * vec3(1.0, 0.97, 0.92);
@@ -343,6 +351,7 @@ ${pits ? `  // huecos de erosión en parches de las caras verticales
   float pl; vec3 pb;
   tri(pitMap, vWPos, uPitScale, tw, pl, pb);
   float pitM = smoothstep(0.45, 0.62, vnoise(vWPos.xz * 0.06 + vWPos.y * 0.05)) * smoothstep(0.3, 0.7, 1.0 - an.y);
+  ${o.terrainRock ? 'pitM *= uRich;' : ''}
   rockTex *= mix(1.0, pl / 0.78, pitM);
   rockBump = mix(rockBump, pb * 1.3, pitM);` : ''}
 ${sp ? '  }' : ''}

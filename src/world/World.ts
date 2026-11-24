@@ -10,7 +10,8 @@ import { buildRocks } from './rocks';
 import { buildSky, SUN_DIR } from './sky';
 import { setWorldBump, setWorldRich } from './materials';
 import { SkyLife } from './skyLife';
-import { buildTerrain, CRASH, paintRock, terrainHeight } from './terrain';
+import { buildTerrain, CRASH, paintRock, terrainHeight, wallDetailOn } from './terrain';
+import { WallBlocks } from './wallBlocks';
 import { buildScorch } from './scorch';
 import { Ledges, Scatter } from './scatter';
 import { QUALITY, type Quality } from '../core/Settings';
@@ -25,6 +26,7 @@ export class World {
   private crashFx: CrashFx | null = null;
   private scatter: Scatter;
   private ledges: Ledges;
+  private wallBlocks: WallBlocks | null = null;
   private time = 0;
   private baseFar = 0;
 
@@ -48,6 +50,7 @@ export class World {
     paintRock(terrain, b.spots); // el suelo se vuelve rocoso alrededor de las coberturas
     this.scatter = new Scatter(scene, b.spots); // lajas de piedra y piedrecitas (calidad media y alta)
     this.ledges = new Ledges(scene, rapier, physics); // repisas de roca en capas (calidad media y alta)
+    if (wallDetailOn()) this.wallBlocks = new WallBlocks(scene); // bloques apilados y escombros en las paredes (calidad media y alta)
     this.atmosphere = new Atmosphere(scene, [...WRECK_FIRES, ...GUNSHIP_FIRES]);
     this.skyLife = new SkyLife(scene, hooks.skyFire);
     // humo, columna de humo alta, brasas, chispas y llamas de la cañonera derribada (si falta el modelo, solo la columna desde el casco sencillo)
@@ -70,6 +73,7 @@ export class World {
     this.crashFx?.setQuality(q);
     this.scatter.setQuality(q);
     this.ledges.setQuality(q);
+    this.wallBlocks?.setQuality(q);
     setWorldBump(q !== 'low');
     setWorldRich(q !== 'low'); // suelo de arena roja y roca en lajas (en baja se queda el de siempre) // el relieve de las texturas se apaga en calidad baja
   }

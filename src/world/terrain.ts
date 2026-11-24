@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 
-import { applyWorldTextures, groundExtraTexture, groundTexture, slabsTexture, strataTexture } from './materials';
+import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, slabsTexture, strataTexture } from './materials';
 
 export const WORLD_SEED = 1138;
 // La malla del terreno es mucho más larga que la zona jugable: el cañón sigue a lo lejos.
@@ -89,15 +89,63 @@ export function crashField(x: number, z: number) {
   return { h, scorch, sand };
 }
 
+/** Cuánto «se hunde» un punto respecto a su entorno a distancia r (0 a 1): valles y esquinas interiores dan más, las superficies planas o convexas dan 0. */
+function concavity(x: number, z: number, h: number, r: number) {
+  let c = 0;
+  for (let k = 0; k < 4; k++) {
+    const a = (k * Math.PI) / 4, dx = Math.cos(a) * r, dz = Math.sin(a) * r;
+    c += (terrainHeight(x + dx, z + dz) + terrainHeight(x - dx, z - dz) - 2 * h) / r;
+  }
+  return Math.min(1, Math.max(0, (c / 4) * 1.5));
+}
+
 /** Grieta de cada extremo: 1 dentro, 0 fuera, bordes casi verticales. */
 function chasm(x: number, z: number) {
   const edge = smoothstep(0, 2.2, CHASM_HALF - Math.abs(Math.abs(z) - CHASM_Z));
   return edge * (1 - smoothstep(41, 46, Math.abs(x)));
 }
 
+// ---- Forma de las paredes ----
+// Con el detalle apagado (calidad baja) la pared es recta y uniforme, como siempre. Con el detalle encendido (media y alta) el pie de la pared
+// serpentea (entrantes y contrafuertes), cada escalón tiene su altura y la cima es irregular, con torres. La forma se fija al cargar el escenario
+// (y la colisión del terreno es la misma que se ve): para cambiar entre baja y las demás hay que recargar.
+let wallDetail = false;
+export const setWallDetail = (on: boolean) => { wallDetail = on; };
+export const wallDetailOn = () => wallDetail;
+
+/** Ruido suave y repetible a lo largo de la pared, de 0 a 1 (suma de tres senos). */
+const wn = (z: number, side: number, k: number, f: number) => {
+  const a = z * f + side * 17.3 + k * 5.7;
+  return 0.5 + 0.5 * (0.62 * Math.sin(a) + 0.28 * Math.sin(a * 2.1 + 1.7) + 0.1 * Math.sin(a * 3.7 + 0.4));
+};
+/** Cuánto se retira hacia fuera el pie de la pared (0 a 8 m): los entrantes son bahías y los puntos en 0 son contrafuertes. Nunca entra en el suelo jugable. */
+export function wallOffset(side: number, z: number) {
+  return wallDetail ? 8 * smoothstep(0.3, 0.7, wn(z, side, 1, 0.075)) : 0;
+}
+/** Altura de la cima de la pared en ese punto: varía a lo largo y sube en torres. */
+export function wallTop(side: number, z: number) {
+  if (!wallDetail) return WALL_H;
+  return WALL_H * (0.82 + 0.36 * wn(z, side, 2, 0.045)) + 10 * smoothstep(0.55, 0.85, wn(z, side, 3, 0.09));
+}
+/** Escalones de alturas desiguales: de t = 0 (pie) a 1 (cima) devuelve de 0 a 1. */
+function terraceVar(t: number, z: number, side: number) {
+  if (t >= 1) return 1;
+  let sum = 0;
+  const w = [0, 0, 0, 0];
+  for (let i = 0; i < 4; i++) { w[i] = 0.6 + 0.8 * wn(z, side, 10 + i, 0.05 + 0.012 * i); sum += w[i]; }
+  const k = t * 4, i = Math.floor(k);
+  let c = 0;
+  for (let j = 0; j < i; j++) c += w[j];
+  return (c + w[i] * smoothstep(0.55, 1, k - i)) / sum;
+}
+/** Ancho de la pared (de pie a cima) en ese punto. */
+const wallSpan = (side: number, z: number) => (wallDetail ? WALL_SPAN * (0.9 + 0.35 * wn(z, side, 4, 0.06)) : WALL_SPAN);
+
 /** Distancia al suelo del cañón (0 = dentro). Crece al adentrarse en las paredes. */
 function wallDistance(x: number, z: number) {
-  return Math.hypot(Math.max(Math.abs(x) - CANYON_HALF_W, 0), Math.max(Math.abs(z) - VIS_L, 0));
+  const ax = Math.abs(x);
+  const off = wallDetail && ax > CANYON_HALF_W ? wallOffset(Math.sign(x), z) : 0;
+  return Math.hypot(Math.max(ax - CANYON_HALF_W - off, 0), Math.max(Math.abs(z) - VIS_L, 0));
 }
 
 // Altura del suelo en cualquier punto.
@@ -120,7 +168,10 @@ export function terrainHeight(x: number, z: number): number {
   h += 0.05 * Math.max(az - 112, 0); // pasada la grieta, el cañón sigue subiendo despacio
   h -= chasm(x, z) * CHASM_DEPTH;
   const wd = wallDistance(x, z);
-  if (wd > 0) h += terrace(wd / WALL_SPAN) * WALL_H;
+  if (wd > 0) {
+    if (wallDetail) { const side = Math.sign(x) || 1; h += terraceVar(wd / wallSpan(side, z), z, side) * wallTop(side, z); }
+    else h += terrace(wd / WALL_SPAN) * WALL_H;
+  }
   return h + crashField(x, z).h;
 }
 
@@ -184,9 +235,15 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
       const band = Math.floor(h / 3.4 + Math.sin(x * 0.07 + z * 0.05) * 0.4);
       tmp.copy(STRATA[((band % STRATA.length) + STRATA.length) % STRATA.length]);
       // Surcos verticales (la roca erosionada cae en cortinas)
-      const along = Math.abs(x) - CANYON_HALF_W > Math.abs(z) - CANYON_HALF_L ? z : x;
-      const flute = 0.86 + 0.14 * Math.sin(along * 2.1 + Math.sin(along * 0.37) * 2.6);
-      tmp.multiplyScalar((0.5 + 0.5 * nor.getY(i)) * flute);
+      if (wallDetail) {
+        // con detalle: sin rayas pintadas; los entrantes y las esquinas de cada escalón se oscurecen (oclusión ambiental calculada una vez al cargar)
+        tmp.multiplyScalar(0.55 + 0.45 * nor.getY(i));
+        tmp.multiplyScalar(1 - 0.5 * concavity(x, z, h, 3) - 0.32 * concavity(x, z, h, 8));
+      } else {
+        const along = Math.abs(x) - CANYON_HALF_W > Math.abs(z) - CANYON_HALF_L ? z : x;
+        const flute = 0.86 + 0.14 * Math.sin(along * 2.1 + Math.sin(along * 0.37) * 2.6);
+        tmp.multiplyScalar((0.5 + 0.5 * nor.getY(i)) * flute);
+      }
     } else {
       const k = 0.5 + 0.5 * Math.sin(x * 0.05 + Math.sin(z * 0.08) * 2) * Math.cos(z * 0.043 + 1);
       tmp.copy(dark).lerp(light, Math.min(1, Math.max(0, k * 0.7 + h * 0.06 + 0.2)));
@@ -203,7 +260,7 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.setAttribute('aRock', new THREE.BufferAttribute(new Float32Array(pos.count), 1)); // roca cerca de las coberturas (se rellena al colocarlas)
 
-  const mesh = new THREE.Mesh(geo, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true }), { ground: groundTexture(), groundX: groundExtraTexture(), slabs: slabsTexture(), strata: strataTexture(), strataScale: 0.07, terrainRock: true }));
+  const mesh = new THREE.Mesh(geo, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true }), { ground: groundTexture(), groundX: groundExtraTexture(), slabs: slabsTexture(), strata: strataTexture(), pits: pitsTexture(), strataScale: 0.07, terrainRock: true }));
   mesh.receiveShadow = true;
   scene.add(mesh);
 

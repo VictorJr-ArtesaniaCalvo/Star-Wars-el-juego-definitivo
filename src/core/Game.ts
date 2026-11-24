@@ -20,14 +20,14 @@ import { Hud } from '../ui/Hud';
 import { Menu } from '../ui/Menu';
 import { b1Params, b2Params, droidekaParams, WaveManager } from '../waves/WaveManager';
 import { SPAWN } from '../world/defenseZone';
-import { terrainHeight } from '../world/terrain';
+import { setWallDetail, terrainHeight } from '../world/terrain';
 import { Blaster, BLASTER } from '../weapons/Blaster';
 import { GRENADE, GrenadeSystem } from '../weapons/Grenade';
 import { MEDKIT, MedkitSystem } from '../weapons/Medkits';
 import { Effects } from '../weapons/Effects';
 import { ViewModel, loadBlasterModel } from '../weapons/ViewModel';
 import { World } from '../world/World';
-import { QUALITY, Settings } from './Settings';
+import { QUALITY, Settings, type Quality } from './Settings';
 
 type Mode = 'menu' | 'playing' | 'paused' | 'gameover';
 // Apuntar: acerca la vista y afina la puntería; desde la cadera se mueve más rápido pero el disparo se abre.
@@ -89,6 +89,8 @@ export class Game {
   private v1 = new THREE.Vector3();
   private v2 = new THREE.Vector3();
   private v3 = new THREE.Vector3();
+  private builtWallDetail = true; // con qué forma de paredes se construyó el escenario (baja = recta)
+  private lastQuality: Quality | null = null;
   private dirty = true; // hay que volver a dibujar aunque esté en pausa
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -128,6 +130,8 @@ export class Game {
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = TICK;
     this.audio.init();
+    setWallDetail(this.settings.data.quality !== 'low'); // la forma de las paredes se fija al cargar (baja = recta)
+    this.builtWallDetail = this.settings.data.quality !== 'low';
     this.world = new World(this.scene, RAPIER, this.physics, { skyFire: (x, y, z) => this.audio.distantBoom(x, y, z) });
 
     this.state.players.push({ id: 0, x: SPAWN.x, y: 0, z: SPAWN.z, yaw: 0, pitch: 0, crouching: false, health: 100, grenades: GRENADE.perGame });
@@ -169,6 +173,18 @@ export class Game {
   }
 
   private applySettings() {
+    // Entre «baja» y las demás cambia la forma de las paredes (y su colisión): se recarga el juego, avisando si hay una partida en curso
+    const wantDetail = this.settings.data.quality !== 'low';
+    if (this.world && wantDetail !== this.builtWallDetail) {
+      const idle = this.mode === 'menu' || this.mode === 'gameover';
+      if (idle || window.confirm('Cambiar entre calidad Baja y las demás recarga el juego (las paredes cambian de forma) y se pierde la partida en curso. ¿Continuar?')) {
+        window.location.reload();
+        return;
+      }
+      if (this.lastQuality) this.settings.set({ quality: this.lastQuality });
+      return;
+    }
+    this.lastQuality = this.settings.data.quality;
     const q = QUALITY[this.settings.data.quality];
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pixelRatio));
     this.world?.setQuality(this.settings.data.quality);
