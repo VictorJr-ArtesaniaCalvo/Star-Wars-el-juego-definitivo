@@ -39,6 +39,7 @@ export interface BrainParams {
   sfx?: 'b1' | 'b2' | 'droideka'; // qué sonido tiene su disparo
   muzzleY?: number; // altura de la que salen los disparos (por defecto 1,2 m)
   muzzleFwd?: number; // cuánto por delante del cuerpo (por defecto 0,35 m)
+  muzzleSide?: number; // desplazamiento lateral (+ = a su derecha; por defecto 0)
 }
 
 const HOLD_DIST = 14; // a esta distancia del jugador deja de avanzar y se queda disparando
@@ -339,7 +340,8 @@ export class DroidBrain {
     const playerHandle = ctx.playerCollider();
     const tx = T.x, ty = T.y + (T.crouching ? 0.6 : 1.2), tz = T.z;
     const mf = this.params.muzzleFwd ?? 0.35;
-    this.org.set(x - Math.sin(this.yaw) * mf, y + (this.params.muzzleY ?? 1.2), z - Math.cos(this.yaw) * mf);
+    const ms = this.params.muzzleSide ?? 0;
+    this.org.set(x - Math.sin(this.yaw) * mf + Math.cos(this.yaw) * ms, y + (this.params.muzzleY ?? 1.2), z - Math.cos(this.yaw) * mf - Math.sin(this.yaw) * ms);
 
     // ¿Veo al jugador? (se comprueba unas cuatro veces por segundo)
     this.losTimer -= dt;

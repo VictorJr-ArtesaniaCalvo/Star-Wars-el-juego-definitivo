@@ -268,6 +268,10 @@ export class Droid {
       poseB1(this.rig, 1, this.walkBlend, this.t);
       this.group.rotation.z = 0;
     } else if (this.b2Rig) {
+      // Detalle según la distancia: lejos se usa la versión simplificada
+      const T = ctx.player();
+      const lod = Math.hypot(T.x - s.x, T.z - s.z) > 50 ? 1 : 0;
+      if (this.group.geometry !== this.b2Rig.lods[lod]) this.group.geometry = this.b2Rig.lods[lod];
       this.walkBlend += ((this.brain.moving ? 1 : 0) - this.walkBlend) * Math.min(1, dt * 6);
       poseB2(this.b2Rig, this.walkBlend, this.t * 0.8); // paso más lento que el del B1: es más grande
       this.group.rotation.z = 0;

@@ -46,8 +46,9 @@ export function b2Params(round: number): BrainParams {
     interval: 0.34,
     coverTime: [1.0, 2.0],
     sfx: 'b2' as const,
-    muzzleY: 1.34, // el cañón va en el antebrazo derecho
-    muzzleFwd: 0.95,
+    muzzleY: 1.36, // dispara desde la mano derecha, con el antebrazo extendido hacia delante
+    muzzleFwd: 1.0,
+    muzzleSide: 0.47,
   };
 }
 

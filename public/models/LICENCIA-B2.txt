@@ -1,0 +1,11 @@
+Model Information:
+* title:	B2 Super battle droid
+* source:	https://sketchfab.com/3d-models/b2-super-battle-droid-927b3ec911cc45c3ad15c458b3de4d50
+* author:	zakeriiino (https://sketchfab.com/zakeriiino)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "B2 Super battle droid" (https://sketchfab.com/3d-models/b2-super-battle-droid-927b3ec911cc45c3ad15c458b3de4d50) by zakeriiino (https://sketchfab.com/zakeriiino) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

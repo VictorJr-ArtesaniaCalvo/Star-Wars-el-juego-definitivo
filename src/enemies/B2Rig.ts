@@ -1,111 +1,164 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { parseModelFile, type ModelBone } from './ModelFile';
 
-// Droide B2 con esqueleto (mismo modelo de antes, ahora con articulaciones para andar).
-// Caderas y rodillas se mueven, el torso se balancea un poco y el brazo izquierdo se columpia;
-// el brazo derecho (con el cañón) se queda apuntando hacia delante.
+// Droide B2 (superdroide de combate) con esqueleto. El modelo 3D (public/models/b2.bin) se genera con tools/convert-b2.mjs a partir del
+// glTF original de zakeriiino (CC-BY 4.0, ver CRÉDITOS.md): una sola pieza dibujable por droide con 14 huesos (cadera, torso, brazo,
+// antebrazo y mano de cada lado, y muslo, pierna y pie de cada lado) y dos niveles de detalle que comparten el esqueleto.
+// Si el archivo no se pudiera cargar, se usa un modelo de cajas con el mismo esqueleto.
 
 export interface B2Bones {
-  root: THREE.Bone; // cadera
-  spine: THREE.Bone; // torso, hombros y cúpula
-  armL: THREE.Bone;
-  armR: THREE.Bone;
-  thighL: THREE.Bone;
-  thighR: THREE.Bone;
-  shinL: THREE.Bone;
-  shinR: THREE.Bone;
+  root: THREE.Bone; spine: THREE.Bone;
+  armL: THREE.Bone; forearmL: THREE.Bone; handL: THREE.Bone;
+  armR: THREE.Bone; forearmR: THREE.Bone; handR: THREE.Bone;
+  thighL: THREE.Bone; shinL: THREE.Bone; footL: THREE.Bone;
+  thighR: THREE.Bone; shinR: THREE.Bone; footR: THREE.Bone;
+  hipY: number;
+  /** Geometrías de cada nivel de detalle (0 = cerca, 1 = lejos). */
+  lods: THREE.BufferGeometry[];
 }
 
-const IDX = { root: 0, spine: 1, armL: 2, armR: 3, thighL: 4, thighR: 5, shinL: 6, shinR: 7 };
-const GUN = 0x6c737a, PLATE = 0xa2a9ae, DARK = 0x363a3f, EYE = 0xd8281a, CANNON = 0x1f2124;
-const HIP_Y = 1.3, KNEE_Y = 0.72, SHOULDER_Y = 1.95;
+type BoneName = keyof Omit<B2Bones, 'hipY' | 'lods'>;
+interface BoneDef extends ModelBone { name: BoneName }
+interface Model { bones: BoneDef[]; lods: THREE.BufferGeometry[]; source: 'archivo' | 'respaldo'; map?: THREE.Texture }
 
-let shared: THREE.BufferGeometry | null = null;
+let model: Model | null = null;
 
-// La geometría se dibuja en coordenadas del droide (no del hueso), como el B1.
-function part(geo: THREE.BufferGeometry, x: number, y: number, z: number, color: number, bone: number, rot?: [number, number, number]): THREE.BufferGeometry {
-  const g = geo.index ? geo.toNonIndexed() : geo;
-  g.deleteAttribute('uv');
-  if (rot) g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rot[0], rot[1], rot[2])));
-  g.translate(x, y, z);
-  const n = g.attributes.position.count;
-  const c = new THREE.Color(color);
-  const col = new Float32Array(n * 3), si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
-  for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; si[i * 4] = bone; sw[i * 4] = 1; }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
-  g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
-  return g;
-}
-const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
-const cyl = (r: number, len: number, seg = 10) => new THREE.CylinderGeometry(r, r, len, seg);
-const SIDE: [number, number, number] = [0, 0, Math.PI / 2]; // cilindro con el eje a lo largo de X
-
-function geometry() {
-  if (shared) return shared;
-  const p: THREE.BufferGeometry[] = [];
-  const I = IDX;
-  for (const sd of [-1, 1]) {
-    const thigh = sd < 0 ? I.thighL : I.thighR, shin = sd < 0 ? I.shinL : I.shinR, arm = sd < 0 ? I.armL : I.armR;
-    p.push(part(box(0.2, 0.09, 0.34), 0.2 * sd, 0.045, -0.05, DARK, shin)); // pies
-    p.push(part(box(0.12, 0.62, 0.15), 0.2 * sd, 0.4, 0, GUN, shin)); // piernas
-    p.push(part(cyl(0.11, 0.05), 0.28 * sd, KNEE_Y, 0, PLATE, shin, SIDE)); // discos de las rodillas
-    p.push(part(box(0.14, 0.58, 0.17), 0.2 * sd, 1.02, 0, GUN, thigh)); // muslos
-    p.push(part(box(0.26, 0.3, 0.34), 0.52 * sd, SHOULDER_Y, 0, PLATE, I.spine)); // hombros blindados
-    p.push(part(box(0.15, 0.5, 0.17), 0.56 * sd, 1.66, 0, GUN, arm)); // brazos
-    p.push(part(cyl(0.1, 0.07), 0.62 * sd, 1.38, 0, DARK, arm, SIDE)); // codos
+/** Descarga y prepara el modelo. Si falla, se usa el de respaldo (cajas). Hay que llamarlo antes de crear droides. */
+export async function loadB2Model(url: string): Promise<'archivo' | 'respaldo'> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const m = parseModelFile(await res.arrayBuffer(), 'B2M1');
+    model = { bones: m.bones as BoneDef[], lods: m.lods, source: 'archivo' };
+    if (m.atlas) {
+      // Textura del autor (atlas). Si no se pudiera cargar, se queda el color por vértice que trae el modelo.
+      try {
+        const tex = await new THREE.TextureLoader().loadAsync(url.replace(/[^/]*$/, '') + m.atlas);
+        tex.flipY = false; // las coordenadas del modelo tienen el origen arriba a la izquierda (como en glTF)
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 4;
+        model.map = tex;
+        for (const g of m.lods) g.setAttribute('color', new THREE.BufferAttribute(new Uint8Array(g.attributes.position.count * 3).fill(255), 3, true));
+      } catch (e) {
+        console.warn('No se pudo cargar la textura del B2; se usa el color por vértice.', e);
+      }
+    }
+  } catch (e) {
+    console.warn('No se pudo cargar el modelo del B2; se usa el de respaldo.', e);
+    model = fallback();
   }
-  p.push(part(cyl(0.11, 0.74), 0, HIP_Y, 0, DARK, I.root, SIDE)); // eje de la cadera
-  p.push(part(box(0.3, 0.2, 0.2), 0, 1.27, 0.02, GUN, I.root)); // cadera
-  p.push(part(new THREE.CylinderGeometry(0.3, 0.16, 0.38, 10), 0, 1.52, 0, DARK, I.spine)); // cintura con láminas
-  p.push(part(box(0.8, 0.5, 0.44), 0, 1.9, 0, GUN, I.spine)); // pecho ancho
-  p.push(part(box(0.5, 0.32, 0.07), 0, 1.9, -0.24, PLATE, I.spine)); // placa en V
-  p.push(part(box(0.3, 0.12, 0.08), 0, 1.74, -0.25, PLATE, I.spine));
-  p.push(part(new THREE.SphereGeometry(0.17, 10, 8), 0, 2.2, -0.04, GUN, I.spine)); // cúpula
-  p.push(part(box(0.06, 0.06, 0.05), 0.1, 2.2, -0.2, EYE, I.spine)); // ojo rojo
-  p.push(part(box(0.36, 0.3, 0.14), 0, 1.95, 0.27, DARK, I.spine)); // espalda
-  // Brazo izquierdo: antebrazo y mano colgando
-  p.push(part(box(0.13, 0.5, 0.15), -0.62, 1.08, 0, GUN, I.armL));
-  p.push(part(box(0.14, 0.14, 0.12), -0.62, 0.78, 0, DARK, I.armL));
-  // Brazo derecho: el antebrazo apunta hacia delante con el cañón
-  p.push(part(box(0.13, 0.13, 0.5), 0.62, 1.34, -0.3, GUN, I.armR));
-  p.push(part(box(0.18, 0.18, 0.34), 0.62, 1.34, -0.7, CANNON, I.armR));
-  p.push(part(box(0.05, 0.05, 0.22), 0.62, 1.34, -0.95, CANNON, I.armR));
-  shared = mergeGeometries(p, false)!;
-  for (const g of p) g.dispose();
-  return shared;
+  return model.source;
 }
 
-const mk = (x: number, y: number, z: number) => { const b = new THREE.Bone(); b.position.set(x, y, z); return b; };
+// ---------- Modelo de respaldo: cajas por hueso (mismas articulaciones que el modelo real) ----------
+const FALLBACK_BONES: BoneDef[] = [
+  { name: 'root', parent: -1, pivot: [0, 1.1844, 0] }, { name: 'spine', parent: 0, pivot: [0, 1.375, 0] },
+  { name: 'armL', parent: 1, pivot: [-0.4682, 2.0092, 0] }, { name: 'forearmL', parent: 2, pivot: [-0.4682, 1.3913, 0] }, { name: 'handL', parent: 3, pivot: [-0.4682, 0.9213, 0] },
+  { name: 'armR', parent: 1, pivot: [0.4694, 2.0091, 0] }, { name: 'forearmR', parent: 5, pivot: [0.4694, 1.3913, 0] }, { name: 'handR', parent: 6, pivot: [0.4694, 0.9212, 0] },
+  { name: 'thighL', parent: 0, pivot: [-0.1932, 1.2211, 0] }, { name: 'shinL', parent: 8, pivot: [-0.1932, 0.6915, 0] }, { name: 'footL', parent: 9, pivot: [-0.1932, 0.0753, 0] },
+  { name: 'thighR', parent: 0, pivot: [0.1943, 1.2211, 0] }, { name: 'shinR', parent: 11, pivot: [0.1943, 0.6915, 0] }, { name: 'footR', parent: 12, pivot: [0.1943, 0.0753, 0] },
+];
 
+function fallback(): Model {
+  const parts: THREE.BufferGeometry[] = [];
+  const add = (bone: number, w: number, h: number, d: number, x: number, y: number, z: number, color: number) => {
+    const g = new THREE.BoxGeometry(w, h, d).toNonIndexed();
+    g.translate(x, y, z);
+    const n = g.attributes.position.count, c = new THREE.Color(color);
+    const col = new Float32Array(n * 3), si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
+    for (let i = 0; i < n; i++) { col.set([c.r, c.g, c.b], i * 3); si[i * 4] = bone; sw[i * 4] = 1; }
+    g.deleteAttribute('uv');
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4));
+    g.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
+    parts.push(g);
+  };
+  const GUN = 0x6c737a, PLATE = 0xa2a9ae, DARK = 0x363a3f;
+  add(0, 0.5, 0.25, 0.3, 0, 1.2, 0, GUN);
+  add(1, 0.9, 0.8, 0.45, 0, 1.9, 0, GUN);
+  add(1, 0.36, 0.3, 0.3, 0, 2.2, -0.05, PLATE);
+  for (const [s, a, f, h, t, sh, ft] of [[-1, 2, 3, 4, 8, 9, 10], [1, 5, 6, 7, 11, 12, 13]] as const) {
+    add(a, 0.18, 0.62, 0.18, 0.47 * s, 1.7, 0, PLATE);
+    add(f, 0.15, 0.48, 0.15, 0.47 * s, 1.15, 0, GUN);
+    add(h, 0.14, 0.3, 0.14, 0.47 * s, 0.8, 0, DARK);
+    add(t, 0.16, 0.53, 0.17, 0.2 * s, 0.96, 0, GUN);
+    add(sh, 0.13, 0.62, 0.15, 0.2 * s, 0.38, 0, GUN);
+    add(ft, 0.2, 0.08, 0.36, 0.2 * s, 0.04, -0.06, DARK);
+  }
+  let total = 0; for (const g of parts) total += g.attributes.position.count;
+  const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), col = new Float32Array(total * 3), si = new Uint16Array(total * 4), sw = new Float32Array(total * 4);
+  let o = 0;
+  for (const g of parts) {
+    g.computeVertexNormals();
+    const n = g.attributes.position.count;
+    pos.set(g.attributes.position.array as Float32Array, o * 3); nor.set(g.attributes.normal.array as Float32Array, o * 3); col.set(g.attributes.color.array as Float32Array, o * 3);
+    si.set(g.attributes.skinIndex.array as Uint16Array, o * 4); sw.set(g.attributes.skinWeight.array as Float32Array, o * 4);
+    o += n;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4));
+  geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
+  geo.computeBoundingSphere();
+  return { bones: FALLBACK_BONES, lods: [geo, geo], source: 'respaldo' };
+}
+
+// ---------- Crear un droide ----------
 export function createB2(material: THREE.Material): { mesh: THREE.SkinnedMesh; bones: B2Bones } {
-  const root = mk(0, HIP_Y, 0), spine = mk(0, 0, 0);
-  const armL = mk(-0.52, SHOULDER_Y - HIP_Y, 0), armR = mk(0.52, SHOULDER_Y - HIP_Y, 0);
-  const thighL = mk(-0.2, 0, 0), thighR = mk(0.2, 0, 0);
-  const shinL = mk(0, KNEE_Y - HIP_Y, 0), shinR = mk(0, KNEE_Y - HIP_Y, 0);
-  root.add(spine, thighL, thighR);
-  spine.add(armL, armR);
-  thighL.add(shinL);
-  thighR.add(shinR);
-  const mesh = new THREE.SkinnedMesh(geometry(), material);
-  mesh.add(root);
+  if (!model) model = fallback();
+  const list: THREE.Bone[] = model.bones.map((d) => {
+    const b = new THREE.Bone();
+    b.name = d.name;
+    return b;
+  });
+  model.bones.forEach((d, i) => {
+    const parent = d.parent < 0 ? null : model!.bones[d.parent];
+    list[i].position.set(d.pivot[0] - (parent ? parent.pivot[0] : 0), d.pivot[1] - (parent ? parent.pivot[1] : 0), d.pivot[2] - (parent ? parent.pivot[2] : 0));
+    if (parent) list[d.parent].add(list[i]);
+  });
+  if (model.map) {
+    // El gris carbón de la textura se aclara un poco para que no se pierda con la luz cálida de Geonosis.
+    const m = material as THREE.MeshLambertMaterial;
+    m.map = model.map;
+    m.color.setRGB(1.25 * 0.97, 1.25, 1.25 * 1.05);
+    m.needsUpdate = true;
+  }
+  const mesh = new THREE.SkinnedMesh(model.lods[0], material);
+  mesh.add(list[0]);
   mesh.updateMatrixWorld(true);
-  mesh.bind(new THREE.Skeleton([root, spine, armL, armR, thighL, thighR, shinL, shinR]));
+  mesh.bind(new THREE.Skeleton(list));
   mesh.frustumCulled = false;
-  return { mesh, bones: { root, spine, armL, armR, thighL, thighR, shinL, shinR } };
+  const byName = Object.fromEntries(list.map((b) => [b.name, b])) as Record<BoneName, THREE.Bone>;
+  return { mesh, bones: { ...byName, hipY: model.bones[0].pivot[1], lods: model.lods } };
 }
 
-/** `walk`: 0..1 cuánto anda; `phase`: fase del paso. Paso largo y pesado: se apoya y se balancea. */
+const THIGH = 0.53, SHIN = 0.616; // largo del muslo y de la pierna (m)
+
+/**
+ * `walk`: 0..1 cuánto anda; `phase`: fase del paso. Paso largo y pesado: se apoya y se balancea.
+ * El antebrazo derecho apunta hacia delante (de ahí sale el disparo); el izquierdo lo acompaña más recogido y se balancea poco.
+ */
 export function poseB2(b: B2Bones, walk: number, phase: number) {
   const s = Math.sin(phase);
-  b.root.position.y = HIP_Y + Math.abs(s) * 0.05 * walk;
-  b.root.rotation.z = s * 0.04 * walk; // la cadera se ladea con cada paso
-  b.spine.rotation.y = s * 0.09 * walk; // el torso gira un poco contra las piernas
-  b.spine.rotation.z = -s * 0.05 * walk;
-  b.thighL.rotation.x = s * 0.42 * walk;
-  b.thighR.rotation.x = -s * 0.42 * walk;
-  b.shinL.rotation.x = -Math.max(0, Math.sin(phase + 1.6)) * 0.7 * walk;
-  b.shinR.rotation.x = -Math.max(0, Math.sin(phase + 1.6 + Math.PI)) * 0.7 * walk;
-  b.armL.rotation.x = -s * 0.35 * walk; // el brazo libre se columpia
-  b.armR.rotation.x = Math.abs(s) * 0.03 * walk; // el del cañón casi no se mueve
+  // Piernas, con los pies planos en el suelo
+  const tL = s * 0.42 * walk, tR = -s * 0.42 * walk;
+  const sL = -Math.max(0, Math.sin(phase + 1.6)) * 0.7 * walk, sR = -Math.max(0, Math.sin(phase + 1.6 + Math.PI)) * 0.7 * walk;
+  b.thighL.rotation.x = tL; b.shinL.rotation.x = sL; b.footL.rotation.x = -(tL + sL);
+  b.thighR.rotation.x = tR; b.shinR.rotation.x = sR; b.footR.rotation.x = -(tR + sR);
+  // La cadera baja lo que se doblan las piernas (se apoya la más estirada) y rebota un poco al andar
+  const drop = (t: number, sh: number) => THIGH + SHIN - (THIGH * Math.cos(t) + SHIN * Math.cos(t + sh));
+  b.root.position.y = b.hipY - Math.min(drop(tL, sL), drop(tR, sR)) + Math.abs(s) * 0.03 * walk;
+  b.root.rotation.z = s * 0.035 * walk; // la cadera se ladea con cada paso
+  b.spine.rotation.y = s * 0.08 * walk; // el torso gira un poco contra las piernas
+  b.spine.rotation.z = -s * 0.04 * walk;
+  b.spine.rotation.x = 0.05;
+  // Brazos: el derecho (el que dispara) con el antebrazo extendido hacia delante; el izquierdo lo acompaña más recogido
+  b.armR.rotation.set(0.35 + Math.abs(s) * 0.02 * walk, 0, -0.05);
+  b.forearmR.rotation.set(1.1, 0, 0);
+  b.handR.rotation.set(0, 0, 0);
+  b.armL.rotation.set(0.25 - s * 0.2 * walk, 0, 0.05);
+  b.forearmL.rotation.set(0.75 + s * 0.1 * walk, 0, 0);
+  b.handL.rotation.set(0, 0, 0);
 }
