@@ -166,7 +166,8 @@ export class WallBlocks {
   }
 
   setQuality(q: Quality) {
-    const frac = q === 'low' ? 0 : q === 'medium' ? 0.45 : 1;
+    // Media y Alta llevan la misma cantidad de bloques (la de Media gustó más); Alta se distingue en sombras, lajas y piedrecitas
+    const frac = q === 'low' ? 0 : 0.45;
     for (const v of this.variants) { v.mesh.count = Math.floor(v.n * frac); v.mesh.visible = v.mesh.count > 0; }
   }
 }
