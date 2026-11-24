@@ -260,6 +260,7 @@ export class Game {
       this.hud.update(dt);
       this.syncCamera(dt);
       this.effects.update(dt);
+      this.world.tick(dt);
       this.viewModel.update(dt, this.blaster.heat);
       this.dirty = true;
     }

@@ -34,6 +34,39 @@ export class Builder {
     if (desc) this.physics.createCollider(desc);
   }
 
+  /** Roca en capas: el color cambia por franjas de altura (como los estratos de una pared). */
+  addStrataHull(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, palette: number[], bandHeight: number, solid = true) {
+    const g = geo.index ? geo.toNonIndexed() : geo.clone();
+    g.applyMatrix4(matrix);
+    g.computeVertexNormals();
+    g.deleteAttribute('uv');
+    const p = g.attributes.position;
+    const nrm = g.attributes.normal;
+    const arr = new Float32Array(p.count * 3);
+    const cols = palette.map((c) => new THREE.Color(c));
+    for (let i = 0; i < p.count; i++) {
+      const band = Math.floor(p.getY(i) / bandHeight);
+      const c = this.tmpColor.copy(cols[((band % cols.length) + cols.length) % cols.length]);
+      c.multiplyScalar(0.7 + 0.3 * nrm.getY(i) + 0.1);
+      arr.set([c.r, c.g, c.b], i * 3);
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    this.geos.push(g);
+    if (!solid) return;
+    const desc = this.rapier.ColliderDesc.convexHull(new Float32Array(g.attributes.position.array));
+    if (desc) this.physics.createCollider(desc);
+  }
+
+  /** Decorado pequeño (grava, losas): se ve, pero no tiene cuerpo sólido. */
+  addDecor(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, color: number, shade = 1) {
+    const g = geo.index ? geo.toNonIndexed() : geo.clone();
+    g.applyMatrix4(matrix);
+    g.computeVertexNormals();
+    g.deleteAttribute('uv');
+    this.paint(g, color, shade);
+    this.geos.push(g);
+  }
+
   /** Caja (muros, cajas, piezas de la cañonera). */
   addBox(size: [number, number, number], matrix: THREE.Matrix4, color: number, solid = true) {
     const g = new THREE.BoxGeometry(size[0], size[1], size[2]).toNonIndexed();

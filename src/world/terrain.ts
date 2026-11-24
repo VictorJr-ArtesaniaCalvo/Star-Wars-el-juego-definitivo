@@ -3,7 +3,7 @@ import type RAPIER from '@dimforge/rapier3d-compat';
 
 export const WORLD_SEED = 1138;
 export const MAP_SIZE = 270; // metros de lado
-const SEGMENTS = 180;
+const SEGMENTS = 160;
 
 // El campo de batalla es un cañón: suelo de 80 m de ancho (de la columna E a la H del mapa)
 // y 192 m de largo, con paredes altas en terrazas y los dos extremos cerrados.
@@ -129,8 +129,8 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
   const nor = geo.attributes.normal as THREE.BufferAttribute;
 
   const colors = new Float32Array(pos.count * 3);
-  const light = new THREE.Color(0xc9683f);
-  const dark = new THREE.Color(0x9a4326);
+  const light = new THREE.Color(0xb8623c);
+  const dark = new THREE.Color(0x7c3c26);
   const soot = new THREE.Color(0x24160f);
   const tmp = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
@@ -142,7 +142,10 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
       // Pared: franjas horizontales de distinto color; más oscuro cuanto más vertical.
       const band = Math.floor(h / 3.4 + Math.sin(x * 0.07 + z * 0.05) * 0.4);
       tmp.copy(STRATA[((band % STRATA.length) + STRATA.length) % STRATA.length]);
-      tmp.multiplyScalar(0.55 + 0.45 * nor.getY(i));
+      // Surcos verticales (la roca erosionada cae en cortinas)
+      const along = Math.abs(x) - CANYON_HALF_W > Math.abs(z) - CANYON_HALF_L ? z : x;
+      const flute = 0.86 + 0.14 * Math.sin(along * 2.1 + Math.sin(along * 0.37) * 2.6);
+      tmp.multiplyScalar((0.5 + 0.5 * nor.getY(i)) * flute);
     } else {
       const k = 0.5 + 0.5 * Math.sin(x * 0.05 + Math.sin(z * 0.08) * 2) * Math.cos(z * 0.043 + 1);
       tmp.copy(dark).lerp(light, Math.min(1, Math.max(0, k * 0.7 + h * 0.06 + 0.2)));

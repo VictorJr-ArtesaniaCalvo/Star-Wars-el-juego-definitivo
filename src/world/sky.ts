@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 
-export const FOG_COLOR = 0xd98a58;
-export const SUN_DIR = new THREE.Vector3(-0.62, 0.45, 0.5).normalize();
+// Neblina y horizonte: ámbar dorado, como el aire polvoriento de Geonosis.
+export const FOG_COLOR = 0xd9a45e;
+export const SUN_DIR = new THREE.Vector3(-0.62, 0.34, 0.5).normalize();
 
-// Cielo anaranjado con sol, dibujado por código (ligero para el móvil).
+// Cielo dorado con nubes pesadas y sol bajo, dibujado por código (ligero para el móvil).
 export function buildSky(scene: THREE.Scene) {
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
@@ -11,8 +12,10 @@ export function buildSky(scene: THREE.Scene) {
     fog: false,
     uniforms: {
       horizon: { value: new THREE.Color(FOG_COLOR) },
-      top: { value: new THREE.Color(0x8a4a3a) },
+      mid: { value: new THREE.Color(0xe0a850) },
+      top: { value: new THREE.Color(0x7c4c1e) },
       sunDir: { value: SUN_DIR },
+      time: { value: 0 },
     },
     vertexShader: `
       varying vec3 vDir;
@@ -21,15 +24,37 @@ export function buildSky(scene: THREE.Scene) {
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
-      uniform vec3 horizon; uniform vec3 top; uniform vec3 sunDir;
+      uniform vec3 horizon; uniform vec3 mid; uniform vec3 top; uniform vec3 sunDir; uniform float time;
       varying vec3 vDir;
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p) {
+        vec2 i = floor(p), f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+      float fbm(vec2 p) {
+        float v = 0.0, a = 0.5;
+        for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; }
+        return v;
+      }
       void main() {
         vec3 d = normalize(vDir);
         float h = max(d.y, 0.0);
-        vec3 col = mix(horizon, top, pow(h, 0.55));
+        vec3 col = mix(horizon, mid, smoothstep(0.0, 0.22, h));
+        col = mix(col, top, smoothstep(0.18, 0.95, h));
+
+        // Nubes: más oscuras y densas arriba, claras cerca del sol.
+        vec2 uv = d.xz / (d.y + 0.28) * 1.5 + vec2(time * 0.012, time * 0.004);
+        float c = fbm(uv);
+        float cover = smoothstep(0.40, 0.78, c) * smoothstep(0.02, 0.22, h);
+        vec3 cloud = mix(vec3(0.98, 0.72, 0.36), vec3(0.38, 0.20, 0.07), smoothstep(0.38, 0.85, c));
+        col = mix(col, cloud, cover * 0.8);
+
+        // Sol y resplandor
         float s = max(dot(d, sunDir), 0.0);
-        col += vec3(1.0, 0.75, 0.45) * (pow(s, 6.0) * 0.35 + pow(s, 60.0) * 0.5);
-        col = mix(col, vec3(1.0, 0.93, 0.78), smoothstep(0.9985, 0.9992, s));
+        col += vec3(1.0, 0.78, 0.36) * (pow(s, 3.0) * 0.4 + pow(s, 28.0) * 0.55);
+        col = mix(col, vec3(1.0, 0.95, 0.8), smoothstep(0.9987, 0.9994, s) * (1.0 - cover * 0.7));
+
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -39,10 +64,10 @@ export function buildSky(scene: THREE.Scene) {
   sky.frustumCulled = false;
   scene.add(sky);
 
-  scene.fog = new THREE.Fog(FOG_COLOR, 22, 170);
+  scene.fog = new THREE.Fog(FOG_COLOR, 14, 150);
 
-  scene.add(new THREE.HemisphereLight(0xffdcb8, 0x8a4a30, 1.5));
-  const sun = new THREE.DirectionalLight(0xffc48a, 2.4);
+  scene.add(new THREE.HemisphereLight(0xffd9a0, 0x8a5430, 1.45));
+  const sun = new THREE.DirectionalLight(0xffb865, 2.9);
   sun.shadow.mapSize.set(1024, 1024);
   const sc = sun.shadow.camera;
   sc.left = sc.bottom = -35;
@@ -52,5 +77,5 @@ export function buildSky(scene: THREE.Scene) {
   sun.shadow.bias = -0.0015;
   scene.add(sun, sun.target);
 
-  return { sky, sun };
+  return { sky, sun, material: mat };
 }

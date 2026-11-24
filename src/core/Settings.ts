@@ -53,7 +53,7 @@ export class Settings {
 
 // Qué significa cada nivel de calidad.
 export const QUALITY = {
-  low: { pixelRatio: 1, shadows: false, viewDistance: 130 },
-  medium: { pixelRatio: 1.5, shadows: false, viewDistance: 170 },
-  high: { pixelRatio: 2, shadows: true, viewDistance: 210 },
+  low: { pixelRatio: 1, shadows: false, viewDistance: 115 },
+  medium: { pixelRatio: 1.5, shadows: false, viewDistance: 150 },
+  high: { pixelRatio: 2, shadows: true, viewDistance: 190 },
 } as const;

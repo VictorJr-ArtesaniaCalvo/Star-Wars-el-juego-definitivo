@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { Builder } from './builder';
+import { Atmosphere } from './atmosphere';
 import { buildDefenseZone } from './defenseZone';
 import { buildRocks } from './rocks';
 import { buildSky, SUN_DIR } from './sky';
@@ -11,6 +12,9 @@ import { QUALITY, type Quality } from '../core/Settings';
 export class World {
   readonly sky: THREE.Mesh;
   private sun: THREE.DirectionalLight;
+  private skyMat: THREE.ShaderMaterial;
+  private atmosphere: Atmosphere;
+  private time = 0;
 
   constructor(
     private scene: THREE.Scene,
@@ -18,9 +22,11 @@ export class World {
     physics: RAPIER.World,
   ) {
     buildTerrain(scene, rapier, physics);
-    const { sky, sun } = buildSky(scene);
+    const { sky, sun, material } = buildSky(scene);
     this.sky = sky;
     this.sun = sun;
+    this.skyMat = material;
+    this.atmosphere = new Atmosphere(scene);
     const b = new Builder(rapier, physics);
     buildRocks(b);
     buildDefenseZone(b);
@@ -31,6 +37,13 @@ export class World {
     const cfg = QUALITY[q];
     this.sun.castShadow = cfg.shadows;
     (this.scene.fog as THREE.Fog).far = cfg.viewDistance;
+  }
+
+  /** Las nubes avanzan y los voladores giran. */
+  tick(dt: number) {
+    this.time += dt;
+    this.skyMat.uniforms.time.value = this.time;
+    this.atmosphere.tick(dt);
   }
 
   /** El cielo y la luz del sol acompañan al jugador. */
