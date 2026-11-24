@@ -291,7 +291,7 @@ vec4 aperiodic(sampler2D t, vec2 p, float s, out vec2 n) {
   if (uRich > 0.5) {
     // --- suelo rico: arena roja de base, que pasa a roca en lajas cerca de las paredes, en pendientes y junto a las coberturas ---
     vec2 P = vWPos.xz;
-    float wallM = smoothstep(20.0, 38.0, abs(vWPos.x));
+    float wallM = 0.0; // (la cercanía a las paredes llega ya calculada en vRock)
     float patchM = smoothstep(0.44, 0.56, vnoise(P * 0.028 + vec2(3.7, 9.1)));
     float pathM = 1.0 - smoothstep(0.0, 0.05, abs(vnoise(P * 0.014 + vec2(5.0, 1.0)) - 0.5)); // caminos de arena
     float steepG = 1.0 - smoothstep(0.88, 0.97, an.y);

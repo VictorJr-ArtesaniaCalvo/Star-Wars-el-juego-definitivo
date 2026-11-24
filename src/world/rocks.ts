@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Builder, place } from './builder';
 import { slabGeometry } from './scatter';
 import { METAL_WALL_SPOTS } from './wreckage';
-import { CANYON_HALF_L, CANYON_HALF_W, crashField, makeRng, terrainHeight, WORLD_SEED } from './terrain';
+import { CANYON_HALF_L, CANYON_HALF_W, crashField, floorHalfWidth, makeRng, terrainHeight, WORLD_SEED } from './terrain';
 
 const ROCK = 0x8a4a30;
 const ROCK_DARK = 0x4a3532; // roca oscura, tipo basalto
@@ -115,7 +115,7 @@ export function buildRocks(b: Builder) {
   const HL = CANYON_HALF_L - 4;
 
   /** Grupo de agujas. En el suelo del cañón sirven de cobertura; en el borde son solo decorado. */
-  const spireCluster = (x: number, z: number, big: number, slender = false) => {
+  const spireCluster = (x: number, z: number, big: number, slender = false, omit = false) => {
     const n = 1 + Math.floor(rng() * 3);
     for (let i = 0; i < n; i++) {
       const main = i === 0;
@@ -127,7 +127,7 @@ export function buildRocks(b: Builder) {
       const floor = onFloor(x + ox, z + oz);
       const lean = range(-0.12, 0.12), turn = range(0, 6.28), shade = range(0.8, 1.1);
       // se quita una de cada dos agujas (repartidas por todo el mapa); se sigue gastando la misma cantidad de azar para que el resto del escenario no cambie
-      if (spireCount++ % 2 === 1) { seed++; continue; }
+      if (spireCount++ % 2 === 1 || omit) { seed++; continue; }
       if (floor) OBSTACLES.push({ x: x + ox, z: z + oz, radius: r * 0.9, height: h });
       b.addHull(spireGeometry(r, h, seed++, lean, floor), place(x + ox, y, z + oz, turn), SPIRE, shade, floor, true);
     }
@@ -227,14 +227,17 @@ export function buildRocks(b: Builder) {
     n++;
   }
 
-  // --- Más allá de las grietas: el cañón sigue, solo para mirar (sin cuerpo sólido) ---
+  // --- Más allá de las grietas: el cañón sigue y se abre por los lados (solo para mirar, sin cuerpo sólido). Se reparte lo mismo que antes por la zona
+  // más ancha (queda poco poblada) y se quitan unas pocas agujas ---
   for (const side of [-1, 1]) {
-    for (let i = 0; i < 70; i++) boulder(range(-HW, HW), side * range(CANYON_HALF_L + 20, 270), range(1.2, 3.4));
+    const wide = (u: number, z: number) => u * Math.max(HW, floorHalfWidth(u < 0 ? -1 : 1, z) - 5);
+    for (let i = 0; i < 70; i++) { const u = range(-1, 1), z = side * range(CANYON_HALF_L + 20, 270); boulder(wide(u, z), z, range(1.2, 3.4)); }
     for (let i = 0; i < 12; i++) {
-      const x = range(-HW + 6, HW - 6), z = side * range(CANYON_HALF_L + 24, 250), r = range(4, 9), h = range(5, 12);
+      const u = range(-1, 1) * 0.9, z = side * range(CANYON_HALF_L + 24, 250), r = range(4, 9), h = range(5, 12);
+      const x = wide(u, z);
       b.addStrataHull(mesaGeometry(r, h, seed++), place(x, terrainHeight(x, z) - 1, z, range(0, 6.28)), STRATA, 1.9, false);
     }
-    for (let i = 0; i < 18; i++) spireCluster(range(-HW, HW), side * range(CANYON_HALF_L + 22, 260), range(0.8, 1.5), true);
+    for (let i = 0; i < 18; i++) { const u = range(-1, 1), z = side * range(CANYON_HALF_L + 22, 260); spireCluster(wide(u, z), z, range(0.8, 1.5), true, i % 4 === 3); } // se quitan 4 de 18
   }
 
   // --- Pie de las paredes: rocas caídas ---

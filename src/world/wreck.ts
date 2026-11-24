@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Builder, place } from './builder';
-import { makeRng, terrainHeight, WRECK } from './terrain';
+import { floorHalfWidth, makeRng, terrainHeight, WRECK } from './terrain';
 
 const HULL = 0xb7babd; // casco gris claro y blanco
 const CORE = 0x6b7075;
@@ -44,6 +44,7 @@ export function buildDroidWreck(b: Builder) {
   for (let i = 0; i < 40; i++) {
     const a = range(0, Math.PI * 2), r = range(12, 46);
     const x = WRECK.x + Math.cos(a) * r, z = WRECK.z + Math.sin(a) * r * 0.8;
+    if (Math.abs(x) > floorHalfWidth(Math.sign(x) || 1, z) - 3) continue; // nada en la pared
     const y = terrainHeight(x, z);
     const k = rng();
     if (k < 0.5) {

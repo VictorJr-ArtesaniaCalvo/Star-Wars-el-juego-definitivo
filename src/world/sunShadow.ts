@@ -7,7 +7,7 @@ import { SUN_DIR } from './sky';
 // marrón violáceo, frías, en vez de naranjas. Se mira desde cada punto hacia el sol y se comprueba si el terreno lo tapa.
 // Los personajes en movimiento no se ven afectados (en calidad Alta tienen las sombras reales cerca de ti).
 
-const X0 = -84, X1 = 84, Z0 = -150, Z1 = 150, STEP = 2;
+const X0 = -171, X1 = 171, Z0 = -345, Z1 = 345, STEP = 3;
 const NX = Math.round((X1 - X0) / STEP) + 1, NZ = Math.round((Z1 - Z0) / STEP) + 1;
 let grid: Float32Array | null = null;
 

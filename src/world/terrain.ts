@@ -21,7 +21,7 @@ const CHASM_HALF = 6.5; // medio ancho
 const CHASM_DEPTH = 34;
 
 /** Dónde quedó la nave droide estrellada (al fondo del cañón, por delante, tras la grieta). */
-export const WRECK = { x: -7, z: -142, yaw: 0.28 };
+export const WRECK = { x: 40, z: -168, yaw: 0.28 };
 const WALL_H = 34; // altura de las paredes
 const WALL_SPAN = 16; // grosor de la pared (de la base a la cima)
 
@@ -103,7 +103,38 @@ function concavity(x: number, z: number, h: number, r: number) {
 /** Grieta de cada extremo: 1 dentro, 0 fuera, bordes casi verticales. */
 function chasm(x: number, z: number) {
   const edge = smoothstep(0, 2.2, CHASM_HALF - Math.abs(Math.abs(z) - CHASM_Z));
-  return edge * (1 - smoothstep(41, 46, Math.abs(x)));
+  const fh = floorHalfWidth(Math.sign(x) || 1, z) + 1; // la grieta cruza todo el suelo (que ya empieza a abrirse)
+  return edge * (1 - smoothstep(fh, fh + 5, Math.abs(x)));
+}
+
+// ---- Ancho del cañón ----
+// La zona jugable mide 80 m de ancho (±40) hasta z = ±96. Más allá de las grietas el cañón se abre por los lados, hacia el norte y hacia el sur,
+// siguiendo las curvas que se dibujaron sobre el mapa cenital. Cada curva da el BORDE DE ARRIBA de la pared (la cima) a cada lado: [|z|, medio ancho].
+// El pie de la pared (donde acaba el suelo llano) queda 16 m más adentro y empieza a abrirse en el mismo sitio que el borde.
+const WIDEN_Z = 96;
+const RIM: Record<string, Array<[number, number]>> = {
+  NL: [[96, 56], [123, 87], [168, 114], [185, 116], [234, 102], [258, 140], [335, 158]],
+  NR: [[96, 56], [132, 71], [203, 96], [254, 132], [330, 157]],
+  SL: [[100, 56], [166, 79], [240, 106], [335, 126]],
+  SR: [[105, 56], [154, 75], [227, 96], [268, 136], [335, 142]],
+};
+function rimRaw(pts: Array<[number, number]>, az: number) {
+  if (az <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) {
+    if (az <= pts[i][0]) { const [z0, w0] = pts[i - 1], [z1, w1] = pts[i]; const t = (az - z0) / (z1 - z0); return w0 + (w1 - w0) * (t * t * (3 - 2 * t)); }
+  }
+  return pts[pts.length - 1][1];
+}
+/** Medio ancho del borde de arriba de la pared a ese lado (side = −1 izquierda, +1 derecha) y a esa z. */
+export function rimHalfWidth(side: number, z: number) {
+  const az = Math.abs(z);
+  if (az <= WIDEN_Z) return CANYON_HALF_W + 16;
+  const pts = RIM[(z < 0 ? 'N' : 'S') + (side < 0 ? 'L' : 'R')];
+  return 0.25 * rimRaw(pts, az - 10) + 0.5 * rimRaw(pts, az) + 0.25 * rimRaw(pts, az + 10);
+}
+/** Medio ancho del suelo llano (pie de la pared): 40 m en la zona jugable y más ancho más allá de las grietas. */
+export function floorHalfWidth(side: number, z: number) {
+  return Math.abs(z) <= WIDEN_Z ? CANYON_HALF_W : Math.max(CANYON_HALF_W, rimHalfWidth(side, z) - 16);
 }
 
 // ---- Forma de las paredes ----
@@ -145,8 +176,10 @@ const wallSpan = (side: number, z: number) => (wallDetail ? WALL_SPAN * (0.9 + 0
 /** Distancia al suelo del cañón (0 = dentro). Crece al adentrarse en las paredes. */
 function wallDistance(x: number, z: number) {
   const ax = Math.abs(x);
-  const off = wallDetail && ax > CANYON_HALF_W ? wallOffset(Math.sign(x), z) : 0;
-  return Math.hypot(Math.max(ax - CANYON_HALF_W - off, 0), Math.max(Math.abs(z) - VIS_L, 0));
+  const side = Math.sign(x) || 1;
+  const fh = floorHalfWidth(side, z);
+  const off = wallDetail && ax > fh ? wallOffset(side, z) : 0;
+  return Math.hypot(Math.max(ax - fh - off, 0), Math.max(Math.abs(z) - VIS_L, 0));
 }
 
 // Altura del suelo en cualquier punto.
@@ -165,7 +198,8 @@ export function terrainHeight(x: number, z: number): number {
     0.25 * Math.sin(x * 0.37 + 1.1) * Math.sin(z * 0.41);
   let h = dunes * prog * flat;
   h += 9 * Math.pow(smoothstep(30, 100, az), 1.3) * flat; // el suelo sube hacia los extremos
-  h += 3 * smoothstep(18, 40, ax) * flat; // y se levanta un poco junto a las paredes
+  const axf = ax - (floorHalfWidth(Math.sign(x) || 1, z) - CANYON_HALF_W);
+  h += 3 * smoothstep(18, 40, axf) * flat; // y se levanta un poco junto a las paredes
   h += 0.05 * Math.max(az - 112, 0); // pasada la grieta, el cañón sigue subiendo despacio
   h -= chasm(x, z) * CHASM_DEPTH;
   const wd = wallDistance(x, z);
@@ -188,7 +222,7 @@ function axis(fine: number, max: number): number[] {
   let v = 0;
   while (v < fine) { v += GRID_STEP; half.push(v); }
   let step = GRID_STEP;
-  while (v < max) { step *= 1.16; v = Math.min(max, v + step); half.push(v); }
+  while (v < max) { step *= 1.12; v = Math.min(max, v + step); half.push(v); }
   return [...half.slice(1).reverse().map((c) => -c), ...half];
 }
 
@@ -253,7 +287,7 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
       // variedad: caminos sinuosos de arena más clara a lo largo del cañón y zonas de roca más oscura (junto a las paredes y en manchas)
       const c1 = 12 * Math.sin(z * 0.025) + 8 * Math.sin(z * 0.067 + 1), c2 = c1 - 26 + 6 * Math.sin(z * 0.045 + 2);
       const path = Math.max(1 - smoothstep(3, 9, Math.abs(x - c1)), 1 - smoothstep(2.5, 7, Math.abs(x - c2)));
-      const rockZone = Math.max(smoothstep(24, 38, Math.abs(x)) * 0.85, smoothstep(0.55, 0.85, Math.sin(x * 0.07 + z * 0.05) * Math.sin(z * 0.04 - x * 0.03) * 0.5 + 0.5) * 0.9);
+      const rockZone = Math.max(smoothstep(24, 38, Math.abs(x) - (floorHalfWidth(Math.sign(x) || 1, z) - CANYON_HALF_W)) * 0.85, smoothstep(0.55, 0.85, Math.sin(x * 0.07 + z * 0.05) * Math.sin(z * 0.04 - x * 0.03) * 0.5 + 0.5) * 0.9);
       tmp.lerp(PALE_SAND, 0.65 * path).lerp(DARK_ROCK, 0.6 * rockZone * (1 - path));
     }
     shadeColor(sunShadow(x, h, z, nor.getX(i), nor.getY(i), nor.getZ(i)), tmp); // sombra de las paredes (pintada al cargar)
@@ -281,6 +315,8 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
 }
 
 /** Marca en el terreno cuánta roca hay junto a cada cobertura (rocas, muros, cajas): el suelo pasa de arena a piedra a su alrededor. */
+/** Cuánta roca hay junto a las paredes (0 en el centro del cañón, 1 pegado al pie de la pared). */
+const wallProx = (x: number, z: number) => smoothstep(20, 38, Math.abs(x) - (floorHalfWidth(Math.sign(x) || 1, z) - CANYON_HALF_W));
 export function paintRock(mesh: THREE.Mesh, spots: Array<{ x: number; z: number; r: number }>) {
   const pos = mesh.geometry.attributes.position as THREE.BufferAttribute;
   const attr = mesh.geometry.attributes.aRock as THREE.BufferAttribute;
@@ -293,7 +329,7 @@ export function paintRock(mesh: THREE.Mesh, spots: Array<{ x: number; z: number;
       if (dx > reach || dx < -reach || dz > reach || dz < -reach) continue;
       m = Math.max(m, 1 - smoothstep(s.r * 0.7, reach, Math.hypot(dx, dz)));
     }
-    attr.setX(i, m);
+    attr.setX(i, Math.max(m, 0.95 * wallProx(x, z)));
   }
   attr.needsUpdate = true;
 }

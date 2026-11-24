@@ -127,12 +127,12 @@ class SkyBattle {
 
     // Destructor de la República: detrás de ti, alto, con el morro hacia la derecha.
     this.republic = new THREE.Mesh(venator(), shipMat());
-    this.republic.position.set(25, 185, 300);
+    this.republic.position.set(25, 260, 300);
     this.republic.rotation.y = -Math.PI / 2 + 0.28;
     this.republic.scale.setScalar(1.45);
     // Nave separatista: delante, algo más baja, mirando hacia el otro lado.
     this.sep = new THREE.Mesh(separatist(), shipMat());
-    this.sep.position.set(-35, 160, -310);
+    this.sep.position.set(-35, 235, -310);
     this.sep.rotation.y = Math.PI / 2 - 0.22;
     this.sep.scale.setScalar(1.6);
     for (const m of [this.republic, this.sep]) {

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, rockJointsTexture, rockTexture, slabsTexture, strataTexture } from './materials';
-import { CANYON_HALF_L, makeRng, terrainHeight, wallOffset, wallTop } from './terrain';
+import { CANYON_HALF_L, floorHalfWidth, makeRng, terrainHeight, wallOffset, wallTop } from './terrain';
 import type { Quality } from '../core/Settings';
 
 // Bloques de roca apilados contra las paredes del cañón, solo en calidad media y alta (con la pared recta de «baja» no existen).
@@ -112,13 +112,13 @@ export class WallBlocks {
     };
     /** Distancia al eje del cañón a la que la pared alcanza la altura y (la altura solo sube hacia fuera: se busca por bisección). */
     const surface = (side: number, z: number, y: number) => {
-      let lo = 40, hi = 40 + 8 + 40;
+      let lo = floorHalfWidth(side, z), hi = lo + 8 + 44;
       for (let i = 0; i < 14; i++) { const mid = (lo + hi) / 2; if (terrainHeight(side * mid, z) < y) lo = mid; else hi = mid; }
       return (lo + hi) / 2;
     };
-    const Z = CANYON_HALF_L + 14; // solo a lo largo del tramo jugable y un poco más: lo lejano queda con la pared lisa
+    const Z = 200; // a lo largo del tramo jugable y de la zona que se abre; lo lejano lleva menos bloques (cada 16 m en vez de cada 8)
     for (const side of [-1, 1]) {
-      for (let z = -Z; z <= Z; z += 8) {
+      for (let z = -Z; z <= Z; z += Math.abs(z) > CANYON_HALF_L + 14 ? 16 : 8) {
         const zz = z + range(-2.5, 2.5);
         const T = wallTop(side, zz);
         // las capas van a las mismas alturas relativas en columnas vecinas: así se juntan en bandas horizontales a lo largo de la pared
@@ -135,7 +135,7 @@ export class WallBlocks {
           put(v, side * (outer + d * 0.5), y, zz, w * 0.5, t, d * 0.5, (side > 0 ? 0 : Math.PI) + range(-0.1, 0.1) + (rng() < 0.5 ? Math.PI : 0), 0.03);
         }
         // escombros al pie: rocas caídas y lajas amontonadas
-        const foot = 40 + wallOffset(side, zz);
+        const foot = floorHalfWidth(side, zz) + wallOffset(side, zz);
         const nr = 3 + Math.floor(rng() * 4);
         for (let r = 0; r < nr; r++) {
           const x = foot + range(-2.5, 5), z2 = zz + range(-3.5, 3.5);
