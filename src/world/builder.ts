@@ -8,6 +8,7 @@ import { applyWorldTextures, groundTexture, rockTexture } from './materials';
 export class Builder {
   private geos: THREE.BufferGeometry[] = [];
   private tmpColor = new THREE.Color();
+  private extras: THREE.Object3D[] = [];
 
   constructor(
     private rapier: typeof RAPIER,
@@ -97,7 +98,19 @@ export class Builder {
     );
   }
 
+  /** Cuerpo sólido con la forma convexa que envuelve esos puntos (x,y,z seguidos). */
+  addConvex(points: Float32Array) {
+    const desc = this.rapier.ColliderDesc.convexHull(points);
+    if (desc) this.physics.createCollider(desc);
+  }
+
+  /** Objeto ya hecho (modelo 3D, calcomanías…) que se añade a la escena junto con el resto. */
+  addObject(o: THREE.Object3D) {
+    this.extras.push(o);
+  }
+
   finish(scene: THREE.Scene): THREE.Mesh {
+    for (const o of this.extras) scene.add(o);
     const merged = mergeGeometries(this.geos, false)!;
     for (const g of this.geos) g.dispose();
     // Las rocas y piezas llevan la arenisca estratificada (en el espacio del mundo); la cañonera y los restos metálicos

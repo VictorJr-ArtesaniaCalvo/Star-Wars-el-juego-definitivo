@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { Builder, place } from './builder';
 import { CRASH, terrainHeight } from './terrain';
+import { GUNSHIP_FIRES } from './crashFx';
+import { buildLaatWreck, laatReady } from './laat';
 
 // Cañonera de la República (LAAT) estrellada, hecha con formas sencillas a partir de las imágenes de referencia:
 // fuselaje crema con franjas granates, morro con cabina y torreta con cañones, bahía lateral abierta, dos tubos de
@@ -10,10 +12,15 @@ import { CRASH, terrainHeight } from './terrain';
 const HULL = 0xc7c8ba, SHADE = 0xa9ada0, RED = 0x74262e, DARK = 0x2e312f, VENT = 0x1b1d1c;
 const GLASS = 0x46696c, TRIM = 0xdcdbcf, METAL = 0x5a5e5c, SCORCH = 0x24201d, ORANGE = 0xc98a2a;
 
-/** Puntos donde arde fuego en la nave (para los destellos). */
-export const GUNSHIP_FIRES: Array<{ x: number; y: number; z: number; size: number }> = [];
+export { GUNSHIP_FIRES };
 
+/** Cañonera derribada: el modelo 3D de la LAAT si se pudo cargar; si no, la de formas sencillas de más abajo. */
 export function buildGunship(b: Builder) {
+  if (laatReady()) { buildLaatWreck(b); return; }
+  buildSimpleGunship(b);
+}
+
+function buildSimpleGunship(b: Builder) {
   GUNSHIP_FIRES.length = 0;
   const gh = terrainHeight(CRASH.x, CRASH.z);
   // hundida en el cráter, ladeada hacia el enemigo y con el morro algo bajo

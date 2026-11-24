@@ -1,5 +1,6 @@
 import { Builder, place } from './builder';
 import { buildGunship } from './gunship';
+import { laatReady } from './laat';
 import { CRASH, crashField, makeRng, terrainHeight } from './terrain';
 
 // Zona a defender: centrada en (0,0). La nave se estrelló en el centro y dejó un cráter.
@@ -66,8 +67,8 @@ export function buildDefenseZone(b: Builder) {
   crashDebris(b);
   const H = COVER_HEIGHT;
 
-  // Trozo de ala arrancado, apoyado en el suelo a la derecha
-  b.addBox([3.2, 0.25, 1.8], place(10.4, gy(10.4, 1.6) + 0.55, 1.6, 0.5, 0.55, 0), WHITE);
+  // Trozo de ala arrancado, apoyado en el suelo a la derecha (con el modelo de la LAAT, el ala de verdad ya está tirada ahí)
+  if (!laatReady()) b.addBox([3.2, 0.25, 1.8], place(10.4, gy(10.4, 1.6) + 0.55, 1.6, 0.5, 0.55, 0), WHITE);
 
   // Barricadas en los flancos (mirando al enemigo)
   b.addBox([2.6, H, 0.45], place(-8.8, gy(-8.8, -2.9) + H / 2 - 0.1, -2.9, 0.28), BARRICADE);

@@ -20,6 +20,8 @@ export class Menu {
   constructor(private settings: Settings, actions: MenuActions) {
     this.btnPlay.addEventListener('click', actions.onPlay);
     this.btnQuit.addEventListener('click', actions.onQuit);
+    $('btnCredits').addEventListener('click', () => ($('creditsScreen').hidden = false));
+    $('btnCreditsBack').addEventListener('click', () => ($('creditsScreen').hidden = true));
 
     const sens = $<HTMLInputElement>('sens');
     const sensVal = $('sensVal');

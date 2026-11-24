@@ -77,3 +77,9 @@ Cada subida a GitHub publica el juego automáticamente en GitHub Pages.
 
 El B1 usa un modelo 3D real (`public/models/b1.bin`, 240 KB) con dos niveles de detalle (5.000 y 1.500 triángulos) y un esqueleto de 17 huesos.
 Se genera desde el OBJ original con `node tools/convert-b1.mjs <B1DROID.obj>` (necesita `npm install`; el OBJ original no está en el repositorio).
+
+## Modelos del B2 y de la cañonera
+
+- **B2** (`public/models/b2.bin` + `b2-atlas.jpg`): modelo de zakeriiino (CC-BY 4.0) con esqueleto de 14 huesos y dos niveles de detalle. Se genera con `node tools/convert-b2.mjs <scene.gltf> <carpeta-de-texturas>`.
+- **Cañonera LAAT derribada** (`public/models/laat.bin` + `laat-*.jpg`): modelo de Mind Mulch for The Masses (CC-BY 4.0), inclinada y hundida en la arena, con un ala arrancada tirada a la derecha como cobertura, hollín, humo continuo de los motores, chispas y pequeños fuegos (`src/world/laat.ts`, `src/world/crashFx.ts`). Se genera con `node tools/convert-laat.mjs <scene.gltf> <carpeta-de-texturas>`. Si el archivo falta, el juego usa la cañonera de formas sencillas.
+- Los autores están citados en la **pantalla de créditos** del juego (menú → CRÉDITOS) y en `CRÉDITOS.md`.

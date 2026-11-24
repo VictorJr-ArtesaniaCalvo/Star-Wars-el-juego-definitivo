@@ -3,7 +3,8 @@ import type RAPIER from '@dimforge/rapier3d-compat';
 import { Builder } from './builder';
 import { Atmosphere } from './atmosphere';
 import { buildDroidWreck, WRECK_FIRES } from './wreck';
-import { GUNSHIP_FIRES } from './gunship';
+import { GUNSHIP_FIRES, CrashFx } from './crashFx';
+import { laatReady } from './laat';
 import { buildDefenseZone } from './defenseZone';
 import { buildRocks } from './rocks';
 import { buildSky, SUN_DIR } from './sky';
@@ -18,6 +19,7 @@ export class World {
   private skyMat: THREE.ShaderMaterial;
   private atmosphere: Atmosphere;
   private skyLife: SkyLife;
+  private crashFx: CrashFx | null = null;
   private time = 0;
 
   constructor(
@@ -38,6 +40,7 @@ export class World {
     b.finish(scene);
     this.atmosphere = new Atmosphere(scene, [...WRECK_FIRES, ...GUNSHIP_FIRES]);
     this.skyLife = new SkyLife(scene, hooks.skyFire);
+    if (laatReady()) this.crashFx = new CrashFx(scene); // humo, chispas y llamas de la cañonera derribada
   }
 
   setQuality(q: Quality) {
@@ -57,6 +60,7 @@ export class World {
     this.skyMat.uniforms.time.value = this.time;
     this.atmosphere.tick(dt);
     this.skyLife.update(dt);
+    this.crashFx?.tick(dt);
   }
 
   /** El cielo y la luz del sol acompañan al jugador. */
