@@ -3,6 +3,7 @@ import { CANYON_HALF_L, CANYON_HALF_W, crashField, makeRng, terrainHeight } from
 import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, rockJointsTexture, rockTexture, slabRockTexture, slabsTexture, strataTexture } from './materials';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { Quality } from '../core/Settings';
+import { withLightFloor } from './lightFill';
 import { bakeSunShadow, shadeColor, sunShadow } from './sunShadow';
 
 // Decoración del suelo de Geonosis, solo en calidad media y alta (en baja no se dibuja nada de esto):
@@ -64,7 +65,7 @@ function slabMaterial(): THREE.MeshLambertMaterial {
   normal = normalize(normal + (viewMatrix * vec4((sm.r * 2.0 - 1.0) * 0.5, 0.0, (sm.g * 2.0 - 1.0) * 0.5, 0.0)).xyz * (1.0 - smoothstep(15.0, 60.0, length(vViewPosition))));`);
   };
   mat.customProgramCacheKey = () => 'slabs1';
-  return mat;
+  return withLightFloor(mat);
 }
 
 interface Chunk {

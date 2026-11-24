@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { terrainHeight } from './terrain';
 import { bakeSunShadow } from './sunShadow';
+import { bakeBaseAO, type Foot } from './contact';
 import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, rockJointsTexture, rockTexture, slabsTexture, strataTexture } from './materials';
 
 // Junta muchas piezas en un único objeto dibujable (mucho más ligero para el móvil)
@@ -12,6 +14,8 @@ export class Builder {
   private extras: THREE.Object3D[] = [];
   /** Dónde hay coberturas (x, z, radio): el suelo se vuelve rocoso a su alrededor. */
   readonly spots: Array<{ x: number; z: number; r: number }> = [];
+  /** Huella de cada pieza sólida en el suelo (para su mancha de contacto). */
+  readonly feet: Foot[] = [];
 
   constructor(
     private rapier: typeof RAPIER,
@@ -29,6 +33,15 @@ export class Builder {
     g.computeBoundingSphere();
     const bs = g.boundingSphere!;
     this.spots.push({ x: bs.center.x, z: bs.center.z, r: Math.min(bs.radius, 14) });
+    // huella: los vértices que están a menos de 0,7 m del suelo
+    const p = g.attributes.position;
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, n = 0;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), z = p.getZ(i);
+      if (p.getY(i) - terrainHeight(x, z) > 0.7) continue;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); n++;
+    }
+    if (n >= 3 && Math.abs(bs.center.x) < 60 && Math.abs(bs.center.z) < 125) this.feet.push({ x: (x0 + x1) / 2, z: (z0 + z1) / 2, r: Math.min(8, Math.max(x1 - x0, z1 - z0) / 2) });
   }
 
   private paint(geo: THREE.BufferGeometry, color: number, shade = 1) {
@@ -42,15 +55,29 @@ export class Builder {
   /** Pieza con forma libre (rocas). Su parte sólida es su envolvente. */
   addHull(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, color: number, shade = 1, solid = true, spire = false) {
     const g = geo.index ? geo.toNonIndexed() : geo;
+    g.userData = geo.userData;
     g.applyMatrix4(matrix);
-    g.computeVertexNormals();
+    if (!g.userData.keepNormals) g.computeVertexNormals(); // las rocas traen su sombreado suave ya calculado
     g.deleteAttribute('uv');
     this.paint(g, color, shade);
     this.texAmt(g, 1, spire ? 1 : 0);
     this.geos.push(g);
     this.spot(g);
     if (!solid) return; // piezas inalcanzables (el borde del cañón) no necesitan cuerpo sólido
-    const desc = this.rapier.ColliderDesc.convexHull(new Float32Array(g.attributes.position.array));
+    const pos = g.attributes.position.array as Float32Array;
+    const cuts = g.userData.cuts as number[] | undefined;
+    if (cuts) {
+      // aguja con anillos: un cuerpo sólido por cada anillo (en vez de uno solo que las envolvería en un cono ancho), así se puede rodear entre los cuellos
+      const y0 = new THREE.Vector3().setFromMatrixPosition(matrix).y;
+      for (let c = 0; c + 1 < cuts.length; c++) {
+        const sel: number[] = [];
+        for (let i = 0; i < pos.length; i += 3) if (pos[i + 1] >= y0 + cuts[c] - 1e-4 && pos[i + 1] <= y0 + cuts[c + 1] + 1e-4) sel.push(pos[i], pos[i + 1], pos[i + 2]);
+        const d = sel.length >= 12 ? this.rapier.ColliderDesc.convexHull(new Float32Array(sel)) : null;
+        if (d) this.physics.createCollider(d);
+      }
+      return;
+    }
+    const desc = this.rapier.ColliderDesc.convexHull(new Float32Array(pos));
     if (desc) this.physics.createCollider(desc);
   }
 
@@ -75,7 +102,19 @@ export class Builder {
     this.geos.push(g);
     this.spot(g);
     if (!solid) return;
-    const desc = this.rapier.ColliderDesc.convexHull(new Float32Array(g.attributes.position.array));
+    const pos = g.attributes.position.array as Float32Array;
+    const parts = g.userData.parts as number[] | undefined;
+    if (parts) {
+      // pila de capas: un cuerpo sólido por capa (el hueco bajo cada saliente queda libre en lugar de rellenarse)
+      let o = 0;
+      for (const n of parts) {
+        const d = this.rapier.ColliderDesc.convexHull(new Float32Array(pos.subarray(o * 3, (o + n) * 3)));
+        if (d) this.physics.createCollider(d);
+        o += n;
+      }
+      return;
+    }
+    const desc = this.rapier.ColliderDesc.convexHull(new Float32Array(pos));
     if (desc) this.physics.createCollider(desc);
   }
 
@@ -128,9 +167,10 @@ export class Builder {
     const merged = mergeGeometries(this.geos, false)!;
     for (const g of this.geos) g.dispose();
     bakeSunShadow(merged); // sombra de las paredes pintada al cargar
+    bakeBaseAO(merged); // la base de cada pieza algo más oscura (contacto con el suelo)
     // Las rocas y piezas llevan la arenisca estratificada (en el espacio del mundo); la cañonera y los restos metálicos
     // se verían raros con ella, pero el efecto es suave porque solo modula el color de cada pieza.
-    const mesh = new THREE.Mesh(merged, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), { ground: groundTexture(), groundX: groundExtraTexture(), slabs: slabsTexture(), strata: strataTexture(), pits: pitsTexture(), spire: { rock: rockTexture(), joints: rockJointsTexture() }, rockOnly: true, strataScale: 0.2 }));
+    const mesh = new THREE.Mesh(merged, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true }), { ground: groundTexture(), groundX: groundExtraTexture(), slabs: slabsTexture(), strata: strataTexture(), pits: pitsTexture(), spire: { rock: rockTexture(), joints: rockJointsTexture() }, rockOnly: true, strataScale: 0.2 }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);

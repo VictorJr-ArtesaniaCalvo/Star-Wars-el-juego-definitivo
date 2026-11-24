@@ -4,7 +4,10 @@ import type { EnemyKind, EnemyState } from '../sim/types';
 import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from '../world/terrain';
 import { createB1, poseB1, type B1Bones } from './B1Rig';
 import { createB2, poseB2, type B2Bones } from './B2Rig';
-import { createDroideka, poseDroideka, refoldDeka, type DekaBones } from './DroidekaRig';
+import { withLightFloor } from '../world/lightFill';
+import { withDroidWear } from './droidWear';
+import { makeBlob } from '../world/contact';
+import { createDroideka, dekaBounds, poseDroideka, refoldDeka, type DekaBones } from './DroidekaRig';
 import { DroidBrain, type BrainContext, type BrainParams } from './DroidBrain';
 
 const CORPSE_TIME = 2.2;
@@ -13,7 +16,7 @@ const CORPSE_TIME = 2.2;
 export const KINDS: Record<EnemyKind, { height: number; radius: number; chest: number; health: number; shield: number }> = {
   b1: { height: 1.9, radius: 0.28, chest: 1.25, health: 60, shield: 0 },
   b2: { height: 2.35, radius: 0.42, chest: 1.8, health: 180, shield: 0 },
-  droideka: { height: 1.8, radius: 0.5, chest: 1.1, health: 100, shield: 150 },
+  droideka: { height: 1.71, radius: 0.475, chest: 1.045, health: 100, shield: 150 }, // un 5 % más pequeño que antes
 };
 const DEKA_ANIM = 0.8; // segundos que tarda el droideka en desplegarse (y en plegarse)
 const UNFOLD_TIME = 2.4; // segundos que tarda un B1 en desplegarse al aparecer
@@ -31,8 +34,10 @@ export class Droid {
   readonly kind: EnemyKind;
   /** true si el último disparo recibido lo absorbió el escudo (para la marca azul de la mira). */
   lastShielded = false;
-  private mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  private mat = withDroidWear(withLightFloor(new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 28, specular: 0x3a342e })));
   private shieldMesh: THREE.Mesh | null = null;
+  private shieldR = 1;
+  private blob: THREE.Mesh;
   private shieldFlash = 0;
   private shieldDelay = 0;
   private roll = 0;
@@ -67,25 +72,35 @@ export class Droid {
       const r = createDroideka(this.mat);
       this.group = r.mesh;
       this.dekaRig = r.bones;
+      this.group.scale.setScalar(0.95); // el droideka es un 5 % más pequeño
     } else {
       const r = createB2(this.mat);
       this.group = r.mesh;
       this.b2Rig = r.bones;
     }
+    // metal sutil según el tipo: el B1 beige con brillo ligero, el B2 gris azulado oscuro con más brillo y el droideka gris cálido
+    if (this.kind === 'b2') { this.mat.color.multiply(new THREE.Color(0.66, 0.76, 0.95)); this.mat.specular.set(0x5a6678); this.mat.shininess = 42; }
+    else if (this.kind === 'droideka') { this.mat.specular.set(0x4a443c); this.mat.shininess = 30; }
     this.group.rotation.order = 'YXZ'; // primero el giro hacia donde mira y luego el balanceo o la rodadura
     this.group.castShadow = true;
     this.group.visible = false;
     scene.add(this.group);
+    this.blob = makeBlob(scene, k.radius * (this.kind === 'droideka' ? 4.4 : 3.6)); // sombra de contacto bajo los pies
+    this.blob.visible = false;
     this.body = physics.createRigidBody(rapier.RigidBodyDesc.kinematicPositionBased());
     this.collider = physics.createCollider(rapier.ColliderDesc.capsule(Math.max(0.05, k.height / 2 - k.radius), k.radius), this.body);
     this.collider.setEnabled(false);
     if (this.kind === 'droideka') {
       // Escudo: una burbuja azul translúcida alrededor del droideka desplegado
+      // Una esfera perfecta que envuelve a todo el droideka desplegado (con cañones y patas): se calcula a partir de su modelo
+      const bd = this.dekaRig?.lods ? dekaBounds(this.dekaRig.lods[1]) : { y: 0.95, z: 0, r: 1 };
+      this.shieldR = bd.r;
       this.shieldMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(1.0, 14, 10),
+        new THREE.SphereGeometry(1.0, 20, 14),
         new THREE.MeshBasicMaterial({ color: 0x3aa8ff, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide, fog: false }),
       );
-      this.shieldMesh.position.y = 0.95;
+      this.shieldMesh.position.set(0, bd.y, bd.z);
+      this.shieldMesh.scale.setScalar(bd.r);
       this.shieldMesh.visible = false;
       this.group.add(this.shieldMesh);
     }
@@ -151,10 +166,12 @@ export class Droid {
     this.t = Math.random() * 10;
     this.group.rotation.set(0, 0, 0);
     this.group.visible = true;
+    this.blob.visible = true;
     this.collider.setEnabled(true);
     this.syncBody();
     this.brain.reset(x, z, params, ctx);
     this.group.position.set(s.x, s.y, s.z);
+    this.blob.position.set(s.x, s.y + 0.06, s.z);
   }
 
   deactivate(ctx: BrainContext) {
@@ -162,6 +179,7 @@ export class Droid {
     this.state.active = false;
     this.state.alive = false;
     this.group.visible = false;
+    this.blob.visible = false;
     this.collider.setEnabled(false);
   }
 
@@ -261,6 +279,7 @@ export class Droid {
 
     s.yaw = this.brain.yaw;
     this.group.position.set(s.x, s.y, s.z);
+    this.blob.position.set(s.x, s.y + 0.06, s.z);
     this.group.rotation.y = s.yaw;
     if (this.rig) {
       // Detalle según la distancia: lejos se usa la versión simplificada
@@ -303,8 +322,8 @@ export class Droid {
     mesh.visible = on;
     if (on) {
       const frac = s.shield / KINDS.droideka.shield;
-      (mesh.material as THREE.MeshBasicMaterial).opacity = 0.12 + 0.1 * frac + this.shieldFlash * 0.28;
-      mesh.scale.setScalar(1 + this.shieldFlash * 0.06);
+      (mesh.material as THREE.MeshBasicMaterial).opacity = (0.12 + 0.1 * frac + this.shieldFlash * 0.28) * 0.75; // un 25 % más transparente
+      mesh.scale.setScalar(this.shieldR * (1 + this.shieldFlash * 0.06));
     }
   }
 }

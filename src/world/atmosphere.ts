@@ -35,7 +35,6 @@ export function glowTexture(): THREE.Texture {
 const smooth = (a: number, b: number, v: number) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export class Atmosphere {
-  private flyers: THREE.Points;
   private embers: THREE.Points;
   private emberVel: Float32Array;
   /** Fuerza de la ráfaga de viento y arena actual (0 = calma, 1 = tormenta). */
@@ -128,20 +127,6 @@ export class Atmosphere {
 
     // (el polvo bajo y las ráfagas de arena visibles se han quitado; el sonido del viento sigue)
 
-    // --- Enjambres de criaturas voladoras (puntos oscuros que giran despacio) ---
-    const n = 140;
-    const p = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      const a = range(0, Math.PI * 2), r = range(70, 210);
-      p[i * 3] = Math.cos(a) * r;
-      p[i * 3 + 1] = range(45, 130);
-      p[i * 3 + 2] = Math.sin(a) * r;
-    }
-    const fg = new THREE.BufferGeometry();
-    fg.setAttribute('position', new THREE.BufferAttribute(p, 3));
-    this.flyers = new THREE.Points(fg, new THREE.PointsMaterial({ color: 0x1c120b, size: 2.4, sizeAttenuation: false, fog: false }));
-    this.flyers.frustumCulled = false;
-    scene.add(this.flyers);
   }
 
   /** Posición del jugador: las brasas y el polvo se mueven con él. */
@@ -169,8 +154,6 @@ export class Atmosphere {
       if (a[k + 1] - f.y > 15) a[k + 1] -= 14.5; else if (a[k + 1] - f.y < -2) a[k + 1] += 14.5;
     }
     pos.needsUpdate = true;
-    this.flyers.rotation.y += dt * 0.035;
-    this.flyers.position.y = Math.sin(this.t * 0.4) * 2;
     for (const l of this.lights) {
       // algunas lucen fijas y otras parpadean a su ritmo
       const on = l.steady ? 0.85 : Math.sin(this.t * l.rate + l.phase) > -0.25 ? 1 : 0.12;

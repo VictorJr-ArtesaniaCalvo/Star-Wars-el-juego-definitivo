@@ -44,7 +44,7 @@ export function sunShadow(x: number, y: number, z: number, nx = 0, ny = 1, nz = 
 }
 
 /** Factor de color de una zona a la sombra: oscuro y algo violáceo. */
-const SHADE = new THREE.Color(0.46, 0.38, 0.46);
+const SHADE = new THREE.Color(0.6, 0.5, 0.52);
 export function shadeColor(s: number, c: THREE.Color) {
   if (s <= 0) return;
   c.r *= 1 + (SHADE.r - 1) * s; c.g *= 1 + (SHADE.g - 1) * s; c.b *= 1 + (SHADE.b - 1) * s;

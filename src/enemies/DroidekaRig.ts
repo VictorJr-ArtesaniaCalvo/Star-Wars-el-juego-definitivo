@@ -34,6 +34,17 @@ interface RealModel { bones: ModelBone[]; lods: THREE.BufferGeometry[]; legs: Ar
 let real: RealModel | null = null;
 const DEKA_BRIGHT = 1.0;
 
+/** Esfera que envuelve al droideka desplegado (en medidas del modelo, sin escala): centro (0, y, z) y radio. Sirve para el escudo. */
+export function dekaBounds(geo: THREE.BufferGeometry): { y: number; z: number; r: number } {
+  const p = geo.attributes.position;
+  let y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (let i = 0; i < p.count; i++) { y0 = Math.min(y0, p.getY(i)); y1 = Math.max(y1, p.getY(i)); z0 = Math.min(z0, p.getZ(i)); z1 = Math.max(z1, p.getZ(i)); }
+  const cy = (y0 + y1) / 2, cz = (z0 + z1) / 2;
+  let r = 0;
+  for (let i = 0; i < p.count; i++) r = Math.max(r, Math.hypot(p.getX(i), p.getY(i) - cy, p.getZ(i) - cz));
+  return { y: cy, z: cz, r: r + 0.04 };
+}
+
 /** Descarga y prepara el modelo. Si falla, se usa el droideka de formas sencillas. Hay que llamarlo antes de crear droides. */
 export async function loadDekaModel(url: string): Promise<'archivo' | 'respaldo'> {
   try {

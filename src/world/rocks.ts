@@ -7,13 +7,13 @@ import { METAL_WALL_SPOTS } from './wreckage';
 import { CANYON_HALF_L, CANYON_HALF_W, crashField, floorHalfWidth, makeRng, terrainHeight, WORLD_SEED } from './terrain';
 
 const ROCK = 0x8a4a30;
-const ROCK_DARK = 0x4a3532; // roca oscura, tipo basalto
+const ROCK_DARK = 0x6a4b3c; // roca oscura marrón (se sigue viendo su textura)
 const ROCK_PALE = 0xa98066; // roca clara de arenisca
 const SPIRE = 0x96502f;
 const CAP = 0xa8643c;
 // Capas de roca para mesetas y setas
 const STRATA = [0x9a4a2c, 0xb85c36, 0x7e3a22, 0xc0693c, 0x6e3220];
-const PEBBLES = [0x6e3a26, 0x5a3322, 0x7a4a30, 0x4a3a34, 0x8a5535];
+const PEBBLES = [0x8a5236, 0x6e4630, 0x946040, 0x6a5646, 0xa06a44];
 
 /** Obstáculo del mapa: lo usan los droides para esquivar y para buscar cobertura. */
 export interface Obstacle { x: number; z: number; radius: number; height: number }
@@ -38,6 +38,7 @@ function spireGeometry(radius: number, height: number, seed: number, lean: numbe
     const t = y / height;
     p.setXYZ(i, x + (hash(x, y, z, seed) - 0.5) * k + lean * t * t * height, y, z + (hash(y, z, x, seed + 2) - 0.5) * k);
   }
+  g.userData.cuts = Array.from({ length: beads + 1 }, (_, b) => (b * height) / beads); // alturas de cada anillo (para su cuerpo sólido)
   return g;
 }
 
@@ -83,6 +84,7 @@ function layeredWall(w: number, h: number, seed: number) {
     y += t * 0.82; rx *= 0.72 + rnd() * 0.2; ox += (rnd() - 0.5) * w * 0.12;
   }
   const g = mergeGeometries(parts, false)!;
+  g.userData.parts = parts.map((q) => q.attributes.position.count); // cuántos vértices tiene cada capa
   for (const p of parts) p.dispose();
   return g;
 }
@@ -92,9 +94,25 @@ function boulderGeometry(seed: number) {
   const p = g.attributes.position as THREE.BufferAttribute;
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const k = 0.75 + hash(x, y, z, seed) * 0.45;
-    p.setXYZ(i, x * k, y * k, z * k);
+    // forma erosionada: bultos grandes y pequeños, la base algo más ancha y aplastada y la cima más suave
+    const lump = 1 + 0.1 * Math.sin(x * 2.6 + seed) * Math.sin(z * 2.1 - seed * 0.7) + 0.06 * Math.sin(y * 4.1 + x * 3.3);
+    const k = (0.76 + hash(x, y, z, seed) * 0.4) * lump;
+    const base = y < -0.35 ? 1.08 : 1;
+    p.setXYZ(i, x * k * base, y < -0.55 ? -0.55 * k : y * k, z * k * base);
   }
+  // sombreado suave sin llegar a una bola: la luz mezcla la cara plana (45 %) con la media de las caras vecinas (55 %)
+  g.computeVertexNormals();
+  const n = g.attributes.normal as THREE.BufferAttribute;
+  const sum = new Map<string, THREE.Vector3>();
+  const key = (i: number) => `${Math.round(p.getX(i) * 500)},${Math.round(p.getY(i) * 500)},${Math.round(p.getZ(i) * 500)}`;
+  for (let i = 0; i < p.count; i++) { const k = key(i); (sum.get(k) ?? sum.set(k, new THREE.Vector3()).get(k)!).add(new THREE.Vector3(n.getX(i), n.getY(i), n.getZ(i))); }
+  const v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    const sm = sum.get(key(i))!.clone().normalize();
+    v.set(n.getX(i), n.getY(i), n.getZ(i)).multiplyScalar(0.45).addScaledVector(sm, 0.55).normalize();
+    n.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.userData.keepNormals = true;
   return g;
 }
 
@@ -221,7 +239,7 @@ export function buildRocks(b: Builder) {
     const x = range(-HW - 2, HW + 2), z = range(-HL, HL);
     if (Math.hypot(x + 2.5, z - 3.2) < 3 || crashField(x, z).h < -0.4) continue;
     const sz = range(0.07, 0.24);
-    b.addDecor(new THREE.TetrahedronGeometry(sz), place(x, terrainHeight(x, z) + sz * 0.25, z, range(0, 6.28), range(0, 3), range(0, 3)), PEBBLES[Math.floor(rng() * PEBBLES.length)], range(0.75, 1.15), 1);
+    b.addDecor(new THREE.OctahedronGeometry(sz).scale(1.15, 0.6, 0.95), place(x, terrainHeight(x, z) + sz * 0.25, z, range(0, 6.28), range(0, 3), range(0, 3)), PEBBLES[Math.floor(rng() * PEBBLES.length)], range(0.75, 1.15), 1);
     n++;
   }
 

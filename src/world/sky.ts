@@ -70,7 +70,11 @@ export function buildSky(scene: THREE.Scene) {
   scene.fog = new THREE.Fog(FOG_COLOR, 26, 150);
 
   // luz ambiente fría y apagada (marrón violáceo): es el color de las sombras; el sol, amarillo pálido e intenso, pone el calor
-  scene.add(new THREE.HemisphereLight(0xa8929e, 0x5c4048, 1.45));
+  // cielo azul violáceo arriba y rebote naranja del suelo abajo (esa luz de rebote ilumina las caras en sombra)
+  scene.add(new THREE.HemisphereLight(0xa99bbb, 0xa65e38, 1.5));
+  // luz de relleno desde el lado opuesto al sol: marrón cálida, sin sombras
+  const fill = new THREE.DirectionalLight(0x9a6038, 0.9);
+  scene.add(fill, fill.target);
   const sun = new THREE.DirectionalLight(0xffe9b0, 3.9);
   sun.shadow.mapSize.set(1024, 1024);
   const sc = sun.shadow.camera;
@@ -78,8 +82,10 @@ export function buildSky(scene: THREE.Scene) {
   sc.right = sc.top = 35;
   sc.near = 1;
   sc.far = 160;
-  sun.shadow.bias = -0.0015;
+  // con el sol bajo, un desfase grande separaba las sombras de los objetos: desfase pequeño + desfase en la dirección de la cara
+  sun.shadow.bias = -0.0003;
+  sun.shadow.normalBias = 0.05;
   scene.add(sun, sun.target);
 
-  return { sky, sun, material: mat };
+  return { sky, sun, fill, material: mat };
 }

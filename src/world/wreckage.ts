@@ -5,6 +5,7 @@ import { CRASH, crashField, makeRng, terrainHeight } from './terrain';
 import { laatData } from './laat';
 import { slabRockTexture } from './materials';
 import { bakeSunShadow } from './sunShadow';
+import { withLightFloor } from './lightFill';
 
 // Restos del accidente y cajas de suministros, sin cajas planas de color:
 //  · Trozos del propio casco de la LAAT (alas, cubierta, cofia, panza, costados), cortados del modelo con su misma textura,
@@ -250,7 +251,7 @@ export class Wreckage {
     const free = (x: number, z: number) => Math.hypot(x - SPAWN.x, z - SPAWN.z) > 2.8 && crashField(x, z).h > -1.0;
 
     /** Coloca una copia de la geometría y, si se pide, un cuerpo sólido. */
-    const place = (list: THREE.BufferGeometry[], src: THREE.BufferGeometry, x: number, y: number, z: number, yaw: number, rx: number, rz: number, s: number, solid?: 'hull' | { hx: number; hy: number; hz: number; oy: number }) => {
+    const place = (list: THREE.BufferGeometry[], src: THREE.BufferGeometry, x: number, y: number, z: number, yaw: number, rx: number, rz: number, s: number, solid?: 'hull' | { hx: number; hy: number; hz: number; oy: number; tilt?: number }) => {
       e.set(rx, yaw, rz, 'YXZ');
       q.setFromEuler(e);
       m.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(s, s, s));
@@ -261,8 +262,10 @@ export class Wreckage {
         const desc = rapier.ColliderDesc.convexHull(new Float32Array(g.attributes.position.array));
         if (desc) physics.createCollider(desc);
       } else if (solid) {
-        const c = new THREE.Vector3(0, solid.oy * s, 0).applyQuaternion(q);
-        physics.createCollider(rapier.ColliderDesc.cuboid(solid.hx * s, solid.hy * s, solid.hz * s).setTranslation(x + c.x, y + c.y, z + c.z).setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }));
+        // el muro de chapa está inclinado hacia atrás: el cuerpo sólido se inclina igual (desde su base)
+        const qf = solid.tilt ? q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), solid.tilt)) : q;
+        const c = new THREE.Vector3(0, solid.oy * s, 0).applyQuaternion(qf);
+        physics.createCollider(rapier.ColliderDesc.cuboid(solid.hx * s, solid.hy * s, solid.hz * s).setTranslation(x + c.x, y + c.y, z + c.z).setRotation({ x: qf.x, y: qf.y, z: qf.z, w: qf.w }));
       }
     };
 
@@ -301,7 +304,7 @@ export class Wreckage {
     // --- 3. Coberturas junto a la nave: dos tipos de muro de chapa y cajas de la República (donde estaban las barricadas y las cajas) ---
     const wall = [metalWallGeometry(1, 2.6, 1.2), metalWallGeometry(2, 2.2, 1.2), metalWallGeometry(3, 3.2, 1.3)];
     const wallAt = (gi: number, x: number, z: number, yaw: number, w: number, h: number) =>
-      place(laat, wall[gi], x, terrainHeight(x, z) - 0.05, z, yaw, 0, 0, 1, { hx: w / 2, hy: h / 2, hz: 0.28, oy: h / 2 });
+      place(laat, wall[gi], x, terrainHeight(x, z) - 0.05, z, yaw, 0, 0, 1, { hx: w / 2, hy: h / 2, hz: 0.3, oy: h / 2, tilt: -0.28 });
     wallAt(0, -8.8, -2.9, 0.28, 2.6, 1.2); wallAt(1, 9.8, -2.2, -0.3, 2.2, 1.2); wallAt(2, -10.2, 0.8, 1.15, 3.2, 1.3);
     // Cajas y barriles de la zona del impacto: las de cobertura junto a la nave y otras despedidas por el choque (decoración, algunas volcadas o abiertas).
     // Se juntan primero todas para quitar la mitad (primero las de decoración) y pintar de gris y negro un tercio de las que quedan.
@@ -353,7 +356,7 @@ export class Wreckage {
   diffuseColor.rgb *= mix(1.0, gl * 1.25, 0.55); // mugre y desgaste`);
       };
       mat.customProgramCacheKey = () => 'grunge1';
-      return mat;
+      return withLightFloor(mat);
     })();
     const add = (list: THREE.BufferGeometry[], mat: THREE.Material, cast = true) => {
       if (!list.length) return;
@@ -366,7 +369,7 @@ export class Wreckage {
       scene.add(mesh);
     };
     const d = laatData();
-    const laatMat = new THREE.MeshLambertMaterial({ map: d?.textures[0] ?? null, vertexColors: true, side: THREE.DoubleSide });
+    const laatMat = withLightFloor(new THREE.MeshLambertMaterial({ map: d?.textures[0] ?? null, vertexColors: true, side: THREE.DoubleSide }));
     add(laat, laatMat);
     add(props, grunge);
     void up; void one;

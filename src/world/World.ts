@@ -14,6 +14,8 @@ import { buildTerrain, CRASH, paintRock, terrainHeight, wallDetailOn } from './t
 import { WallBlocks } from './wallBlocks';
 import { Wreckage } from './wreckage';
 import { Landmarks } from './landmarks';
+import { buildContactDecals } from './contact';
+import { setDroidMetal } from '../enemies/droidWear';
 import { buildScorch } from './scorch';
 import { Ledges, Scatter } from './scatter';
 import { QUALITY, type Quality } from '../core/Settings';
@@ -22,6 +24,7 @@ import { QUALITY, type Quality } from '../core/Settings';
 export class World {
   readonly sky: THREE.Mesh;
   private sun: THREE.DirectionalLight;
+  private fill: THREE.DirectionalLight;
   private skyMat: THREE.ShaderMaterial;
   private atmosphere: Atmosphere;
   private skyLife: SkyLife;
@@ -40,7 +43,8 @@ export class World {
   ) {
     const terrain = buildTerrain(scene, rapier, physics);
     buildScorch(scene); // marcas de quemado del accidente sobre el suelo
-    const { sky, sun, material } = buildSky(scene);
+    const { sky, sun, fill, material } = buildSky(scene);
+    this.fill = fill;
     this.sky = sky;
     this.sun = sun;
     this.skyMat = material;
@@ -51,6 +55,7 @@ export class World {
     b.finish(scene);
     this.landmarks = new Landmarks(scene); // castillo geonosiano al norte y nave núcleo separatista al sur (solo para mirar)
     new Wreckage(scene, rapier, physics); // restos de la cañonera, chapas, muros de chapa y cajas de la República
+    buildContactDecals(scene, b.feet); // manchas de contacto bajo rocas, muros y cajas
     paintRock(terrain, b.spots); // el suelo se vuelve rocoso alrededor de las coberturas
     this.scatter = new Scatter(scene, b.spots); // lajas de piedra y piedrecitas (calidad media y alta)
     this.ledges = new Ledges(scene, rapier, physics); // repisas de roca en capas (calidad media y alta)
@@ -78,6 +83,7 @@ export class World {
     this.ledges.setQuality(q);
     this.wallBlocks?.setQuality(q);
     this.landmarks.setQuality(q);
+    setDroidMetal(q !== 'low'); // brillo metálico de los droides (en baja, mate)
     setWorldBump(q !== 'low');
     setWorldRich(q !== 'low'); // suelo de arena roja y roca en lajas (en baja se queda el de siempre) // el relieve de las texturas se apaga en calidad baja
   }
@@ -99,5 +105,7 @@ export class World {
     this.scatter.follow(p);
     this.sun.target.position.copy(p);
     this.sun.position.copy(p).addScaledVector(SUN_DIR, 80);
+    this.fill.target.position.copy(p);
+    this.fill.position.set(p.x - SUN_DIR.x * 80, p.y + 18, p.z - SUN_DIR.z * 80); // desde el lado opuesto al sol, algo elevada
   }
 }

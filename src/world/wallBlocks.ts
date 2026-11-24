@@ -13,37 +13,38 @@ const PALETTE = [0x9a4a2c, 0xb85c36, 0x7e3a22, 0xc0693c, 0xa85a34].map((c) => ne
 
 function hash(n: number) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
 
-/** Tortita de roca de 1 de radio y 1 de alto (luego se escala): base algo más estrecha, panza en medio y cima plana y facetada. Con la parte de abajo más oscura. */
+/** Capa de roca de 1 de radio y 1 de alto (luego se escala): la parte de abajo metida hacia dentro, la panza ancha en medio y la cima redondeada, con bordes erosionados. Más oscura abajo. */
 function pancakeGeometry(seed: number): THREE.BufferGeometry {
   const rnd = (() => { let k = seed * 977; return () => hash(k++); })();
-  const n = 10 + Math.floor(rnd() * 4);
-  const bulge = 0.08 + rnd() * 0.12;
-  const rings: Array<Array<THREE.Vector3>> = [[], [], []];
-  const ys = [0, 0.45 + rnd() * 0.15, 1];
-  const rad = [0.86, 1 + bulge, 0.8 + rnd() * 0.1];
+  const n = 11 + Math.floor(rnd() * 4);
+  const bulge = 0.1 + rnd() * 0.14;
+  const ys = [0, 0.28, 0.68, 1];
+  const rad = [0.55 + rnd() * 0.08, 1 + bulge, 0.98 + bulge * 0.5, 0.7 + rnd() * 0.1];
+  const SH = [0.42, 0.9, 1.05, 1.12]; // más oscuro abajo (oclusión), más claro arriba
+  const rings: THREE.Vector3[][] = ys.map(() => []);
   for (let i = 0; i < n; i++) {
     const a = ((i + (rnd() - 0.5) * 0.4) / n) * Math.PI * 2;
-    const k = 0.75 + rnd() * 0.4;
-    for (let r = 0; r < 3; r++) {
-      const kk = k * (1 + (rnd() - 0.5) * 0.18);
-      rings[r].push(new THREE.Vector3(Math.cos(a) * rad[r] * kk, ys[r] + (rnd() - 0.5) * 0.06, Math.sin(a) * rad[r] * kk));
+    const k = 0.74 + rnd() * 0.42; // contorno irregular
+    for (let r = 0; r < ys.length; r++) {
+      const kk = k * (1 + (rnd() - 0.5) * 0.24); // erosión: cada anillo se come un poco distinto
+      rings[r].push(new THREE.Vector3(Math.cos(a) * rad[r] * kk, ys[r] + (rnd() - 0.5) * 0.05, Math.sin(a) * rad[r] * kk));
     }
   }
-  const top = new THREE.Vector3((rnd() - 0.5) * 0.2, 1.06 + rnd() * 0.08, (rnd() - 0.5) * 0.2);
+  const top = new THREE.Vector3((rnd() - 0.5) * 0.2, 1.05 + rnd() * 0.06, (rnd() - 0.5) * 0.2);
   const bot = new THREE.Vector3(0, -0.02, 0);
   const P: number[] = [], C: number[] = [];
   const tri = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3, ca: number, cb: number, cc: number) => {
     P.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z); C.push(ca, ca, ca, cb, cb, cb, cc, cc, cc);
   };
-  const SH = [0.5, 0.9, 1.1]; // más oscuro abajo (oclusión), más claro arriba
+  const L = ys.length - 1;
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    tri(top, rings[2][j], rings[2][i], 1.15, SH[2], SH[2]); // cima (hacia arriba)
-    for (let r = 0; r < 2; r++) {
+    tri(top, rings[L][j], rings[L][i], 1.15, SH[L], SH[L]); // cima (hacia arriba)
+    for (let r = 0; r < L; r++) {
       const A = rings[r][i], B = rings[r][j], A2 = rings[r + 1][i], B2 = rings[r + 1][j];
       tri(A, B, B2, SH[r], SH[r], SH[r + 1]); tri(A, B2, A2, SH[r], SH[r + 1], SH[r + 1]);
     }
-    tri(bot, rings[0][i], rings[0][j], 0.35, SH[0] * 0.8, SH[0] * 0.8); // panza (abajo: muy oscura)
+    tri(bot, rings[0][i], rings[0][j], 0.3, SH[0] * 0.8, SH[0] * 0.8); // panza metida (abajo: muy oscura)
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
@@ -128,7 +129,7 @@ export class WallBlocks {
           const y = T * (FR[k] + range(-0.03, 0.03)) + 2;
           // las capas altas sobresalen más (voladizo); las bajas quedan casi a ras o metidas en la pared
           const protrude = -0.6 + k * 0.9 + range(-0.5, 1.4);
-          const w = range(12, 18), d = range(8, 13), t = range(2.4, 4);
+          const w = range(11, 16), d = range(8, 12), t = range(3.8, 5.8); // capas gruesas, no tablas
           const sx = surface(side, zz, y);
           const outer = sx - protrude;
           const v = Math.floor(rng() * 4);

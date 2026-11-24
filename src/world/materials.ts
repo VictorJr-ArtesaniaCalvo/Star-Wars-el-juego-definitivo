@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeRng } from './terrain';
+import { withLightFloor } from './lightFill';
 
 // Texturas de Geonosis y el material que las aplica en el espacio del mundo («triplanar»): el suelo usa la tierra,
 // las paredes y las rocas la arenisca. Son fotos reales (Poly Haven y OpenGameArt, CC0, ver assets/CREDITOS.md) ya preparadas
@@ -280,13 +281,16 @@ vec4 aperiodic(sampler2D t, vec2 p, float s, out vec2 n) {
       .replace('#include <map_fragment>', `
   vec3 wn = normalize(vWNor);
   vec3 an = abs(wn);
-  vec3 tw = uRich > 0.5 ? pow(an, vec3(10.0)) : an * an; // en el suelo rico la proyección se decide con más firmeza (así no se estira en las cuestas)
-  float steep = ${o.rockOnly ? '1.0' : 'smoothstep(0.5, 0.82, 1.0 - an.y)'};
+  // las pendientes del terreno se proyectan según la cara real del triángulo (no la normal interpolada): así la pared no se estira en vertical
+  vec3 fn = abs(normalize(cross(dFdx(vWPos), dFdy(vWPos))));
+  vec3 tw = uRich > 0.5 ? pow(${o.terrainRock ? 'fn' : 'an'}, vec3(10.0)) : ${o.terrainRock ? 'fn * fn' : 'an * an'}; // en el suelo rico la proyección se decide con más firmeza (así no se estira en las cuestas)
+  float ay = ${o.terrainRock ? 'fn.y' : 'an.y'}; // inclinación de la cara real en el terreno (la interpolada mezclaría tierra estirada en las paredes)
+  float steep = ${o.rockOnly ? '1.0' : 'smoothstep(0.5, 0.82, 1.0 - ay)'};
   // suelo: tierra con grava (relieve y brillo en una sola imagen), una pasada grande para romper la repetición y parches de lajas, barro y arena
   vec4 g1 = texture2D(groundMap, vWPos.xz * ${gs.toFixed(4)});
   vec4 g2 = texture2D(groundMap, vWPos.xz * ${(gs * 0.09).toFixed(4)} + vec2(0.37, 0.61));
   vec2 gx = texture2D(groundXMap, vWPos.xz * ${(gs * 0.45).toFixed(4)}).rg;
-  float flatG = smoothstep(0.9, 0.97, an.y);
+  float flatG = smoothstep(0.9, 0.97, ay);
   float gl; vec3 groundTex; vec2 gnv;
   if (uRich > 0.5) {
     // --- suelo rico: arena roja de base, que pasa a roca en lajas cerca de las paredes, en pendientes y junto a las coberturas ---
@@ -294,7 +298,7 @@ vec4 aperiodic(sampler2D t, vec2 p, float s, out vec2 n) {
     float wallM = 0.0; // (la cercanía a las paredes llega ya calculada en vRock)
     float patchM = smoothstep(0.44, 0.56, vnoise(P * 0.028 + vec2(3.7, 9.1)));
     float pathM = 1.0 - smoothstep(0.0, 0.05, abs(vnoise(P * 0.014 + vec2(5.0, 1.0)) - 0.5)); // caminos de arena
-    float steepG = 1.0 - smoothstep(0.88, 0.97, an.y);
+    float steepG = 1.0 - smoothstep(0.88, 0.97, ay);
     float rockM = clamp(wallM * 0.85 + patchM * 0.65 + vRock * 0.9 + steepG, 0.0, 1.0);
     rockM *= 1.0 - 0.85 * pathM * (1.0 - vRock);
     rockM = smoothstep(0.25, 0.75, rockM + (vnoise(P * 0.35) - 0.5) * 0.35); // borde irregular
@@ -364,5 +368,5 @@ ${sp ? '  }' : ''}
   normal = normalize(normal + (viewMatrix * vec4(gBump, 0.0)).xyz);`);
   };
   mat.customProgramCacheKey = () => 'worldtex5-' + (o.rockOnly ? 'rock' : 'terrain') + (pits ? 'p' : '') + (o.terrainRock ? 'r' : '') + (sp ? 's' : '');
-  return mat;
+  return withLightFloor(mat);
 }
