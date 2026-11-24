@@ -169,7 +169,8 @@ body.gamepad #touch { display: none; }
   background: rgba(26,13,8,.62); padding: 12px;
   padding-left: calc(12px + env(safe-area-inset-left)); padding-right: calc(12px + env(safe-area-inset-right));
 }
-.panel { width: min(440px, 100%); max-height: 100%; overflow: auto; text-align: center; }
+/* el menú solo se desliza hacia arriba y abajo (nunca hacia los lados) y es más ancho: así no se cortan las etiquetas ni los controles al borde */
+.panel { width: min(580px, 100%); max-height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 0 16px; text-align: center; }
 h1 { margin: 0; font-size: 40px; letter-spacing: 10px; color: #ffcf9a; }
 h2 { margin: 2px 0 14px; font-size: 14px; letter-spacing: 6px; font-weight: 400; color: #ffe8d0; }
 button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
@@ -179,7 +180,8 @@ button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 }
 #settings { margin-top: 14px; text-align: left; font-size: 14px; }
 #settings label { display: block; margin-bottom: 10px; }
-#settings input[type=range] { width: 100%; margin-top: 6px; accent-color: #ffb060; touch-action: pan-x; }
+#settings input[type=range] { width: 100%; max-width: 100%; margin: 6px 0 0; accent-color: #ffb060; touch-action: pan-x; }
+#settings label { overflow: hidden; }
 #sensVal, #volVal { float: right; color: #ffcf9a; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .seg { display: flex; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; overflow: hidden; }

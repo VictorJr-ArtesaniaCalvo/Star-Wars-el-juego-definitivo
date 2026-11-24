@@ -22,6 +22,10 @@ export class Touch implements InputSource {
   private grenade = false;
   private firing = false;
   private firingHip = false;
+  /** Dos toques seguidos en la zona del joystick: sigue avanzando solo hacia delante (hasta que se toque otra vez o se mueva el joystick). */
+  private autoForward = false;
+  private lastJoyTap = 0;
+  private autoHold = false; // el dedo del segundo toque sigue puesto: sus pequeños movimientos no cancelan el avance
   /** true cuando se ha tocado la pantalla hace poco (para saber qué control se está usando) */
   used = false;
 
@@ -43,6 +47,8 @@ export class Touch implements InputSource {
       fadeTime: 100,
     });
     joy.on('move', (evt) => {
+      if (this.autoHold) return;
+      this.autoForward = false; // mover el joystick a mano retoma el control normal
       const v = evt.data.vector;
       const f = Math.min(1, evt.data.force);
       const len = Math.hypot(v.x, v.y) || 1;
@@ -50,7 +56,14 @@ export class Touch implements InputSource {
       this.mz = (v.y / len) * f;
       this.used = true;
     });
-    joy.on('end', () => { this.mx = this.mz = 0; });
+    joy.on('end', () => { this.autoHold = false; if (!this.autoForward) this.mx = this.mz = 0; });
+    // Doble toque en la zona del joystick: avanzar solo hacia delante. Un toque nuevo (para mover el joystick) lo detiene.
+    joyZone.addEventListener('touchstart', () => {
+      const now = performance.now();
+      if (this.autoForward) { this.autoForward = false; this.mx = this.mz = 0; this.lastJoyTap = 0; return; }
+      if (now - this.lastJoyTap < 320) { this.autoForward = true; this.autoHold = true; this.mx = 0; this.mz = 1; this.lastJoyTap = 0; this.used = true; }
+      else this.lastJoyTap = now;
+    }, { passive: true });
 
     const opts = { passive: false } as const;
     // Los botones de disparo también sirven para mover la mira: se puede disparar y deslizar con el mismo dedo.
@@ -126,6 +139,7 @@ export class Touch implements InputSource {
   }
 
   reset() {
+    this.autoForward = false; this.autoHold = false;
     this.mx = this.mz = this.dx = this.dy = 0;
     this.lookId = this.mainId = this.hipId = null;
     this.firing = this.firingHip = false;
