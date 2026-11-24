@@ -13,6 +13,7 @@ import { SkyLife } from './skyLife';
 import { buildTerrain, CRASH, paintRock, terrainHeight, wallDetailOn } from './terrain';
 import { WallBlocks } from './wallBlocks';
 import { Wreckage } from './wreckage';
+import { Landmarks } from './landmarks';
 import { buildScorch } from './scorch';
 import { Ledges, Scatter } from './scatter';
 import { QUALITY, type Quality } from '../core/Settings';
@@ -28,8 +29,8 @@ export class World {
   private scatter: Scatter;
   private ledges: Ledges;
   private wallBlocks: WallBlocks | null = null;
+  private landmarks: Landmarks;
   private time = 0;
-  private baseFar = 0;
 
   constructor(
     private scene: THREE.Scene,
@@ -48,6 +49,7 @@ export class World {
     buildDefenseZone(b);
     buildDroidWreck(b);
     b.finish(scene);
+    this.landmarks = new Landmarks(scene); // castillo geonosiano al norte y nave núcleo separatista al sur (solo para mirar)
     new Wreckage(scene, rapier, physics); // restos de la cañonera, chapas, muros de chapa y cajas de la República
     paintRock(terrain, b.spots); // el suelo se vuelve rocoso alrededor de las coberturas
     this.scatter = new Scatter(scene, b.spots); // lajas de piedra y piedrecitas (calidad media y alta)
@@ -70,12 +72,12 @@ export class World {
       this.sun.shadow.map?.dispose();
       (this.sun.shadow as unknown as { map: unknown }).map = null;
     }
-    (this.scene.fog as THREE.Fog).far = this.baseFar = cfg.viewDistance;
-    this.atmosphere.gustDustOn = q !== 'low';
+    (this.scene.fog as THREE.Fog).far = cfg.viewDistance;
     this.crashFx?.setQuality(q);
     this.scatter.setQuality(q);
     this.ledges.setQuality(q);
     this.wallBlocks?.setQuality(q);
+    this.landmarks.setQuality(q);
     setWorldBump(q !== 'low');
     setWorldRich(q !== 'low'); // suelo de arena roja y roca en lajas (en baja se queda el de siempre) // el relieve de las texturas se apaga en calidad baja
   }
@@ -87,8 +89,7 @@ export class World {
     this.atmosphere.tick(dt);
     this.skyLife.update(dt);
     this.crashFx?.tick(dt);
-    // en las ráfagas la niebla de arena se cierra un poco
-    if (this.baseFar > 0) (this.scene.fog as THREE.Fog).far = this.baseFar * (1 - 0.3 * this.atmosphere.gust);
+    this.landmarks.update(dt);
   }
 
   /** El cielo y la luz del sol acompañan al jugador. */

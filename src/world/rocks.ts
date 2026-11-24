@@ -127,7 +127,9 @@ export function buildRocks(b: Builder) {
       const floor = onFloor(x + ox, z + oz);
       const lean = range(-0.12, 0.12), turn = range(0, 6.28), shade = range(0.8, 1.1);
       // se quita una de cada dos agujas (repartidas por todo el mapa); se sigue gastando la misma cantidad de azar para que el resto del escenario no cambie
-      if (spireCount++ % 2 === 1 || omit) { seed++; continue; }
+      // se quita una de cada dos y, de las que quedan, una de cada seis (repartidas por todo el mapa)
+      const n = spireCount++;
+      if (n % 2 === 1 || omit || (n >> 1) % 6 === 5) { seed++; continue; }
       if (floor) OBSTACLES.push({ x: x + ox, z: z + oz, radius: r * 0.9, height: h });
       b.addHull(spireGeometry(r, h, seed++, lean, floor), place(x + ox, y, z + oz, turn), SPIRE, shade, floor, true);
     }
