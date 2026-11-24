@@ -1,0 +1,15 @@
+Arid ground textures
+Autor: pansapiens (https://opengameart.org/users/pansapiens)
+Web:   https://opengameart.org/content/arid-ground-textures
+Licencia: CC0 1.0 (dominio público) - https://creativecommons.org/publicdomain/zero/1.0/
+
+Fotos de tierra roja, grava y arena hechas cerca del Museo Nacional de Australia (Canberra),
+recortadas para que se repitan sin costuras. Los mapas de relieve (normal maps) son sintéticos,
+generados por el autor con el plugin Insane Bump de GIMP.
+
+Aquí solo se guardan las de tierra roja (red_earth_01 a 07) y arena (sand_01 a 04).
+Se han omitido las de maleza (weeds_*) y las de tierra con ramas secas (red_earth_weeds_*).
+Cambios hechos al descargarlas: se han convertido de PNG a JPG (calidad 88) para que ocupen
+unas 10 veces menos, y se ofrecen a tamaño completo (2k, el original de 2048 px; sand_04 es de 1836 px)
+y reducidas a 1024 px (1k). Los mapas de relieve de sand_02 y sand_04 no existen en el pack original
+(el autor los quitó por límite de tamaño).
