@@ -1,0 +1,11 @@
+Model Information:
+* title:	E-5 Blaster Rifle
+* source:	https://sketchfab.com/3d-models/e-5-blaster-rifle-8fc1a356986140b38f4df49a2e21d079
+* author:	A308 Digital (https://sketchfab.com/A308)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "E-5 Blaster Rifle" (https://sketchfab.com/3d-models/e-5-blaster-rifle-8fc1a356986140b38f4df49a2e21d079) by A308 Digital (https://sketchfab.com/A308) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

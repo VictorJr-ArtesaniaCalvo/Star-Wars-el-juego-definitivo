@@ -87,8 +87,9 @@ El B1 usa un modelo 3D real (`public/models/b1.bin` + `b1-atlas.jpg`) con dos ni
 Se genera desde el OBJ original con `node tools/convert-b1.mjs <B1DROID.obj> public/models/b1.bin <carpeta-de-texturas-jpg>` (necesita `npm install`; el OBJ original no está en el repositorio).
 Se tienen 31 de las ~40 texturas pintadas, reunidas en un atlas de 2048×2048 que solo se usa en el nivel de detalle cercano (de lejos, color arena por vértice). Faltan las del brazo superior (`B1 arm.L`) y los tubos del hombro (`arm_rotat.L/R`), que van en color arena, y el rifle va en gris metálico por vértice. Cada textura se asigna por *material* del modelo en la tabla `TEXTURED` de `tools/convert-b1.mjs` (las dudosas están marcadas con `?`).
 
-## Modelos del B2 y de la cañonera
+## Modelos del B2, de la cañonera y del bláster
 
 - **B2** (`public/models/b2.bin` + `b2-atlas.jpg`): modelo de zakeriiino (CC-BY 4.0) con esqueleto de 14 huesos y dos niveles de detalle. Se genera con `node tools/convert-b2.mjs <scene.gltf> <carpeta-de-texturas>`.
+- **Bláster del jugador** (`public/models/blaster.bin` + `blaster-color.jpg`): «E-5 Blaster Rifle» de A308 Digital (CC-BY 4.0), ~4.900 triángulos, con textura (`src/weapons/ViewModel.ts`). Se genera con `node tools/convert-blaster.mjs <scene.gltf> <textura-horneada.jpg>` (la cabecera de la herramienta explica cómo se hornea la textura). Si el archivo falta, el juego usa un arma de cajas.
 - **Cañonera LAAT derribada** (`public/models/laat.bin` + `laat-*.jpg`): modelo de Mind Mulch for The Masses (CC-BY 4.0), inclinada y hundida en la arena, con un ala arrancada tirada a la derecha como cobertura, hollín, humo continuo de los motores, chispas y pequeños fuegos (`src/world/laat.ts`, `src/world/crashFx.ts`). Se genera con `node tools/convert-laat.mjs <scene.gltf> <carpeta-de-texturas>`. Si el archivo falta, el juego usa la cañonera de formas sencillas.
 - Los autores están citados en la **pantalla de créditos** del juego (menú → «Créditos y agradecimientos») y en `CRÉDITOS.md`.

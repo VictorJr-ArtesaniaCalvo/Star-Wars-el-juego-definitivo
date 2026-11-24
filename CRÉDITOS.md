@@ -30,6 +30,13 @@ Cambios hechos para el juego (herramienta `tools/convert-b2.mjs`): se ha enderez
 se ha dividido en huesos para animarlo, se ha simplificado de ~49.000 a ~9.000 triángulos (y ~3.400 a distancia) y las texturas del autor se han reunido
 en una sola imagen (atlas) de menor tamaño. No se usan los mapas de relieve. El personaje es propiedad de Lucasfilm Ltd. / Disney.
 
+**Bláster del jugador** (`public/models/blaster.bin` y `public/models/blaster-color.jpg`): este trabajo se basa en
+«[E-5 Blaster Rifle](https://sketchfab.com/3d-models/e-5-blaster-rifle-8fc1a356986140b38f4df49a2e21d079)»
+de [A308 Digital](https://sketchfab.com/A308), con licencia
+[CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/) (hay que citar al autor; se permite el uso comercial; ver `public/models/LICENCIA-BLASTER.txt`).
+Cambios hechos para el juego (herramienta `tools/convert-blaster.mjs`): se ha girado y escalado para verlo en primera persona (~4.900 triángulos, sin simplificar) y la
+textura de color del autor se ha combinado con su mapa de oclusión en una sola imagen de 1024×1024. No se usa el mapa de relieve (viene plano). El arma es propiedad de Lucasfilm Ltd. / Disney.
+
 ## Sonido
 - **Ambiente y granadas:** sintetizados por código (originales).
 - **Disparos de los droides B1 y B2** (`public/audio/b1-1.mp3` a `b1-4.mp3`, y `b1-load.mp3` para el «cargar el arma» cuando aparecen) y
