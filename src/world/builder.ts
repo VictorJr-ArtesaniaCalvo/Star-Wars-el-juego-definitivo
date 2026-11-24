@@ -22,13 +22,14 @@ export class Builder {
   }
 
   /** Pieza con forma libre (rocas). Su parte sólida es su envolvente. */
-  addHull(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, color: number, shade = 1) {
+  addHull(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, color: number, shade = 1, solid = true) {
     const g = geo.index ? geo.toNonIndexed() : geo;
     g.applyMatrix4(matrix);
     g.computeVertexNormals();
     g.deleteAttribute('uv');
     this.paint(g, color, shade);
     this.geos.push(g);
+    if (!solid) return; // piezas inalcanzables (el borde del cañón) no necesitan cuerpo sólido
     const desc = this.rapier.ColliderDesc.convexHull(new Float32Array(g.attributes.position.array));
     if (desc) this.physics.createCollider(desc);
   }

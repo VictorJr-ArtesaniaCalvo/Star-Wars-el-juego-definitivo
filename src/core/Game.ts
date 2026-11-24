@@ -396,8 +396,8 @@ export class Game {
   }
 
   /** Solo para pruebas: avanza la simulación unos segundos de golpe, sin dibujar (jugador quieto). */
-  debugSim(seconds: number, crouch = false) {
-    const cmd: InputCommand = { moveX: 0, moveZ: 0, yaw: this.yaw, pitch: this.pitch, crouch, fire: false };
+  debugSim(seconds: number, crouch = false, moveX = 0, moveZ = 0) {
+    const cmd: InputCommand = { moveX, moveZ, yaw: this.yaw, pitch: this.pitch, crouch, fire: false };
     const t0 = performance.now();
     let n = 0;
     for (; n < Math.round(seconds / TICK) && this.mode === 'playing'; n++) {

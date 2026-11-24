@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Builder, place } from './builder';
-import { makeRng, terrainHeight, WORLD_SEED } from './terrain';
+import { CANYON_HALF_L, CANYON_HALF_W, crashField, makeRng, terrainHeight, WORLD_SEED } from './terrain';
 
 const ROCK = 0x8f4a2e;
 const SPIRE = 0xa2552f;
@@ -47,12 +47,18 @@ function boulderGeometry(seed: number) {
   return g;
 }
 
+/** ¿Está dentro del suelo del cañón (donde se puede caminar)? */
+const onFloor = (x: number, z: number) => Math.abs(x) < CANYON_HALF_W - 1 && Math.abs(z) < CANYON_HALF_L - 1;
+
 export function buildRocks(b: Builder) {
   OBSTACLES.length = 0;
   const rng = makeRng(WORLD_SEED);
   const range = (a: number, c: number) => a + rng() * (c - a);
   let seed = 1;
+  const HW = CANYON_HALF_W - 4; // las piezas del suelo se reparten por todo el ancho del cañón
+  const HL = CANYON_HALF_L - 4;
 
+  /** Grupo de agujas. En el suelo del cañón sirven de cobertura; en el borde son solo decorado. */
   const spireCluster = (x: number, z: number, big: number) => {
     const n = 1 + Math.floor(rng() * 3);
     for (let i = 0; i < n; i++) {
@@ -62,62 +68,72 @@ export function buildRocks(b: Builder) {
       const ox = main ? 0 : range(-1, 1) * 5 * big;
       const oz = main ? 0 : range(-1, 1) * 5 * big;
       const y = terrainHeight(x + ox, z + oz) - 1.5;
-      OBSTACLES.push({ x: x + ox, z: z + oz, radius: r * 0.9, height: h });
-      b.addHull(spireGeometry(r, h, seed++, range(-0.12, 0.12)), place(x + ox, y, z + oz, range(0, 6.28)), SPIRE, range(0.8, 1.1));
+      const floor = onFloor(x + ox, z + oz);
+      if (floor) OBSTACLES.push({ x: x + ox, z: z + oz, radius: r * 0.9, height: h });
+      b.addHull(spireGeometry(r, h, seed++, range(-0.12, 0.12)), place(x + ox, y, z + oz, range(0, 6.28)), SPIRE, range(0.8, 1.1), floor);
     }
   };
 
   const boulder = (x: number, z: number, r: number) => {
     const s = new THREE.Vector3(r * range(0.8, 1.3), r * range(0.55, 0.9), r * range(0.8, 1.3));
-    OBSTACLES.push({ x, z, radius: Math.max(s.x, s.z) * 0.95, height: s.y * 1.6 });
-    b.addHull(boulderGeometry(seed++), place(x, terrainHeight(x, z) + s.y * 0.3, z, range(0, 6.28), 0, 0, s), ROCK, range(0.75, 1.1));
+    const floor = onFloor(x, z);
+    if (floor) OBSTACLES.push({ x, z, radius: Math.max(s.x, s.z) * 0.95, height: s.y * 1.6 });
+    b.addHull(boulderGeometry(seed++), place(x, terrainHeight(x, z) + s.y * 0.3, z, range(0, 6.28), 0, 0, s), ROCK, range(0.75, 1.1), floor);
   };
 
-  // --- Zona enemiga (delante, hacia -Z): muchos obstáculos para que no haya línea de tiro limpia ---
-  for (let i = 0; i < 100; i++) {
-    const x = range(-78, 78), z = range(-108, -13);
-    if (Math.hypot(x, z) < 14) continue;
+  // Sitios libres: ni la zona de defensa ni el cráter ni el surco de la nave.
+  const clear = (x: number, z: number) => Math.hypot(x + 2.5, z - 3.2) > 15 && crashField(x, z).h > -0.25;
+
+  // --- Suelo del cañón: delante y detrás por igual, para que no haya línea de tiro limpia ---
+  for (let n = 0; n < 130; ) {
+    const x = range(-HW, HW), z = range(-HL, HL);
+    if (!clear(x, z)) continue;
     boulder(x, z, range(0.8, 2.3));
+    n++;
   }
-  for (let i = 0; i < 20; i++) {
-    const x = range(-82, 82), z = range(-110, -24);
-    spireCluster(x, z, 1);
+  for (let n = 0; n < 16; ) {
+    const x = range(-HW, HW), z = range(-HL, HL);
+    if (Math.abs(z) < 24 || !clear(x, z)) continue;
+    spireCluster(x, z, range(0.55, 0.8));
+    n++;
   }
   // Muros en ruinas
-  for (let i = 0; i < 26; i++) {
-    const x = range(-65, 65), z = range(-95, -17);
+  for (let n = 0; n < 30; ) {
+    const x = range(-HW, HW), z = range(-HL, HL);
+    if (!clear(x, z) || Math.hypot(x, z) < 19) continue;
     const w = range(3, 6.5), h = range(1.3, 2.3);
-    OBSTACLES.push({ x, z, radius: w * 0.5, height: h });
     b.addBox([w, h, 0.6], place(x, terrainHeight(x, z) + h / 2 - 0.35, z, range(-0.6, 0.6), 0, range(-0.06, 0.06)), RUIN);
+    OBSTACLES.push({ x, z, radius: w * 0.5, height: h });
     if (rng() < 0.5) {
-      // tramo caído al lado
       const x2 = x + w / 2 + 1.2, z2 = z + range(-1, 1);
-      b.addBox([range(1.2, 2.2), 0.6, 1], place(x2, terrainHeight(x2, z2) + 0.15, z2, range(0, 3), 0, range(-0.2, 0.2)), RUIN);
+      if (onFloor(x2, z2)) b.addBox([range(1.2, 2.2), 0.6, 1], place(x2, terrainHeight(x2, z2) + 0.15, z2, range(0, 3), 0, range(-0.2, 0.2)), RUIN);
     }
+    n++;
   }
   // Restos metálicos
-  for (let i = 0; i < 18; i++) {
-    const x = range(-60, 60), z = range(-85, -16);
+  for (let n = 0; n < 24; ) {
+    const x = range(-HW, HW), z = range(-HL, HL);
+    if (!clear(x, z) || Math.hypot(x, z) < 17) continue;
     const sx = range(1, 2.6), sy = range(0.8, 1.6), sz = range(0.8, 1.8);
-    OBSTACLES.push({ x, z, radius: Math.max(sx, sz) * 0.6, height: sy });
     b.addBox([sx, sy, sz], place(x, terrainHeight(x, z) + sy * 0.3, z, range(0, 6.28), range(-0.3, 0.3), range(-0.3, 0.3)), METAL);
+    OBSTACLES.push({ x, z, radius: Math.max(sx, sz) * 0.6, height: sy });
+    n++;
   }
 
-  // --- Laterales y retaguardia: algunas formaciones para que no quede vacío ---
-  for (let i = 0; i < 14; i++) {
-    const a = range(-0.25, Math.PI + 0.25); // semicírculo de detrás y lados
-    const d = range(32, 95);
-    spireCluster(Math.cos(a) * d, Math.sin(a) * d, 1);
-  }
-  for (let i = 0; i < 22; i++) {
-    const a = range(0, Math.PI), d = range(18, 90);
-    boulder(Math.cos(a) * d, Math.sin(a) * d, range(0.8, 2));
+  // --- Pie de las paredes: rocas caídas ---
+  for (let i = 0; i < 40; i++) {
+    const side = rng() < 0.5 ? -1 : 1;
+    boulder(side * range(CANYON_HALF_W - 5, CANYON_HALF_W + 1.5), range(-HL, HL), range(1, 2.8));
   }
 
-  // --- Borde del mapa: muralla de agujas enormes ---
-  for (let i = 0; i < 30; i++) {
-    const a = (i / 30) * Math.PI * 2 + range(-0.06, 0.06);
-    const d = range(110, 124);
-    spireCluster(Math.cos(a) * d, Math.sin(a) * d, range(1.4, 2));
+  // --- Borde del cañón: agujas altas que se recortan contra el cielo (solo decorado) ---
+  for (let i = 0; i < 44; i++) {
+    const side = rng() < 0.5 ? -1 : 1;
+    spireCluster(side * range(CANYON_HALF_W + 8, CANYON_HALF_W + 34), range(-130, 130), range(1.1, 1.7));
+  }
+  // Extremos del cañón
+  for (let i = 0; i < 18; i++) {
+    const side = rng() < 0.5 ? -1 : 1;
+    spireCluster(range(-70, 70), side * range(CANYON_HALF_L + 8, CANYON_HALF_L + 32), range(1.1, 1.7));
   }
 }

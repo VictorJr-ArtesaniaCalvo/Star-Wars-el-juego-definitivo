@@ -8,6 +8,7 @@ Proyecto personal y experimental.
 - **Fase 1 (hecha):** moverse en primera persona, agacharse, escenario y zona de defensa con coberturas.
 - **Fase 2 (hecha):** bláster con sobrecalentamiento, droide B1 de prueba y ayuda al apuntar.
 - **Fase 3 (hecha):** oleadas de droides B1 que avanzan usando las rocas como cobertura y disparan; vida, ronda, fin de partida y menú oculto de pruebas.
+- Escenario: cañón de 80 m de ancho con paredes en terrazas, nave estrellada en un cráter y droides que llegan por los dos extremos.
 - Fase 4: granadas. · Fase 5: más enemigos. · Fase 6: mejoras visuales y sonido.
 
 ## Controles

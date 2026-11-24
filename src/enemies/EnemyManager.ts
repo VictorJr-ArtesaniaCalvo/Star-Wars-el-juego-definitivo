@@ -79,17 +79,15 @@ export class EnemyManager {
     return !blocked;
   }
 
-  /** Hace aparecer un droide en la zona enemiga. Devuelve null si ya hay el máximo. */
-  spawn(params: BrainParams): Droid | null {
+  /** Hace aparecer un droide en uno de los dos extremos del cañón (`rear` = por detrás de ti). Devuelve null si ya hay el máximo. */
+  spawn(params: BrainParams, rear: boolean): Droid | null {
     const d = this.droids.find((x) => !x.state.active);
     if (!d) return null;
-    let x = 0, z = -65;
+    let x = 0, z = rear ? 65 : -65;
     for (let i = 0; i < 12; i++) {
-      // Un arco delante del jugador, lejos.
-      const a = (Math.random() * 2 - 1) * 1.05;
-      const r = 62 + Math.random() * 20;
-      x = Math.sin(a) * r;
-      z = -Math.cos(a) * r;
+      // Lejos, en el extremo del cañón, repartidos a lo ancho.
+      x = (Math.random() * 2 - 1) * 32;
+      z = (rear ? 1 : -1) * (60 + Math.random() * 28);
       if (this.free(x, z)) break;
     }
     d.activate(x, z, B1_HEALTH, params, this.ctx);

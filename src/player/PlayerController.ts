@@ -1,6 +1,6 @@
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { InputCommand, PlayerState } from '../sim/types';
-import { PLAY_RADIUS, terrainHeight } from '../world/terrain';
+import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from '../world/terrain';
 
 const RADIUS = 0.35;
 const HALF_STAND = 0.55; // altura total de pie: 1,80 m
@@ -95,8 +95,8 @@ export class PlayerController {
     let nx = t.x + m.x, ny = t.y + m.y, nz = t.z + m.z;
 
     // Límite del mapa.
-    const d = Math.hypot(nx, nz);
-    if (d > PLAY_RADIUS) { nx *= PLAY_RADIUS / d; nz *= PLAY_RADIUS / d; }
+    nx = Math.max(-CANYON_HALF_W, Math.min(CANYON_HALF_W, nx));
+    nz = Math.max(-CANYON_HALF_L, Math.min(CANYON_HALF_L, nz));
     // Red de seguridad: nunca por debajo del suelo.
     const floor = terrainHeight(nx, nz) + this.half + RADIUS - 0.5;
     if (ny < floor) { ny = floor + 0.6; this.vy = 0; }

@@ -11,6 +11,11 @@ export function composition(round: number) {
   return { b1: 3 + 2 * round };
 }
 
+/** Parte de los droides que llega por detrás (empieza poco y sube hasta la mitad). */
+function rearShare(round: number) {
+  return Math.min(0.5, 0.25 + 0.04 * (round - 1));
+}
+
 /** Cuántos pueden estar vivos a la vez. */
 function maxAlive(round: number) {
   return Math.min(12, 3 + round);
@@ -66,7 +71,7 @@ export class WaveManager {
     this.timer = INTRO_TIME;
     this.queue = composition(this.round).b1;
     this.spawnTimer = 0;
-    this.ev.onBanner(`RONDA ${this.round}`, this.round === 1 ? 'Resiste en tu posición' : '¡Vienen más!', INTRO_TIME);
+    this.ev.onBanner(`RONDA ${this.round}`, this.round === 1 ? 'Vienen por los dos extremos del cañón' : '¡Vigila tu espalda!', INTRO_TIME);
   }
 
   update(dt: number) {
@@ -81,7 +86,7 @@ export class WaveManager {
     if (this.phase === 'fighting') {
       this.spawnTimer -= dt;
       if (this.queue > 0 && this.spawnTimer <= 0 && this.enemies.aliveCount() < maxAlive(this.round)) {
-        if (this.enemies.spawn(b1Params(this.round))) this.queue--;
+        if (this.enemies.spawn(b1Params(this.round), Math.random() < rearShare(this.round))) this.queue--;
         this.spawnTimer = Math.max(0.7, 1.6 - 0.05 * this.round);
       }
       if (this.queue === 0 && this.enemies.aliveCount() === 0) {

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { EnemyState } from '../sim/types';
-import { terrainHeight } from '../world/terrain';
+import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from '../world/terrain';
 import { b1Geometry, DROID_HEIGHT } from './B1Model';
 import { DroidBrain, type BrainContext, type BrainParams } from './DroidBrain';
 
@@ -108,8 +108,8 @@ export class Droid {
       const dy = terrainHeight(nx0, nz0) - s.y;
       this.controller.computeColliderMovement(this.collider, { x: this.out.dx, y: dy, z: this.out.dz });
       const m = this.controller.computedMovement();
-      s.x += m.x;
-      s.z += m.z;
+      s.x = Math.max(-CANYON_HALF_W + 1, Math.min(CANYON_HALF_W - 1, s.x + m.x));
+      s.z = Math.max(-CANYON_HALF_L + 1, Math.min(CANYON_HALF_L - 1, s.z + m.z));
       s.y = terrainHeight(s.x, s.z);
       this.syncBody();
       this.t += dt * (Math.hypot(m.x, m.z) / Math.max(dt, 1e-4)) * 2.2;
