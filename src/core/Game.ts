@@ -87,6 +87,7 @@ export class Game {
     this.menu = new Menu(this.settings, {
       onPlay: () => (this.mode === 'paused' ? this.resume() : this.startRun()),
       onQuit: () => this.quitToMenu(),
+      onGoRound: (round) => this.jumpToRound(round),
     });
     this.hud = new Hud(() => this.pause());
     this.gameOver = new GameOver(() => this.startRun(), () => this.quitToMenu());
@@ -198,6 +199,27 @@ export class Game {
     this.hud.setTestTag(this.testMode);
     this.hud.setHealth(p.health);
     this.waves.start(s.testRound);
+    this.resume();
+  }
+
+  /** Desde la pausa: salta directamente a otra ronda (vida y granadas al máximo). Cuenta como partida de pruebas. */
+  private jumpToRound(round: number) {
+    if (this.mode !== 'paused') return;
+    this.testMode = true;
+    this.enemies.clear();
+    this.effects.clear();
+    this.grenadeSys.clear();
+    const p = this.state.players[0];
+    p.health = 100;
+    p.grenades = GRENADE.perGame;
+    this.weapon = 'blaster';
+    this.swapT = 0;
+    this.grenadeCd = 0;
+    this.hud.setWeapon('blaster');
+    this.hud.setHealth(p.health);
+    this.hud.setGrenades(p.grenades);
+    this.hud.setTestTag(true);
+    this.waves.start(round);
     this.resume();
   }
 

@@ -5,6 +5,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 export interface MenuActions {
   onPlay: () => void;
   onQuit: () => void;
+  onGoRound: (round: number) => void;
 }
 
 // Menú de inicio y de pausa, con los ajustes y el panel oculto de pruebas.
@@ -56,8 +57,16 @@ export class Menu {
       }
     });
     const roundVal = $('roundVal');
-    const showRound = () => (roundVal.textContent = String(settings.data.testRound));
+    const quick = Array.from(document.querySelectorAll<HTMLButtonElement>('#quickRounds button'));
+    const showRound = () => {
+      const r = settings.data.testRound;
+      roundVal.textContent = String(r);
+      $('goRoundNum').textContent = String(r);
+      quick.forEach((q) => q.classList.toggle('on', Number(q.dataset.r) === r));
+    };
     showRound();
+    quick.forEach((q) => q.addEventListener('click', () => { settings.set({ testRound: Number(q.dataset.r) }); showRound(); }));
+    $('btnGoRound').addEventListener('click', () => actions.onGoRound(settings.data.testRound));
     $('roundMinus').addEventListener('click', () => { settings.set({ testRound: Math.max(1, settings.data.testRound - 1) }); showRound(); });
     $('roundPlus').addEventListener('click', () => { settings.set({ testRound: Math.min(60, settings.data.testRound + 1) }); showRound(); });
   }
@@ -92,6 +101,7 @@ export class Menu {
     this.sub.textContent = paused ? 'EN PAUSA' : 'ÚLTIMA DEFENSA';
     this.btnPlay.textContent = paused ? 'CONTINUAR' : 'JUGAR';
     this.btnQuit.hidden = !paused;
+    $('btnGoRound').hidden = !paused; // solo en pausa: saltar de ronda sin reiniciar
     const best = $('best');
     best.hidden = paused || this.settings.data.best < 1;
     best.textContent = `Mejor ronda: ${this.settings.data.best}`;

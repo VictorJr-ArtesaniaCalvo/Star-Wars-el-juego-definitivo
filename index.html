@@ -84,11 +84,16 @@
       <div id="testPanel" hidden>
         <div class="testTitle">MODO DE PRUEBAS</div>
         <div class="row">
-          <span>Empezar en la ronda</span>
+          <span>Ronda</span>
           <div class="stepper">
             <button id="roundMinus">−</button><span id="roundVal">1</span><button id="roundPlus">+</button>
           </div>
         </div>
+        <div id="quickRounds" class="quick">
+          <button data-r="1">1</button><button data-r="4">4 · B2</button><button data-r="7">7 · Deka</button><button data-r="10">10</button><button data-r="15">15</button><button data-r="20">20</button>
+        </div>
+        <button id="btnGoRound" class="big go" hidden>IR A LA RONDA <span id="goRoundNum">1</span> AHORA</button>
+        <p class="hint" id="testHint">Elige la ronda y pulsa JUGAR. Durante la partida, en pausa, puedes saltar a otra ronda sin reiniciar.</p>
         <div class="row">
           <span>Invencible</span>
           <div id="god" class="seg"><button data-v="1">Sí</button><button data-v="0">No</button></div>

@@ -37,7 +37,8 @@ En la brújula, los B2 se marcan con un triángulo rojo más grande y los droide
 
 ## Menú oculto de pruebas
 
-En el menú de inicio, toca 5 veces seguidas el título «GEONOSIS». Permite empezar en cualquier ronda, ser invencible y ver los FPS.
+En el menú de inicio, toca 5 veces seguidas el título «GEONOSIS». Permite elegir la ronda (con botones rápidos: 1, 4 · B2, 7 · Deka, 10, 15, 20), ser invencible y ver los FPS.
+En plena partida, en la pausa, el botón «IR A LA RONDA N AHORA» salta a esa ronda sin reiniciar (vida y granadas al máximo).
 Las partidas con estas opciones no cuentan para el récord.
 
 ## Instalar en el iPhone
