@@ -30,6 +30,14 @@ Cambios hechos para el juego (herramienta `tools/convert-b2.mjs`): se ha enderez
 se ha dividido en huesos para animarlo, se ha simplificado de ~49.000 a ~9.000 triángulos (y ~3.400 a distancia) y las texturas del autor se han reunido
 en una sola imagen (atlas) de menor tamaño. No se usan los mapas de relieve. El personaje es propiedad de Lucasfilm Ltd. / Disney.
 
+**Droideka** (`public/models/droideka.bin`): este trabajo se basa en
+«[Droideka](https://sketchfab.com/3d-models/droideka-42b2a42130f94d73a29eda6ecfdce98f)»
+de [PokCat](https://sketchfab.com/PokCat), con licencia
+[CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/) (hay que citar al autor; se permite el uso comercial; ver `public/models/LICENCIA-DROIDEKA.txt`).
+Cambios hechos para el juego (herramienta `tools/convert-droideka.mjs`): el modelo original (257.000 triángulos, 7 esqueletos) se ha repartido en 12 huesos propios,
+muy simplificado (~8.000 triángulos de cerca y ~2.500 de lejos), el color de sus texturas se ha pasado a los vértices, y la postura de bola rodando
+(patas plegadas en aro) se calcula en el juego, no viene del modelo. No se usan los mapas de relieve (vienen planos) ni sus animaciones. El personaje es propiedad de Lucasfilm Ltd. / Disney.
+
 **Bláster del jugador** (`public/models/blaster.bin` y `public/models/blaster-color.jpg`): este trabajo se basa en
 «[E-5 Blaster Rifle](https://sketchfab.com/3d-models/e-5-blaster-rifle-8fc1a356986140b38f4df49a2e21d079)»
 de [A308 Digital](https://sketchfab.com/A308), con licencia

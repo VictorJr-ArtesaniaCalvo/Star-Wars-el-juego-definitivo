@@ -276,6 +276,11 @@ export class Droid {
       poseB2(this.b2Rig, this.walkBlend, this.t * 0.8); // paso más lento que el del B1: es más grande
       this.group.rotation.z = 0;
     } else if (this.dekaRig) {
+      if (this.dekaRig.lods) {
+        const T = ctx.player();
+        const lod = Math.hypot(T.x - s.x, T.z - s.z) > 40 ? 1 : 0;
+        if (this.group.geometry !== this.dekaRig.lods[lod]) this.group.geometry = this.dekaRig.lods[lod];
+      }
       poseDroideka(this.dekaRig, this.deploy, this.roll, this.t);
       this.group.rotation.z = 0;
     } else {

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 // normales, colores, hueso y coordenadas de textura de cada vértice). Cada vértice pertenece a un solo hueso.
 
 export interface ModelBone { name: string; parent: number; pivot: [number, number, number] }
-export interface ModelFile { bones: ModelBone[]; lods: THREE.BufferGeometry[]; /** Nombre del archivo de textura (atlas), si el modelo lo lleva. */ atlas?: string }
+export interface ModelFile { bones: ModelBone[]; lods: THREE.BufferGeometry[]; /** Nombre del archivo de textura (atlas), si el modelo lo lleva. */ atlas?: string; /** Resto de la cabecera (medidas propias de cada modelo, p. ej. las patas del droideka). */ meta: Record<string, unknown> }
 
 export function parseModelFile(buf: ArrayBuffer, magic: string): ModelFile {
   const dv = new DataView(buf);
@@ -31,5 +31,5 @@ export function parseModelFile(buf: ArrayBuffer, magic: string): ModelFile {
     g.computeBoundingSphere();
     return g;
   });
-  return { bones: meta.bones, lods, atlas: meta.atlas };
+  return { bones: meta.bones, lods, atlas: meta.atlas, meta };
 }

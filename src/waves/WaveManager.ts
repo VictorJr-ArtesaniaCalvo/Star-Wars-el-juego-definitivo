@@ -65,8 +65,8 @@ export function droidekaParams(round: number): BrainParams {
     coverTime: [3, 5],
     deployTime: 0.8,
     sfx: 'droideka' as const,
-    muzzleY: 1.15,
-    muzzleFwd: 1.0,
+    muzzleY: 0.75, // los cañones del modelo real, más bajos y adelantados que los del de formas sencillas
+    muzzleFwd: 1.25,
   };
 }
 
