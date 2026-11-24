@@ -208,6 +208,21 @@ export class Game {
     this.gameOver.show(round, this.state.kills, this.settings.data.best, record, this.testMode);
   }
 
+  /** Dirección y distancia de cada droide vivo (para las marcas rojas de la brújula). */
+  private compassMarkers() {
+    const p = this.localPlayer.state;
+    const out: Array<{ bearing: number; dist: number }> = [];
+    for (const d of this.enemies.droids) {
+      if (!d.state.alive) continue;
+      const dx = d.state.x - p.x, dz = d.state.z - p.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > 140) continue;
+      const bearing = (((-Math.atan2(-dx, -dz) * 180) / Math.PI) % 360 + 360) % 360;
+      out.push({ bearing, dist });
+    }
+    return out;
+  }
+
   /** Una baja más. Cada 3 bajas te curas 10 puntos de vida. */
   private registerKill() {
     this.state.kills++;
@@ -307,7 +322,7 @@ export class Game {
       this.hud.setCrouching(this.localPlayer.state.crouching);
       this.hud.setHeat(this.blaster.heat, this.blaster.locked);
       this.hud.setHealth(this.state.players[0].health);
-      this.hud.setHeading(this.yaw);
+      this.hud.setHeading(this.yaw, this.compassMarkers());
       this.hud.setRound(this.waves.round, this.waves.remaining);
       this.state.round = this.waves.round;
       this.hud.update(dt);

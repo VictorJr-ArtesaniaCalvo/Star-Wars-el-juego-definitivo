@@ -41,6 +41,7 @@ export class EnemyManager {
       isDroid: (h) => this.byCollider.has(h),
       damagePlayer: hooks.damagePlayer,
       claimed: new Set<Obstacle>(),
+      rush: false,
     };
     const controller = physics.createCharacterController(0.02);
     controller.enableAutostep(0.3, 0.1, false);
@@ -79,15 +80,23 @@ export class EnemyManager {
     return !blocked;
   }
 
-  /** Hace aparecer un droide en uno de los dos extremos del cañón (`rear` = por detrás de ti). Devuelve null si ya hay el máximo. */
-  spawn(params: BrainParams, rear: boolean): Droid | null {
+  /**
+   * Hace aparecer un droide en uno de los dos extremos del cañón (`rear` = por detrás de ti).
+   * Al principio aparecen más cerca (rondas 1–2: 35–55 m; 3–4: 45–70 m; desde la 5: 60–88 m).
+   * Devuelve null si ya hay el máximo.
+   */
+  spawn(params: BrainParams, rear: boolean, round: number): Droid | null {
     const d = this.droids.find((x) => !x.state.active);
     if (!d) return null;
-    let x = 0, z = rear ? 65 : -65;
-    for (let i = 0; i < 12; i++) {
-      // Lejos, en el extremo del cañón, repartidos a lo ancho.
+    const [zMin, zMax] = round <= 2 ? [35, 55] : round <= 4 ? [45, 70] : [60, 88];
+    const T = this.ctx.player();
+    let x = 0, z = rear ? zMin : -zMin;
+    for (let i = 0; i < 24; i++) {
+      // Repartidos a lo ancho del cañón; los últimos intentos prueban el otro extremo.
+      const side = (i < 16 ? rear : !rear) ? 1 : -1;
       x = (Math.random() * 2 - 1) * 32;
-      z = (rear ? 1 : -1) * (60 + Math.random() * 28);
+      z = side * (zMin + Math.random() * (zMax - zMin));
+      if (Math.hypot(x - T.x, z - T.z) < 28) continue; // nunca encima del jugador
       if (this.free(x, z)) break;
     }
     d.activate(x, z, B1_HEALTH, params, this.ctx);

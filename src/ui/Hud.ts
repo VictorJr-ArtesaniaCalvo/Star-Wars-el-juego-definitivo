@@ -1,6 +1,6 @@
 // Indicadores en pantalla: vida, ronda, calor del bláster, avisos, daño recibido y pausa.
 // Las granadas se añadirán en la Fase 4.
-import { Compass } from './Compass';
+import { Compass, type CompassMarker } from './Compass';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -59,8 +59,8 @@ export class Hud {
     this.root.classList.toggle('ads', active);
   }
 
-  setHeading(yaw: number) {
-    this.compass.draw(yaw);
+  setHeading(yaw: number, markers: CompassMarker[] = []) {
+    this.compass.draw(yaw, markers);
   }
 
   /** Cuántas bajas llevas hacia la próxima curación (0–2). */

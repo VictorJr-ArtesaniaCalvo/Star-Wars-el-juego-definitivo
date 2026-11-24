@@ -130,7 +130,7 @@ button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 #testTag { margin-top: 6px; font-size: 10px; letter-spacing: 2px; color: #ffd060; text-shadow: 0 0 2px #000; }
 #fps { margin-top: 4px; font-size: 11px; font-family: ui-monospace, Menlo, monospace; color: #b8ffb8; text-shadow: 0 0 2px #000; }
 #roundBox {
-  position: absolute; left: 50%; transform: translateX(-50%); top: calc(58px + env(safe-area-inset-top));
+  position: absolute; left: 50%; transform: translateX(-50%); top: calc(66px + env(safe-area-inset-top));
   text-align: center; text-shadow: 0 0 3px #000;
 }
 #roundNum { font-size: 16px; font-weight: 700; letter-spacing: 4px; color: #ffcf9a; }
@@ -155,7 +155,7 @@ button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 /* ---------- Brújula, bajas y curación ---------- */
 #compass {
   position: absolute; left: 50%; transform: translateX(-50%); top: calc(6px + env(safe-area-inset-top));
-  width: min(400px, 46vw); height: 46px; pointer-events: none;
+  width: min(400px, 46vw); height: 58px; pointer-events: none;
 }
 #pips { display: flex; gap: 6px; margin-top: 7px; }
 #pips i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(140,210,255,.65); background: transparent; transition: background .15s; }

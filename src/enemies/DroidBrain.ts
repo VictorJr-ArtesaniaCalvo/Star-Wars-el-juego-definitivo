@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { GameEntity, ObstacleAvoidanceBehavior, SeekBehavior, Vector3 as YVec, Vehicle } from 'yuka';
 import { OBSTACLES, type Obstacle } from '../world/rocks';
+import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from '../world/terrain';
 import type { Effects } from '../weapons/Effects';
 
 // Todo lo que el cerebro de un droide necesita saber del mundo.
@@ -15,6 +16,8 @@ export interface BrainContext {
   isDroid: (colliderHandle: number) => boolean;
   damagePlayer: (amount: number, fromX: number, fromZ: number) => void;
   claimed: Set<Obstacle>;
+  /** Cuando una ronda se alarga, los últimos droides atacan sin esperar. */
+  rush: boolean;
 }
 
 /** Dificultad de un droide (cambia con la ronda). */
@@ -27,8 +30,8 @@ export interface BrainParams {
 }
 
 const HOLD_DIST = 14; // a esta distancia del jugador deja de avanzar y se queda disparando
-const FIRE_RANGE = 70;
-const MAX_HOP = 38; // salto máximo entre coberturas
+const FIRE_RANGE = 110; // distancia máxima a la que abren fuego (a larga distancia casi siempre fallan)
+const MAX_HOP = 26; // salto máximo entre coberturas (saltos cortos = paradas más frecuentes para disparar)
 const MIN_PROGRESS = 5; // cada salto debe acercarle al menos esto
 
 // Obstáculos para el esquive de Yuka (compartidos por todos los droides).
@@ -67,6 +70,9 @@ export class DroidBrain {
   private stuck = 0;
   private lastX = 0;
   private lastZ = 0;
+  private bad = new Set<Obstacle>(); // coberturas en las que ya se quedó atascado
+  private holdDist = HOLD_DIST;
+  private noLos = 0;
   private aimDelay = 0;
   private losTimer = 0;
   private hasLos = false;
@@ -103,7 +109,43 @@ export class DroidBrain {
     this.cooldown = rnd(0.5, 2);
     this.hasLos = false;
     this.stuck = 0;
+    this.holdDist = HOLD_DIST;
+    this.noLos = 0;
+    this.bad.clear();
     this.choose(ctx);
+  }
+
+  /** Si se queda clavado contra una roca, rodea por un lado y no vuelve a elegir esa cobertura. */
+  private unstick(x: number, z: number, ctx: BrainContext) {
+    if (this.cover) this.bad.add(this.cover);
+    this.release(ctx);
+    const t = this.seek.target;
+    let dx = t.x - x, dz = t.z - z;
+    const l = Math.hypot(dx, dz) || 1;
+    dx /= l; dz /= l;
+    const s = Math.random() < 0.5 ? 1 : -1;
+    const px = Math.max(-CANYON_HALF_W + 2, Math.min(CANYON_HALF_W - 2, x - dz * s * 9));
+    const pz = Math.max(-CANYON_HALF_L + 2, Math.min(CANYON_HALF_L - 2, z + dx * s * 9));
+    this.seek.target.set(px, 0, pz);
+    this.vehicle.velocity.set(0, 0, 0);
+    this.mode = 'advance';
+    this.moving = true;
+    this.timer = 4;
+    this.stuck = 0;
+  }
+
+  /** ¿Se vería al jugador desde ese punto del suelo? */
+  private losFrom(x: number, z: number, ctx: BrainContext, T: { x: number; y: number; z: number; crouching: boolean }) {
+    const R = ctx.rapier;
+    const oy = terrainHeight(x, z) + 1.4;
+    const tx = T.x, ty = T.y + (T.crouching ? 0.6 : 1.2), tz = T.z;
+    this.dir.set(tx - x, ty - oy, tz - z);
+    const len = this.dir.length();
+    if (len < 0.5) return true;
+    this.dir.divideScalar(len);
+    this.org.set(x, oy, z);
+    const h = ctx.physics.castRay(new R.Ray(this.org, this.dir), len + 1, true, undefined, undefined, undefined, undefined, (c) => !ctx.isDroid(c.handle));
+    return !!h && h.collider.handle === ctx.playerCollider();
   }
 
   release(ctx: BrainContext) {
@@ -118,42 +160,86 @@ export class DroidBrain {
     this.release(ctx);
     const dT = Math.hypot(P.x - T.x, P.z - T.z);
 
-    if (dT <= HOLD_DIST + 2) { this.startHold(ctx); return; }
+    if (dT <= this.holdDist + 2) { this.startHold(ctx); return; }
 
-    let best: Obstacle | null = null, bestScore = -Infinity;
+    // Candidatas: las mejores coberturas (las que más acercan al jugador sin dar un salto largo).
+    const cands: Array<{ o: Obstacle; score: number }> = [];
     for (const o of OBSTACLES) {
-      if (o.radius < 0.9 || ctx.claimed.has(o)) continue;
+      if (o.radius < 0.9 || ctx.claimed.has(o) || this.bad.has(o)) continue;
       const dOT = Math.hypot(o.x - T.x, o.z - T.z);
       const progress = dT - dOT;
       if (progress < MIN_PROGRESS || dOT < HOLD_DIST) continue;
       const dPO = Math.hypot(o.x - P.x, o.z - P.z);
       if (dPO > MAX_HOP) continue;
-      const score = progress - dPO * 0.4 + Math.random() * 7;
-      if (score > bestScore) { bestScore = score; best = o; }
+      cands.push({ o, score: progress * 1.2 - dPO * 0.3 + Math.random() * 5 });
     }
-    if (!best) { this.startHold(ctx); return; }
+    if (cands.length === 0) { this.startHold(ctx); return; }
+    cands.sort((a, b) => b.score - a.score);
 
-    ctx.claimed.add(best);
-    this.cover = best;
-    // Se coloca en el lado de la roca que queda lejos del jugador.
-    const dx = best.x - T.x, dz = best.z - T.z, l = Math.hypot(dx, dz) || 1;
-    const off = best.radius + 0.9;
-    this.seek.target.set(best.x + (dx / l) * off, 0, best.z + (dz / l) * off);
+    // Se coloca AL LADO de la roca (no detrás), en un punto desde el que vea al jugador, para poder disparar.
+    // Se prueban varias coberturas; si ninguna tiene un lado con vista al jugador, se esconde detrás de la mejor.
+    let best = cands[0].o;
+    let tx = 0, tz = 0, found = false;
+    const off = (o: Obstacle) => o.radius + 1.9; // algo separado de la roca para no quedar dentro de su volumen
+    for (const { o } of cands.slice(0, 14)) {
+      const a0 = Math.atan2(o.z - T.z, o.x - T.x);
+      const near = Math.hypot(o.x - T.x, o.z - T.z) <= FIRE_RANGE;
+      let bestD = Infinity, fx = 0, fz = 0, ok = false;
+      for (const a of [a0 + Math.PI / 2, a0 - Math.PI / 2, a0 + 0.9, a0 - 0.9, a0 + 2.2, a0 - 2.2, a0 + 1.5, a0 - 1.5]) {
+        const px = o.x + Math.cos(a) * off(o), pz = o.z + Math.sin(a) * off(o);
+        if (Math.abs(px) > CANYON_HALF_W - 1.5 || Math.abs(pz) > CANYON_HALF_L - 1.5) continue;
+        if (near && !this.losFrom(px, pz, ctx, T)) continue;
+        const d = Math.hypot(px - P.x, pz - P.z);
+        if (d < bestD) { bestD = d; fx = px; fz = pz; ok = true; }
+      }
+      if (ok) { best = o; tx = fx; tz = fz; found = true; break; }
+    }
+    // Si ninguna cobertura tiene un lado con vista, prueba en terreno abierto: se asoma a disparar desde donde sí ve.
+    let open = false;
+    for (let i = 0; i < 10 && !found; i++) {
+      const toT = Math.atan2(T.x - P.x, T.z - P.z) + (Math.random() * 2 - 1) * 1.1;
+      const d = 8 + Math.random() * (MAX_HOP - 8);
+      const px = P.x + Math.sin(toT) * d, pz = P.z + Math.cos(toT) * d;
+      if (Math.abs(px) > CANYON_HALF_W - 2 || Math.abs(pz) > CANYON_HALF_L - 2) continue;
+      if (dT - Math.hypot(px - T.x, pz - T.z) < MIN_PROGRESS || Math.hypot(px - T.x, pz - T.z) < HOLD_DIST) continue;
+      if (this.losFrom(px, pz, ctx, T)) { tx = px; tz = pz; found = true; open = true; }
+    }
+    if (!found) {
+      const a0 = Math.atan2(best.z - T.z, best.x - T.x);
+      tx = best.x + Math.cos(a0) * off(best);
+      tz = best.z + Math.sin(a0) * off(best);
+    }
+    if (open) this.cover = null;
+    else { ctx.claimed.add(best); this.cover = best; }
+    this.seek.target.set(tx, 0, tz);
     this.mode = 'advance';
     this.moving = true;
-    this.timer = 9; // si en 9 s no llega, elige otra
+    // Tiempo para llegar: según la distancia, con margen para rodear rocas; si no llega, elige otra.
+    this.timer = Math.hypot(tx - P.x, tz - P.z) / Math.max(1, this.params.speed) * 2 + 3;
     this.stuck = 0;
   }
 
   private startHold(ctx: BrainContext) {
     const T = ctx.player();
     const P = this.vehicle.position;
-    const a = Math.atan2(P.x - T.x, P.z - T.z) + rnd(-0.5, 0.5);
-    const d = HOLD_DIST + rnd(-2, 3);
-    this.seek.target.set(T.x + Math.sin(a) * d, 0, T.z + Math.cos(a) * d);
+    // Busca un punto de combate desde el que vea al jugador; si no lo encuentra, se acerca más la próxima vez.
+    const a0 = Math.atan2(P.x - T.x, P.z - T.z);
+    let px = 0, pz = 0, found = false;
+    for (let i = 0; i < 14 && !found; i++) {
+      const spread = Math.min(Math.PI, 0.5 + i * 0.25);
+      const a = a0 + rnd(-spread, spread);
+      const d = this.holdDist + rnd(-1.5, 2.5);
+      px = T.x + Math.sin(a) * d;
+      pz = T.z + Math.cos(a) * d;
+      if (Math.abs(px) > CANYON_HALF_W - 2 || Math.abs(pz) > CANYON_HALF_L - 2) continue;
+      if (this.losFrom(px, pz, ctx, T)) found = true;
+    }
+    if (!found) this.holdDist = Math.max(7, this.holdDist - 2.5);
+    this.seek.target.set(px, 0, pz);
     this.mode = 'hold';
     this.moving = true;
-    this.timer = rnd(6, 10);
+    this.timer = rnd(4, 7);
+    this.noLos = 0;
     this.stuck = 0;
   }
 
@@ -161,9 +247,10 @@ export class DroidBrain {
   private stop() {
     this.moving = false;
     this.vehicle.velocity.set(0, 0, 0);
-    this.aimDelay = rnd(0.5, 1.0);
+    this.aimDelay = rnd(0.2, 0.4);
     this.losTimer = 0;
     this.burstLeft = 0;
+    this.cooldown = Math.min(this.cooldown, rnd(0.1, 0.4)); // dispara enseguida al llegar
   }
 
   /**
@@ -176,13 +263,15 @@ export class DroidBrain {
     out.dx = out.dz = 0;
     v.position.set(x, 0, z);
     const dT = Math.hypot(T.x - x, T.z - z);
+    v.maxSpeed = this.params.speed * (ctx.rush ? 1.5 : 1);
+    if (ctx.rush) this.holdDist = Math.min(this.holdDist, 8);
 
     // Atascado: si casi no avanza, elige otro destino.
     if (this.moving) {
       this.stuck += dt;
       if (this.stuck > 1.2) {
         const moved = Math.hypot(x - this.lastX, z - this.lastZ);
-        if (moved < 0.5) this.choose(ctx);
+        if (moved < 0.8) this.unstick(x, z, ctx);
         this.stuck = 0; this.lastX = x; this.lastZ = z;
       }
     }
@@ -192,8 +281,8 @@ export class DroidBrain {
       const t = this.seek.target;
       const arrived = Math.hypot(t.x - x, t.z - z) < 1.3;
       if (arrived || this.timer <= 0) {
-        if (this.mode === 'advance' && arrived) { this.mode = 'cover'; this.timer = rnd(2.2, 4.2); this.stop(); }
-        else if (this.mode === 'hold') { this.timer = rnd(5, 9); this.stop(); }
+        if (this.mode === 'advance' && (arrived || Math.hypot(t.x - x, t.z - z) < 4)) { this.mode = 'cover'; this.timer = ctx.rush ? 0.2 : rnd(0.7, 1.5); this.stop(); }
+        else if (this.mode === 'hold') { this.timer = rnd(4, 8); this.stop(); }
         else this.choose(ctx);
       } else {
         v.update(dt);
@@ -213,7 +302,12 @@ export class DroidBrain {
       this.timer -= dt;
       if (this.timer <= 0 && this.burstLeft === 0) this.choose(ctx);
       // Si el jugador se aleja mucho de una posición de combate, vuelve a avanzar.
-      if (this.mode === 'hold' && dT > HOLD_DIST + 14) this.choose(ctx);
+      if (this.mode === 'hold' && dT > this.holdDist + 14) this.choose(ctx);
+      // Si en posición de combate no ve al jugador, cambia de sitio (y se acerca más cada vez).
+      if (this.mode === 'hold') {
+        this.noLos = this.hasLos ? 0 : this.noLos + dt;
+        if (this.noLos > 2.5 && this.burstLeft === 0) { this.holdDist = Math.max(7, this.holdDist - 2); this.choose(ctx); }
+      }
     }
   }
 

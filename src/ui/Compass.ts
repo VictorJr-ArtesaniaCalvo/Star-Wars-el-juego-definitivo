@@ -2,6 +2,9 @@
 const SPAN = 140; // grados que se ven a la vez
 const LETTERS: Record<number, string> = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SO', 270: 'O', 315: 'NO' };
 
+/** Un droide visto desde la brújula: su rumbo (0–360°) y su distancia en metros. */
+export interface CompassMarker { bearing: number; dist: number }
+
 export class Compass {
   private canvas = document.getElementById('compass') as HTMLCanvasElement;
   private ctx = this.canvas.getContext('2d')!;
@@ -26,11 +29,11 @@ export class Compass {
     return true;
   }
 
-  /** `yaw` en radianes (como lo usa el juego). Girar a la derecha aumenta el rumbo. */
-  draw(yaw: number) {
+  /** `yaw` en radianes (como lo usa el juego). Girar a la derecha aumenta el rumbo. Los marcadores son los droides. */
+  draw(yaw: number, markers: CompassMarker[] = []) {
     let heading = ((-yaw * 180) / Math.PI) % 360;
     if (heading < 0) heading += 360;
-    if (Math.abs(heading - this.last) < 0.15) return;
+    if (markers.length === 0 && Math.abs(heading - this.last) < 0.15) return;
     if (!this.fit()) return;
     this.last = heading;
     const { ctx, w, h, dpr } = this;
@@ -86,6 +89,37 @@ export class Compass {
     ctx.fill();
     ctx.font = '10px sans-serif';
     ctx.fillStyle = 'rgba(150,215,255,0.85)';
-    ctx.fillText(String(Math.round(heading) % 360).padStart(3, '0') + '°', w / 2, 41);
+    ctx.fillText(String(Math.round(heading) % 360).padStart(3, '0') + '°', w / 2, 53);
+
+    // Droides: triángulos rojos en su dirección (más intensos cuanto más cerca).
+    // Los que quedan fuera de la vista se señalan con una flecha en el borde, hacia el lado por el que girar.
+    let nearL = Infinity, nearR = Infinity;
+    for (const m of markers) {
+      const delta = ((((m.bearing - heading) % 360) + 540) % 360) - 180;
+      const a = 0.45 + 0.55 * Math.max(0, Math.min(1, 1 - m.dist / 140));
+      if (Math.abs(delta) <= SPAN / 2) {
+        const x = w / 2 + (delta / SPAN) * w;
+        const s = m.dist < 25 ? 5.5 : 4.2;
+        ctx.fillStyle = `rgba(255,86,66,${a})`;
+        ctx.beginPath();
+        ctx.moveTo(x - s, 48);
+        ctx.lineTo(x + s, 48);
+        ctx.lineTo(x, 48 - s * 1.6);
+        ctx.closePath();
+        ctx.fill();
+      } else if (delta > 0) nearR = Math.min(nearR, m.dist);
+      else nearL = Math.min(nearL, m.dist);
+    }
+    for (const [near, side] of [[nearL, -1], [nearR, 1]] as const) {
+      if (!isFinite(near)) continue;
+      const x = side < 0 ? 9 : w - 9;
+      ctx.fillStyle = `rgba(255,86,66,${0.5 + 0.5 * Math.max(0, Math.min(1, 1 - near / 140))})`;
+      ctx.beginPath();
+      ctx.moveTo(x + side * 6, 43);
+      ctx.lineTo(x - side * 3, 37);
+      ctx.lineTo(x - side * 3, 49);
+      ctx.closePath();
+      ctx.fill();
+    }
   }
 }

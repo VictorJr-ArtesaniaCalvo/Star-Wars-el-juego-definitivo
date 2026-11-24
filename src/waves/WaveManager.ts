@@ -3,6 +3,7 @@ import type { BrainParams } from '../enemies/DroidBrain';
 
 export type WavePhase = 'idle' | 'intro' | 'fighting' | 'clear';
 
+const RUSH_AFTER = 40; // segundos sin ninguna baja antes de que los últimos droides ataquen sin esperar
 const INTRO_TIME = 3.2;
 const CLEAR_TIME = 4.5;
 
@@ -25,7 +26,7 @@ function maxAlive(round: number) {
 export function b1Params(round: number): BrainParams {
   const r = round - 1;
   return {
-    speed: Math.min(3.3, 2.4 + 0.07 * r),
+    speed: Math.min(4.6, 3.6 + 0.08 * r),
     damage: Math.min(12, 6 + 0.35 * r),
     spread: ((4.2 - Math.min(2, 0.1 * r)) * Math.PI) / 180,
     cooldown: [Math.max(0.8, 2.1 - 0.06 * r), Math.max(1.4, 3.4 - 0.1 * r)],
@@ -45,6 +46,8 @@ export class WaveManager {
   private timer = 0;
   private queue = 0;
   private spawnTimer = 0;
+  private sinceKill = 0;
+  private prevRemaining = 0;
 
   constructor(
     private enemies: EnemyManager,
@@ -64,12 +67,16 @@ export class WaveManager {
   stop() {
     this.phase = 'idle';
     this.queue = 0;
+    this.enemies.context.rush = false;
   }
 
   private beginIntro() {
     this.phase = 'intro';
     this.timer = INTRO_TIME;
+    this.sinceKill = 0;
+    this.enemies.context.rush = false;
     this.queue = composition(this.round).b1;
+    this.prevRemaining = this.queue;
     this.spawnTimer = 0;
     this.ev.onBanner(`RONDA ${this.round}`, this.round === 1 ? 'Vienen por los dos extremos del cañón' : '¡Vigila tu espalda!', INTRO_TIME);
   }
@@ -84,13 +91,19 @@ export class WaveManager {
     }
 
     if (this.phase === 'fighting') {
+      // Si la ronda se alarga y quedan pocos, los que quedan atacan sin esperar.
+      const rem = this.remaining;
+      if (rem < this.prevRemaining) this.sinceKill = 0; else this.sinceKill += dt;
+      this.prevRemaining = rem;
+      this.enemies.context.rush = this.queue === 0 && rem <= 3 && this.sinceKill > RUSH_AFTER;
       this.spawnTimer -= dt;
       if (this.queue > 0 && this.spawnTimer <= 0 && this.enemies.aliveCount() < maxAlive(this.round)) {
-        if (this.enemies.spawn(b1Params(this.round), Math.random() < rearShare(this.round))) this.queue--;
+        if (this.enemies.spawn(b1Params(this.round), Math.random() < rearShare(this.round), this.round)) this.queue--;
         this.spawnTimer = Math.max(0.7, 1.6 - 0.05 * this.round);
       }
       if (this.queue === 0 && this.enemies.aliveCount() === 0) {
         this.phase = 'clear';
+        this.enemies.context.rush = false;
         this.timer = CLEAR_TIME;
         this.ev.onBanner('RONDA SUPERADA', 'Recuperas algo de vida', CLEAR_TIME);
         this.ev.onRoundCleared(this.round);
