@@ -179,12 +179,13 @@ export function poseB1(b: B1Bones, unfold: number, walk = 0, phase = 0) {
   b.neck.rotation.x = lerp(2.2, 0, head);
   b.head.rotation.x = lerp(0.9, 0, head);
 
-  // Brazos: recogidos → colgando → sujetando el rifle
-  const sh = lerp(lerp(0.5, 0.12, stand), 1.0, arms);
-  const el = lerp(lerp(1.5, 0.1, stand), 0.7, arms);
-  const ad = lerp(lerp(0.15, 0.04, stand), 0.3, arms); // se acercan al rifle, que va en el centro
-  b.armL.rotation.set(sh, 0, ad); b.armR.rotation.set(sh, 0, -ad);
-  b.forearmL.rotation.set(el, 0, 0); b.forearmR.rotation.set(el, 0, 0);
+  // Brazos: recogidos → colgando → sujetando el rifle. En combate, una mano en la empuñadura (codo muy doblado)
+  // y la otra en el guardamanos (brazo adelantado); ángulos calculados para que las palmas queden sobre el rifle.
+  const shB = lerp(0.5, 0.12, stand), elB = lerp(1.5, 0.1, stand), adB = lerp(0.15, 0.04, stand);
+  b.armL.rotation.set(lerp(shB, 0.499, arms), lerp(0, -0.014, arms), lerp(adB, 0.269, arms));
+  b.forearmL.rotation.set(lerp(elB, 0.92, arms), 0, 0);
+  b.armR.rotation.set(lerp(shB, -0.05, arms), lerp(0, 0.168, arms), lerp(-adB, -0.241, arms));
+  b.forearmR.rotation.set(lerp(elB, 1.423, arms), 0, 0);
   b.handL.rotation.set(0, 0, 0); b.handR.rotation.set(0, 0, 0);
 
   // El rifle: recogido junto al cuerpo al principio y en posición de disparo al final
