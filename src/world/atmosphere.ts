@@ -34,6 +34,10 @@ export function glowTexture(): THREE.Texture {
 
 export class Atmosphere {
   private flyers: THREE.Points;
+  private embers: THREE.Points;
+  private emberVel: Float32Array;
+  private dust: Array<{ sprite: THREE.Sprite; vx: number; vz: number }> = [];
+  private focus = new THREE.Vector3();
   private fires: Array<{ sprite: THREE.Sprite; size: number; phase: number }> = [];
   private t = 0;
 
@@ -95,6 +99,31 @@ export class Atmosphere {
       this.fires.push({ sprite, size: f.size, phase: range(0, 6.28) });
     }
 
+    // --- Brasas que flotan en el aire alrededor del jugador (como en las referencias) ---
+    const ne = 150;
+    const ep = new Float32Array(ne * 3);
+    this.emberVel = new Float32Array(ne * 3);
+    for (let i = 0; i < ne; i++) {
+      ep[i * 3] = range(-34, 34); ep[i * 3 + 1] = range(0.3, 14); ep[i * 3 + 2] = range(-34, 34);
+      this.emberVel[i * 3] = range(0.8, 2.2); this.emberVel[i * 3 + 1] = range(0.2, 1.1); this.emberVel[i * 3 + 2] = range(-0.6, 0.6);
+    }
+    const eg = new THREE.BufferGeometry();
+    eg.setAttribute('position', new THREE.BufferAttribute(ep, 3));
+    this.embers = new THREE.Points(eg, new THREE.PointsMaterial({ map: glowTexture(), color: 0xff9a40, size: 0.5, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    this.embers.frustumCulled = false;
+    scene.add(this.embers);
+
+    // --- Polvo bajo: nubes grandes y suaves que se desplazan con el viento ---
+    const puff = puffTexture();
+    for (let i = 0; i < 14; i++) {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: 0xc9966a, transparent: true, opacity: range(0.07, 0.13), depthWrite: false, fog: false }));
+      sprite.scale.setScalar(range(14, 26));
+      sprite.position.set(range(-60, 60), range(1.5, 6), range(-60, 60));
+      sprite.renderOrder = 1;
+      scene.add(sprite);
+      this.dust.push({ sprite, vx: range(1.0, 2.4), vz: range(-0.5, 0.5) });
+    }
+
     // --- Enjambres de criaturas voladoras (puntos oscuros que giran despacio) ---
     const n = 140;
     const p = new Float32Array(n * 3);
@@ -111,8 +140,34 @@ export class Atmosphere {
     scene.add(this.flyers);
   }
 
+  /** Posición del jugador: las brasas y el polvo se mueven con él. */
+  follow(p: THREE.Vector3) {
+    this.focus.copy(p);
+  }
+
   tick(dt: number) {
     this.t += dt;
+    // Brasas: suben y derivan con el viento; las que se alejan reaparecen al otro lado
+    const pos = this.embers.geometry.attributes.position as THREE.BufferAttribute;
+    const a = pos.array as Float32Array;
+    const f = this.focus;
+    for (let i = 0; i < a.length / 3; i++) {
+      const k = i * 3;
+      a[k] += this.emberVel[k] * dt + Math.sin(this.t * 1.3 + i) * 0.4 * dt;
+      a[k + 1] += this.emberVel[k + 1] * dt;
+      a[k + 2] += this.emberVel[k + 2] * dt + Math.cos(this.t * 1.1 + i * 2) * 0.4 * dt;
+      if (a[k] - f.x > 34) a[k] -= 68; else if (a[k] - f.x < -34) a[k] += 68;
+      if (a[k + 2] - f.z > 34) a[k + 2] -= 68; else if (a[k + 2] - f.z < -34) a[k + 2] += 68;
+      if (a[k + 1] - f.y > 15) a[k + 1] -= 14.5; else if (a[k + 1] - f.y < -2) a[k + 1] += 14.5;
+    }
+    pos.needsUpdate = true;
+    // Polvo: avanza con el viento y se recoloca alrededor del jugador
+    for (const d of this.dust) {
+      const p = d.sprite.position;
+      p.x += d.vx * dt; p.z += d.vz * dt;
+      if (p.x - f.x > 62) p.x -= 124; else if (p.x - f.x < -62) p.x += 124;
+      if (p.z - f.z > 62) p.z -= 124; else if (p.z - f.z < -62) p.z += 124;
+    }
     this.flyers.rotation.y += dt * 0.035;
     this.flyers.position.y = Math.sin(this.t * 0.4) * 2;
     for (const f of this.fires) {

@@ -55,6 +55,7 @@ export class World {
   /** El cielo y la luz del sol acompañan al jugador. */
   follow(p: THREE.Vector3) {
     this.sky.position.copy(p);
+    this.atmosphere.follow(p);
     this.sun.target.position.copy(p);
     this.sun.position.copy(p).addScaledVector(SUN_DIR, 80);
   }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { applyWorldTextures, groundTexture, rockTexture } from './materials';
 
 // Junta muchas piezas en un único objeto dibujable (mucho más ligero para el móvil)
 // y crea a la vez su versión "sólida" para la física.
@@ -12,6 +13,11 @@ export class Builder {
     private rapier: typeof RAPIER,
     private physics: RAPIER.World,
   ) {}
+
+  /** Cuánto se aplica la textura de arenisca a una pieza (1 = roca; 0 = metal, cajas, cañonera). */
+  private texAmt(geo: THREE.BufferGeometry, amt: number) {
+    geo.setAttribute('texAmt', new THREE.BufferAttribute(new Float32Array(geo.attributes.position.count).fill(amt), 1));
+  }
 
   private paint(geo: THREE.BufferGeometry, color: number, shade = 1) {
     const n = geo.attributes.position.count;
@@ -28,6 +34,7 @@ export class Builder {
     g.computeVertexNormals();
     g.deleteAttribute('uv');
     this.paint(g, color, shade);
+    this.texAmt(g, 1);
     this.geos.push(g);
     if (!solid) return; // piezas inalcanzables (el borde del cañón) no necesitan cuerpo sólido
     const desc = this.rapier.ColliderDesc.convexHull(new Float32Array(g.attributes.position.array));
@@ -51,6 +58,7 @@ export class Builder {
       arr.set([c.r, c.g, c.b], i * 3);
     }
     g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    this.texAmt(g, 1);
     this.geos.push(g);
     if (!solid) return;
     const desc = this.rapier.ColliderDesc.convexHull(new Float32Array(g.attributes.position.array));
@@ -58,22 +66,24 @@ export class Builder {
   }
 
   /** Decorado pequeño (grava, losas): se ve, pero no tiene cuerpo sólido. */
-  addDecor(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, color: number, shade = 1) {
+  addDecor(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, color: number, shade = 1, tex = 0) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.applyMatrix4(matrix);
     g.computeVertexNormals();
     g.deleteAttribute('uv');
     this.paint(g, color, shade);
+    this.texAmt(g, tex);
     this.geos.push(g);
   }
 
   /** Caja (muros, cajas, piezas de la cañonera). */
-  addBox(size: [number, number, number], matrix: THREE.Matrix4, color: number, solid = true) {
+  addBox(size: [number, number, number], matrix: THREE.Matrix4, color: number, solid = true, tex = 0) {
     const g = new THREE.BoxGeometry(size[0], size[1], size[2]).toNonIndexed();
     g.applyMatrix4(matrix);
     g.computeVertexNormals();
     g.deleteAttribute('uv');
     this.paint(g, color);
+    this.texAmt(g, tex);
     this.geos.push(g);
     if (!solid) return;
     const p = new THREE.Vector3();
@@ -90,7 +100,9 @@ export class Builder {
   finish(scene: THREE.Scene): THREE.Mesh {
     const merged = mergeGeometries(this.geos, false)!;
     for (const g of this.geos) g.dispose();
-    const mesh = new THREE.Mesh(merged, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+    // Las rocas y piezas llevan la arenisca estratificada (en el espacio del mundo); la cañonera y los restos metálicos
+    // se verían raros con ella, pero el efecto es suave porque solo modula el color de cada pieza.
+    const mesh = new THREE.Mesh(merged, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), { ground: groundTexture(), rock: rockTexture(), rockOnly: true }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 
+import { applyWorldTextures, groundTexture, rockTexture } from './materials';
+
 export const WORLD_SEED = 1138;
 // La malla del terreno es mucho más larga que la zona jugable: el cañón sigue a lo lejos.
 const GRID_STEP = 1.7; // detalle (m) en la zona cercana
@@ -111,30 +113,6 @@ export function terrainHeight(x: number, z: number): number {
   return h + crashField(x, z).h;
 }
 
-// Textura de arena hecha por código (grano fino). Provisional hasta la Fase 6.
-function sandTexture(): THREE.Texture {
-  const s = 256;
-  const c = document.createElement('canvas');
-  c.width = c.height = s;
-  const g = c.getContext('2d')!;
-  const img = g.createImageData(s, s);
-  const rng = makeRng(7);
-  for (let i = 0; i < s * s; i++) {
-    const v = 205 + rng() * 50 - (rng() < 0.04 ? 45 : 0);
-    img.data[i * 4] = v;
-    img.data[i * 4 + 1] = v;
-    img.data[i * 4 + 2] = v;
-    img.data[i * 4 + 3] = 255;
-  }
-  g.putImageData(img, 0, 0);
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(1, 1);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
-}
-
 // Colores de las capas de roca de las paredes (como los estratos del Gran Cañón).
 const STRATA = [0xa84a2a, 0xc2693c, 0x8a3a22, 0xb85a32, 0x74301c, 0xcf7a44].map((c) => new THREE.Color(c));
 
@@ -210,7 +188,7 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-  const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, map: sandTexture() }));
+  const mesh = new THREE.Mesh(geo, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true }), { ground: groundTexture(), rock: rockTexture() }));
   mesh.receiveShadow = true;
   scene.add(mesh);
 

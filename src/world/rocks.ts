@@ -136,7 +136,7 @@ export function buildRocks(b: Builder) {
     const x = range(-HW, HW), z = range(-HL, HL);
     if (!clear(x, z) || Math.hypot(x, z) < 19) continue;
     const w = range(3, 6.5), h = range(1.3, 2.3);
-    b.addBox([w, h, 0.6], place(x, terrainHeight(x, z) + h / 2 - 0.35, z, range(-0.6, 0.6), 0, range(-0.06, 0.06)), RUIN);
+    b.addBox([w, h, 0.6], place(x, terrainHeight(x, z) + h / 2 - 0.35, z, range(-0.6, 0.6), 0, range(-0.06, 0.06)), RUIN, true, 0.7);
     OBSTACLES.push({ x, z, radius: w * 0.5, height: h });
     if (rng() < 0.5) {
       const x2 = x + w / 2 + 1.2, z2 = z + range(-1, 1);
@@ -186,14 +186,14 @@ export function buildRocks(b: Builder) {
     const x = range(-HW - 2, HW + 2), z = range(-HL, HL);
     if (!clear(x, z)) continue;
     const g = new THREE.BoxGeometry(range(0.8, 2.4), range(0.06, 0.13), range(0.6, 1.7));
-    b.addDecor(g, place(x, terrainHeight(x, z) + 0.04, z, range(0, 3.14), range(-0.12, 0.12), range(-0.12, 0.12)), 0x8f5636, range(0.7, 1.15));
+    b.addDecor(g, place(x, terrainHeight(x, z) + 0.04, z, range(0, 3.14), range(-0.12, 0.12), range(-0.12, 0.12)), 0x8f5636, range(0.7, 1.15), 1);
     n++;
   }
   for (let n = 0; n < 420; ) {
     const x = range(-HW - 2, HW + 2), z = range(-HL, HL);
     if (Math.hypot(x + 2.5, z - 3.2) < 3 || crashField(x, z).h < -0.4) continue;
     const sz = range(0.07, 0.24);
-    b.addDecor(new THREE.TetrahedronGeometry(sz), place(x, terrainHeight(x, z) + sz * 0.25, z, range(0, 6.28), range(0, 3), range(0, 3)), PEBBLES[Math.floor(rng() * PEBBLES.length)], range(0.75, 1.15));
+    b.addDecor(new THREE.TetrahedronGeometry(sz), place(x, terrainHeight(x, z) + sz * 0.25, z, range(0, 6.28), range(0, 3), range(0, 3)), PEBBLES[Math.floor(rng() * PEBBLES.length)], range(0.75, 1.15), 1);
     n++;
   }
 
