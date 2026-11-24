@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SoftPoints } from '../world/crashFx';
+import { SoftPoints, SPRITES } from '../world/crashFx';
 
 const BOLT_SPEED = 170; // m/s
 const BOLT_LENGTH = 2.2;
@@ -107,7 +107,6 @@ export class Effects {
   private flashes: Flash[] = [];
   private enemyBolts: Bolt[] = [];
   private sparks: ParticlePool;
-  private smoke: ParticlePool;
   private blasts: Array<{ ball: THREE.Mesh; ring: THREE.Mesh; life: number; size: number }> = [];
   // Partículas suaves: polvo, humo grande, llamas y destellos (cada reserva es un solo objeto dibujable)
   private dust: SoftPoints;
@@ -120,11 +119,10 @@ export class Effects {
   constructor(scene: THREE.Scene) {
     const dot = dotTexture();
     this.sparks = new ParticlePool(scene, 120, 0.22, [1, 0.62, 0.2], 9, 0.6, true, dot);
-    this.smoke = new ParticlePool(scene, 80, 2.8, [0.2, 0.17, 0.15], 0, 0.9, false, dot);
-    this.dust = new SoftPoints(scene, { n: 70, additive: false, gravity: -0.35, drag: 1.6, wind: [0.4, 0, 0.1], colorA: [0.78, 0.58, 0.4], colorB: [0.56, 0.41, 0.3], alpha: 0.5 });
-    this.smokeBig = new SoftPoints(scene, { n: 60, additive: false, gravity: -0.5, drag: 0.8, wind: [0.5, 0.2, 0.1], colorA: [0.13, 0.11, 0.1], colorB: [0.36, 0.31, 0.27], alpha: 0.5 });
-    this.fire = new SoftPoints(scene, { n: 70, additive: true, gravity: -1.2, drag: 2.2, wind: [0, 0, 0], colorA: [1, 0.85, 0.5], colorB: [0.85, 0.2, 0.04], alpha: 0.85 });
-    this.blue = new SoftPoints(scene, { n: 40, additive: true, gravity: 0, drag: 3, wind: [0, 0, 0], colorA: [0.8, 0.95, 1], colorB: [0.2, 0.5, 1], alpha: 0.9 });
+    this.dust = new SoftPoints(scene, { n: 70, additive: false, gravity: -0.35, drag: 1.6, wind: [0.4, 0, 0.1], colorA: [0.78, 0.58, 0.4], colorB: [0.56, 0.41, 0.3], alpha: 0.5, sprites: SPRITES.dust, spin: 0.5 });
+    this.smokeBig = new SoftPoints(scene, { n: 90, additive: false, gravity: -0.5, drag: 0.8, wind: [0.5, 0.2, 0.1], colorA: [0.13, 0.11, 0.1], colorB: [0.36, 0.31, 0.27], alpha: 0.5, sprites: SPRITES.smoke, spin: 0.45 });
+    this.fire = new SoftPoints(scene, { n: 70, additive: true, gravity: -1.2, drag: 2.2, wind: [0, 0, 0], colorA: [1, 0.85, 0.5], colorB: [0.85, 0.2, 0.04], alpha: 0.85, sprites: SPRITES.fire, tilt: 0.5, spin: 0.4 });
+    this.blue = new SoftPoints(scene, { n: 40, additive: true, gravity: 0, drag: 3, wind: [0, 0, 0], colorA: [0.8, 0.95, 1], colorB: [0.2, 0.5, 1], alpha: 0.9, sprites: SPRITES.sparks, spin: 2 });
     // Marcas de quemado en el suelo
     const sc = document.createElement('canvas'); sc.width = sc.height = 128;
     const sg = sc.getContext('2d')!;
@@ -286,7 +284,7 @@ export class Effects {
     }
     for (let i = 0; i < 12; i++) {
       const a = r() * Math.PI * 2, s = r() * 2.2;
-      this.smoke.emit(x + (r() - 0.5), y + 0.2 + r() * 0.6, z + (r() - 0.5), Math.cos(a) * s, 0.8 + r() * 1.6, Math.sin(a) * s, 1.8 + r() * 1.4);
+      this.smokeBig.emit(x + (r() - 0.5), y + 0.2 + r() * 0.6, z + (r() - 0.5), Math.cos(a) * s, 0.8 + r() * 1.6, Math.sin(a) * s, 1.8 + r() * 1.4, 1.1, 3.0);
     }
     // marca quemada en el suelo
     const sc = this.scorches.find((q) => q.life <= 0) ?? this.scorches[0];
@@ -299,13 +297,12 @@ export class Effects {
 
   /** Una bocanada de humo oscuro que sube despacio. */
   smokePuff(x: number, y: number, z: number) {
-    this.smoke.emit(x, y, z, (Math.random() - 0.5) * 0.7, 0.9 + Math.random() * 0.9, (Math.random() - 0.5) * 0.7, 1.5 + Math.random() * 0.8);
+    this.smokeBig.emit(x, y, z, (Math.random() - 0.5) * 0.7, 0.9 + Math.random() * 0.9, (Math.random() - 0.5) * 0.7, 1.5 + Math.random() * 0.8, 0.6, 1.8);
   }
 
   /** Quita todos los rayos y chispazos de la pantalla. */
   clear() {
     this.sparks.clear();
-    this.smoke.clear();
     this.dust.clear(); this.smokeBig.clear(); this.fire.clear(); this.blue.clear();
     for (const q of this.scorches) { q.life = 0; q.mesh.visible = false; }
     for (const b of this.blasts) { b.life = 0; b.ball.visible = b.ring.visible = false; }
@@ -326,7 +323,6 @@ export class Effects {
       (b.ring.material as THREE.MeshBasicMaterial).opacity = b.life * 0.7;
     }
     this.sparks.update(dt);
-    this.smoke.update(dt);
     this.dust.update(dt); this.smokeBig.update(dt); this.fire.update(dt); this.blue.update(dt);
     for (const q of this.scorches) {
       if (q.life <= 0) continue;

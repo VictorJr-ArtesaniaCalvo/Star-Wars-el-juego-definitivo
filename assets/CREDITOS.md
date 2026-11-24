@@ -40,6 +40,6 @@ Autor: **Kenney Vleugels** (https://kenney.nl) · Licencia: CC0 1.0 · «Crédit
 
 ## Qué se usa en el juego y cómo
 - **Suelo y rocas:** `public/textures/ground-red.jpg` (de `red_earth_03` de pansapiens), `ground-extra.jpg` (barro agrietado y arena de Poly Haven), `rock-cracks.jpg` y `rock-wall.jpg` (de `sandstone_cracks` y `red_sandstone_wall`). Cada una es una imagen de 1024 px con el relieve y el brillo en blanco y negro (el color rojo lo pone el juego). Se generan con `python tools/build-textures.py`.
-- **Partículas:** `public/particles/atlas.png`: 16 imágenes de Kenney (humo, polvo, fuego, chispas, rayo) en una sola. Se genera con `python tools/build-particles.py`.
+- **Partículas:** `public/particles/atlas.png`: 16 imágenes de Kenney (humo, polvo, fuego, chispas, rayo) en una sola; se usan en la cañonera derribada y en las explosiones, impactos y fogonazos. Se genera con `python tools/build-particles.py`.
 - Siguen sin usarse: `sand_01` a `04` y el resto de `red_earth` de pansapiens, y la mayoría de las partículas de Kenney.
 
