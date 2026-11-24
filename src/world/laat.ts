@@ -16,6 +16,8 @@ interface LaatData { parts: Record<string, Part>; textures: THREE.Texture[] }
 let data: LaatData | null = null;
 
 export const laatReady = () => data !== null;
+/** Piezas y texturas del modelo (para cortar restos del casco). */
+export const laatData = () => data;
 
 /** Descarga el modelo y sus texturas. Si falla, el escenario usa la cañonera de formas sencillas. */
 export async function loadLaat(url: string): Promise<boolean> {

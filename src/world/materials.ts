@@ -350,7 +350,7 @@ ${sp.joints ? `    float jl; vec3 jb;
 ${pits ? `  // huecos de erosión en parches de las caras verticales
   float pl; vec3 pb;
   tri(pitMap, vWPos, uPitScale, tw, pl, pb);
-  float pitM = smoothstep(0.45, 0.62, vnoise(vWPos.xz * 0.06 + vWPos.y * 0.05)) * smoothstep(0.3, 0.7, 1.0 - an.y);
+  float pitM = smoothstep(mix(0.45, 0.56, uRich), mix(0.62, 0.7, uRich), vnoise(vWPos.xz * 0.06 + vWPos.y * 0.05)) * smoothstep(0.3, 0.7, 1.0 - an.y);
   ${o.terrainRock ? 'pitM *= uRich;' : ''}
   rockTex *= mix(1.0, pl / 0.78, pitM);
   rockBump = mix(rockBump, pb * 1.3, pitM);` : ''}

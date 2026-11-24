@@ -1,11 +1,12 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Builder, place } from './builder';
+import { slabGeometry } from './scatter';
+import { CRATE_SPOTS, METAL_WALL_SPOTS } from './wreckage';
 import { CANYON_HALF_L, CANYON_HALF_W, crashField, makeRng, terrainHeight, WORLD_SEED } from './terrain';
 
 const ROCK = 0x8a4a30;
 const SPIRE = 0x96502f;
-const RUIN = 0x7d5a48;
-const METAL = 0x4a4744;
 const CAP = 0xa8643c;
 // Capas de roca para mesetas y setas
 const STRATA = [0x9a4a2c, 0xb85c36, 0x7e3a22, 0xc0693c, 0x6e3220];
@@ -67,6 +68,24 @@ function hoodooStem(radius: number, height: number, seed: number) {
     const k = 0.85 + hash(x, y, z, seed) * 0.3;
     p.setXYZ(i, x * k, y, z * k);
   }
+  return g;
+}
+
+/** Cobertura de roca en capas: dos o tres losas irregulares apiladas, cada una algo más pequeña y desplazada. Mide w de largo y h de alto. */
+function layeredWall(w: number, h: number, seed: number) {
+  const rnd = (() => { let k = seed * 7919; return () => hash(k++, 1, 2, seed); })();
+  const layers = h > 1.8 ? 3 : 2;
+  const parts: THREE.BufferGeometry[] = [];
+  let y = 0, rx = w * 0.5, ox = 0;
+  for (let i = 0; i < layers; i++) {
+    const t = (h / layers) * (0.9 + rnd() * 0.3);
+    const g = slabGeometry(rnd, rx, rx * (0.28 + rnd() * 0.12), t).toNonIndexed();
+    g.translate(ox, y, (rnd() - 0.5) * 0.25);
+    parts.push(g);
+    y += t * 0.82; rx *= 0.72 + rnd() * 0.2; ox += (rnd() - 0.5) * w * 0.12;
+  }
+  const g = mergeGeometries(parts, false)!;
+  for (const p of parts) p.dispose();
   return g;
 }
 
@@ -135,25 +154,30 @@ export function buildRocks(b: Builder) {
     spireCluster(x, z, range(0.55, 0.8));
     n++;
   }
-  // Muros en ruinas
+  // Muros en ruinas: coberturas de roca en capas (las mismas de las paredes del cañón) y, de cada cinco, dos muros de chapa de metal retorcido
+  METAL_WALL_SPOTS.length = 0;
   for (let n = 0; n < 30; ) {
     const x = range(-HW, HW), z = range(-HL, HL);
     if (!clear(x, z) || Math.hypot(x, z) < 19) continue;
     const w = range(3, 6.5), h = range(1.3, 2.3);
-    b.addBox([w, h, 0.6], place(x, terrainHeight(x, z) + h / 2 - 0.35, z, range(-0.6, 0.6), 0, range(-0.06, 0.06)), RUIN, true, 0.7);
+    const yaw = range(-0.6, 0.6);
+    // (se gasta el mismo azar que antes para que el resto del mapa no cambie)
+    range(-0.06, 0.06);
+    if (rng() < 0.5) { const x2 = x + w / 2 + 1.2, z2 = z + range(-1, 1); if (onFloor(x2, z2)) { range(1.2, 2.2); range(0, 3); range(-0.2, 0.2); } }
+    if (n % 5 < 2) METAL_WALL_SPOTS.push({ x, z, w, h: 1.2, yaw });
+    else b.addStrataHull(layeredWall(w, h, seed++), place(x, terrainHeight(x, z) - 0.15, z, yaw), STRATA, 0.6);
     OBSTACLES.push({ x, z, radius: w * 0.5, height: h });
-    if (rng() < 0.5) {
-      const x2 = x + w / 2 + 1.2, z2 = z + range(-1, 1);
-      if (onFloor(x2, z2)) b.addBox([range(1.2, 2.2), 0.6, 1], place(x2, terrainHeight(x2, z2) + 0.15, z2, range(0, 3), 0, range(-0.2, 0.2)), RUIN);
-    }
     n++;
   }
-  // Restos metálicos
+  // Restos metálicos: cajas grandes de suministros (sólidas, sirven de cobertura)
+  CRATE_SPOTS.length = 0;
   for (let n = 0; n < 24; ) {
     const x = range(-HW, HW), z = range(-HL, HL);
     if (!clear(x, z) || Math.hypot(x, z) < 17) continue;
     const sx = range(1, 2.6), sy = range(0.8, 1.6), sz = range(0.8, 1.8);
-    b.addBox([sx, sy, sz], place(x, terrainHeight(x, z) + sy * 0.3, z, range(0, 6.28), range(-0.3, 0.3), range(-0.3, 0.3)), METAL);
+    const yaw = range(0, 6.28);
+    range(-0.3, 0.3); range(-0.3, 0.3);
+    CRATE_SPOTS.push({ x, z, sx, sy, sz, yaw });
     OBSTACLES.push({ x, z, radius: Math.max(sx, sz) * 0.6, height: sy });
     n++;
   }

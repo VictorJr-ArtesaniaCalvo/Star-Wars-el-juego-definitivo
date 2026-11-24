@@ -12,6 +12,7 @@ import { setWorldBump, setWorldRich } from './materials';
 import { SkyLife } from './skyLife';
 import { buildTerrain, CRASH, paintRock, terrainHeight, wallDetailOn } from './terrain';
 import { WallBlocks } from './wallBlocks';
+import { Wreckage } from './wreckage';
 import { buildScorch } from './scorch';
 import { Ledges, Scatter } from './scatter';
 import { QUALITY, type Quality } from '../core/Settings';
@@ -47,6 +48,7 @@ export class World {
     buildDefenseZone(b);
     buildDroidWreck(b);
     b.finish(scene);
+    new Wreckage(scene, rapier, physics); // restos de la cañonera, chapas, muros de chapa y cajas de la República
     paintRock(terrain, b.spots); // el suelo se vuelve rocoso alrededor de las coberturas
     this.scatter = new Scatter(scene, b.spots); // lajas de piedra y piedrecitas (calidad media y alta)
     this.ledges = new Ledges(scene, rapier, physics); // repisas de roca en capas (calidad media y alta)
