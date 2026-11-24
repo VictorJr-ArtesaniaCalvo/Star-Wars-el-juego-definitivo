@@ -45,6 +45,8 @@ export function b2Params(round: number): BrainParams {
     burst: [1, 2],
     interval: 0.34,
     coverTime: [1.0, 2.0],
+    muzzleY: 1.34, // el cañón va en el antebrazo derecho
+    muzzleFwd: 0.95,
   };
 }
 
@@ -60,6 +62,8 @@ export function droidekaParams(round: number): BrainParams {
     interval: 0.1,
     coverTime: [3, 5],
     deployTime: 0.8,
+    muzzleY: 0.86,
+    muzzleFwd: 0.9,
   };
 }
 

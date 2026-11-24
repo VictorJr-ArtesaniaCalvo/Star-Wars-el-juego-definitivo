@@ -30,6 +30,8 @@ export interface BrainParams {
   interval?: number; // segundos entre disparos de una ráfaga (por defecto 0,22)
   coverTime?: [number, number]; // cuánto se queda parado en cada parada (por defecto 0,7–1,5 s)
   deployTime?: number; // solo droidekas: tiempo que tardan en desplegarse tras rodar
+  muzzleY?: number; // altura de la que salen los disparos (por defecto 1,2 m)
+  muzzleFwd?: number; // cuánto por delante del cuerpo (por defecto 0,35 m)
 }
 
 const HOLD_DIST = 14; // a esta distancia del jugador deja de avanzar y se queda disparando
@@ -329,7 +331,8 @@ export class DroidBrain {
     const R = ctx.rapier;
     const playerHandle = ctx.playerCollider();
     const tx = T.x, ty = T.y + (T.crouching ? 0.6 : 1.2), tz = T.z;
-    this.org.set(x - Math.sin(this.yaw) * 0.35, y + 1.2, z - Math.cos(this.yaw) * 0.35);
+    const mf = this.params.muzzleFwd ?? 0.35;
+    this.org.set(x - Math.sin(this.yaw) * mf, y + (this.params.muzzleY ?? 1.2), z - Math.cos(this.yaw) * mf);
 
     // ¿Veo al jugador? (se comprueba unas cuatro veces por segundo)
     this.losTimer -= dt;

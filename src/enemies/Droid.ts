@@ -11,7 +11,7 @@ const CORPSE_TIME = 2.2;
 /** Cuerpo y resistencia de cada tipo de droide. */
 export const KINDS: Record<EnemyKind, { height: number; radius: number; chest: number; health: number; shield: number }> = {
   b1: { height: 1.9, radius: 0.28, chest: 1.25, health: 60, shield: 0 },
-  b2: { height: 2.2, radius: 0.4, chest: 1.45, health: 180, shield: 0 },
+  b2: { height: 2.35, radius: 0.42, chest: 1.8, health: 180, shield: 0 },
   droideka: { height: 1.4, radius: 0.45, chest: 0.85, health: 100, shield: 150 },
 };
 const UNFOLD_TIME = 2.4; // segundos que tarda un B1 en desplegarse al aparecer

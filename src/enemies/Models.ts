@@ -32,25 +32,45 @@ let b2: THREE.BufferGeometry | null = null;
 let ball: THREE.BufferGeometry | null = null;
 let deployed: THREE.BufferGeometry | null = null;
 
-/** Droide B2: más alto y corpulento que el B1, con coraza y un cañón en la muñeca. */
+/**
+ * Droide B2 (super droide de batalla): hombros muy anchos con coraza, cintura estrecha con el «corsé» de láminas,
+ * caderas con cilindros horizontales, piernas largas y finas con discos en las rodillas, brazos largos que cuelgan
+ * hasta el muslo (el derecho lleva el cañón) y sin cabeza propia: una cúpula pequeña con el ojo rojo. Mira hacia -Z.
+ */
 export function b2Geometry() {
   if (b2) return b2;
-  const BODY = 0x6e6b5f, DARK = 0x45443f, PLATE = 0x8a8678;
-  b2 = assemble([
-    box(0.15, 0.95, 0.16, -0.18, 0.47, 0, DARK), // piernas
-    box(0.15, 0.95, 0.16, 0.18, 0.47, 0, DARK),
-    box(0.5, 0.2, 0.3, 0, 1.0, 0, BODY), // cadera
-    box(0.56, 0.75, 0.34, 0, 1.5, 0, BODY), // torso
-    box(0.42, 0.34, 0.08, 0, 1.55, -0.2, PLATE), // placa del pecho
-    box(0.24, 0.22, 0.3, -0.4, 1.82, 0, PLATE), // hombreras
-    box(0.24, 0.22, 0.3, 0.4, 1.82, 0, PLATE),
-    box(0.13, 0.62, 0.13, -0.4, 1.4, -0.12, DARK, [0.5, 0, 0]), // brazos
-    box(0.13, 0.62, 0.13, 0.4, 1.4, -0.12, DARK, [0.5, 0, 0]),
-    box(0.16, 0.16, 0.5, 0.4, 1.22, -0.5, 0x2b2b2e), // cañón de la muñeca
-    box(0.3, 0.42, 0.14, 0, 1.55, 0.26, DARK), // mochila
-    box(0.2, 0.2, 0.26, 0, 2.05, -0.02, DARK), // cabeza
-    box(0.1, 0.06, 0.06, 0, 2.06, -0.17, 0xb03a1e), // visor
-  ]);
+  const GUN = 0x6c737a, PLATE = 0xa2a9ae, DARK = 0x363a3f, EYE = 0xd8281a, CANNON = 0x1f2124;
+  const cyl = (r: number, len: number, x: number, y: number, z: number, color: number, axis: 'x' | 'y' | 'z' = 'x', seg = 10): Part => ({
+    geo: new THREE.CylinderGeometry(r, r, len, seg), color, at: [x, y, z],
+    rot: axis === 'x' ? [0, 0, Math.PI / 2] : axis === 'z' ? [Math.PI / 2, 0, 0] : undefined,
+  });
+  const parts: Part[] = [];
+  for (const sd of [-1, 1]) {
+    parts.push(box(0.2, 0.09, 0.34, 0.2 * sd, 0.045, -0.05, DARK)); // pies
+    parts.push(box(0.12, 0.62, 0.15, 0.2 * sd, 0.4, 0.0, GUN)); // piernas (espinillas)
+    parts.push(cyl(0.11, 0.05, 0.28 * sd, 0.72, 0, PLATE)); // discos de las rodillas
+    parts.push(box(0.14, 0.58, 0.17, 0.2 * sd, 1.02, 0.0, GUN)); // muslos
+    parts.push(box(0.26, 0.3, 0.34, 0.52 * sd, 2.0, 0.0, PLATE)); // hombros blindados
+    parts.push(box(0.15, 0.5, 0.17, 0.56 * sd, 1.66, 0.0, GUN)); // brazos
+    parts.push(cyl(0.1, 0.07, 0.62 * sd, 1.38, 0, DARK)); // codos
+  }
+  parts.push(cyl(0.11, 0.74, 0, 1.3, 0, DARK)); // eje de la cadera (cilindro horizontal)
+  parts.push(box(0.3, 0.2, 0.2, 0, 1.27, 0.02, GUN)); // cadera
+  parts.push({ geo: new THREE.CylinderGeometry(0.3, 0.16, 0.38, 10), color: DARK, at: [0, 1.52, 0], rot: undefined }); // cintura con láminas
+  parts.push(box(0.8, 0.5, 0.44, 0, 1.9, 0, GUN)); // pecho ancho
+  parts.push(box(0.5, 0.32, 0.07, 0, 1.9, -0.24, PLATE)); // placa en V
+  parts.push(box(0.3, 0.12, 0.08, 0, 1.74, -0.25, PLATE));
+  parts.push({ geo: new THREE.SphereGeometry(0.17, 10, 8), color: GUN, at: [0, 2.2, -0.04] }); // cúpula (la «cabeza»)
+  parts.push(box(0.06, 0.06, 0.05, 0.1, 2.2, -0.2, EYE)); // ojo rojo
+  parts.push(box(0.36, 0.3, 0.14, 0, 1.95, 0.27, DARK)); // espalda
+  // Antebrazo izquierdo colgando y mano
+  parts.push(box(0.13, 0.5, 0.15, -0.62, 1.08, 0.0, GUN));
+  parts.push(box(0.14, 0.14, 0.12, -0.62, 0.78, 0.0, DARK));
+  // Brazo derecho: el antebrazo apunta hacia delante con el cañón
+  parts.push(box(0.13, 0.13, 0.5, 0.62, 1.34, -0.3, GUN));
+  parts.push(box(0.18, 0.18, 0.34, 0.62, 1.34, -0.7, CANNON));
+  parts.push(box(0.05, 0.05, 0.22, 0.62, 1.34, -0.95, CANNON));
+  b2 = assemble(parts);
   return b2;
 }
 
