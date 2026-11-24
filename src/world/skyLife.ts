@@ -106,7 +106,7 @@ function separatist(): THREE.BufferGeometry {
 interface Bolt { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; t: number; dur: number; active: boolean; side: number }
 interface Flash { sprite: THREE.Sprite; life: number }
 
-const BOLT_SPEED = 150; // m/s
+const BOLT_SPEED = 300; // m/s
 
 class SkyBattle {
   private republic: THREE.Mesh;
@@ -155,8 +155,8 @@ class SkyBattle {
     addGlow(this.sep, 6.5, 3.5, 56, 12, 0xffa050);
 
     // Rayos: verdes los de la República, rojos los separatistas
-    const boltGeo = new THREE.BoxGeometry(3, 3, 34);
-    boltGeo.translate(0, 0, 17);
+    const boltGeo = new THREE.BoxGeometry(1.5, 1.5, 17);
+    boltGeo.translate(0, 0, 8.5);
     const mats = [
       new THREE.MeshBasicMaterial({ color: 0x3dff7a, fog: false }),
       new THREE.MeshBasicMaterial({ color: 0xff3020, fog: false }),
@@ -249,7 +249,7 @@ class SkyBattle {
       if (f.life <= 0) continue;
       f.life -= dt * 2.2;
       if (f.life <= 0) { f.sprite.visible = false; continue; }
-      f.sprite.scale.setScalar(28 * (1.2 - f.life * 0.6));
+      f.sprite.scale.setScalar(14 * (1.2 - f.life * 0.6));
       (f.sprite.material as THREE.SpriteMaterial).opacity = f.life;
     }
     void this.pos;
