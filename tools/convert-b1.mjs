@@ -126,7 +126,8 @@ const TEXTURED = [
   ['Material.006', 'piston-L', 256], ['Material.007', 'piston-R', 256],
   ['Material.004', 'arm2-L', 512], ['Material.005', 'arm2-R', 512],
   ['Material.013', 'small-finger-D', 256], ['Material.014', 'small-finger-C', 256], ['Material.015', 'small-finger-C', 256],
-  ['Material.010', 'long-fingers', 256], ['Material.011', 'long-fingers', 256], ['Material.012', 'long-fingers', 256],
+  ['Material.010', 'long-fingers', 256], // ? hay dos imágenes con este despliegue (long-fingers y long-fingers-2); se reparten entre los dedos B y A
+  ['Material.011', 'long-fingers-2', 256], ['Material.012', 'long-fingers-2', 256], // ?
   ['Material.008', 'hand-L', 256], ['Material.009', 'hand-R', 256],
   ['Material.033', 'leg-rotat-L', 256], ['Material.034', 'leg-rotat-R', 256],
   ['Material.035', 'leg', 512], ['Material.036', 'leg2', 512], ['Material.037', 'foot', 512], ['Material.041', 'foot-rotat', 256],
