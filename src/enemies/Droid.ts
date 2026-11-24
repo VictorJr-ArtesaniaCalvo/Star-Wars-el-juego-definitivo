@@ -195,6 +195,7 @@ export class Droid {
     if (this.shieldMesh) this.shieldMesh.visible = false;
     const c = this.aimPoint(new THREE.Vector3());
     ctx.effects.deathBurst(c.x, c.y, c.z);
+    ctx.died?.(this.kind, s.x, s.z);
     if (this.kind !== 'b1') ctx.effects.deathBurst(c.x, c.y + 0.2, c.z);
     return true;
   }

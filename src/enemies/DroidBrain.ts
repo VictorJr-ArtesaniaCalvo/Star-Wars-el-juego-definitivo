@@ -21,6 +21,8 @@ export interface BrainContext {
   /** Aviso de que un droide ha disparado (para el sonido). */
   audio?: (sfx: 'b1' | 'b2' | 'droideka', x: number, y: number, z: number, dist: number) => void;
   /** Aviso de que ha aparecido un droide (para el sonido de «cargar el arma» de los B1). */
+  /** Aviso de que un droide ha sido destruido (para soltar un kit médico). */
+  died?: (kind: 'b1' | 'b2' | 'droideka', x: number, z: number) => void;
   appear?: (kind: 'b1' | 'b2' | 'droideka', x: number, y: number, z: number) => void;
 }
 

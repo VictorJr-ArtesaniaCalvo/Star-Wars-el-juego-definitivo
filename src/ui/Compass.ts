@@ -101,7 +101,7 @@ export class Compass {
         const x = w / 2 + (delta / SPAN) * w;
         // B2: más grandes · droidekas: azules (llevan escudo)
         const s = (m.dist < 25 ? 5.5 : 4.2) * (m.kind === 'b2' ? 1.35 : 1);
-        ctx.fillStyle = m.kind === 'droideka' ? `rgba(110,200,255,${a})` : `rgba(255,86,66,${a})`;
+        ctx.fillStyle = m.kind === 'medkit' ? `rgba(90,255,140,${Math.min(1, a + 0.3)})` : m.kind === 'droideka' ? `rgba(110,200,255,${a})` : `rgba(255,86,66,${a})`;
         ctx.beginPath();
         ctx.moveTo(x - s, 48);
         ctx.lineTo(x + s, 48);

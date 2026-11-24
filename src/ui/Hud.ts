@@ -33,7 +33,6 @@ export class Hud {
   private dmgLife = 0;
   private dirLife = 0;
   private compass = new Compass();
-  private pips = Array.from(document.querySelectorAll<HTMLElement>('#pips i'));
   private healPopEl = $('healPop');
   private btnAim = $('btnAim');
   private btnGrenade = $('btnGrenade');
@@ -79,11 +78,6 @@ export class Hud {
 
   setHeading(yaw: number, markers: CompassMarker[] = []) {
     this.compass.draw(yaw, markers);
-  }
-
-  /** Cuántas bajas llevas hacia la próxima curación (0–2). */
-  setKillPips(n: number) {
-    this.pips.forEach((p, i) => p.classList.toggle('on', i < n));
   }
 
   /** Aviso flotante junto a la vida ("+10 VIDA"). */

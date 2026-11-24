@@ -138,6 +138,8 @@ export class AudioEngine {
   }
   overheat() { this.play('overheat', 0.55); }
   ready() { this.play('ready', 0.35); }
+  /** Recoger un kit médico: dos notas suaves ascendentes. */
+  pickup() { this.play('ready', 0.55, 1.35); }
   grenadeThrow() { this.play('whoosh', 0.5, rnd(0.95, 1.05)); }
   grenadeBounce(x: number, y: number, z: number) { this.play('tink', 0.45, rnd(0.9, 1.15), [x, y, z], 4); }
   explosion(x: number, y: number, z: number) { this.play('explosion', 1.0, rnd(0.94, 1.04), [x, y, z], 12); }

@@ -17,6 +17,7 @@ import { SPAWN } from '../world/defenseZone';
 import { terrainHeight } from '../world/terrain';
 import { Blaster, BLASTER } from '../weapons/Blaster';
 import { GRENADE, GrenadeSystem } from '../weapons/Grenade';
+import { MEDKIT, MedkitSystem } from '../weapons/Medkits';
 import { Effects } from '../weapons/Effects';
 import { ViewModel } from '../weapons/ViewModel';
 import { World } from '../world/World';
@@ -31,8 +32,6 @@ const ADS_MOVE = 0.7; // velocidad al apuntar (multiplicador)
 const SPREAD_HIP = (1.6 * Math.PI) / 180; // desvío máximo de un disparo desde la cadera
 const SPREAD_ADS = (0.12 * Math.PI) / 180;
 const HEAL_BETWEEN_ROUNDS = 30;
-const KILLS_PER_HEAL = 3;
-const HEAL_PER_STREAK = 10;
 const PITCH_LIMIT = (85 * Math.PI) / 180;
 const ASSIST_CONE = (6 * Math.PI) / 180;
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -68,7 +67,7 @@ export class Game {
   private swapT = 0;
   private prevFire = false;
   private shake = 0;
-  private killsSinceHeal = 0;
+  private medkits!: MedkitSystem;
   private jumpBuffer = 0;
   private shots = 0;
   private hits = 0;
@@ -125,6 +124,7 @@ export class Game {
     this.state.players.push({ id: 0, x: SPAWN.x, y: 0, z: SPAWN.z, yaw: 0, pitch: 0, crouching: false, health: 100, grenades: GRENADE.perGame });
     this.localPlayer = new PlayerController(RAPIER, this.physics, this.state.players[0]);
     this.effects = new Effects(this.scene);
+    this.medkits = new MedkitSystem(this.scene);
     const pl = this.localPlayer;
     this.grenadeSys = new GrenadeSystem(this.scene, this.physics, pl.body, (at) => this.explodeGrenade(at), (at) => this.audio.grenadeBounce(at.x, at.y, at.z));
     this.enemies = new EnemyManager(this.scene, RAPIER, this.physics, this.state, {
@@ -133,6 +133,7 @@ export class Game {
       playerCollider: () => pl.collider.handle,
       damagePlayer: (amount, fx, fz) => this.damagePlayer(amount, fx, fz),
       audio: (kind, x, y, z, dist) => this.audio.enemyShot(kind, x, y, z, dist),
+      died: (kind, x, z) => { if (Math.random() < MEDKIT.chance[kind]) this.medkits.drop(x, z, MEDKIT.heal[kind]); },
       appear: (kind, x, y, z) => { if (kind === 'b1' || kind === 'b2') this.audio.droidAppear(x, y, z); },
     });
     this.waves = new WaveManager(this.enemies, {
@@ -218,9 +219,7 @@ export class Game {
     this.adsZoom = 0;
     this.camera.fov = FOV_HIP;
     this.camera.updateProjectionMatrix();
-    this.killsSinceHeal = 0;
     this.jumpBuffer = 0;
-    this.hud.setKillPips(0);
     this.shots = 0;
     this.hits = 0;
     this.gameOver.hide();
@@ -256,6 +255,7 @@ export class Game {
     this.enemies.clear();
     this.effects.clear();
     this.grenadeSys.clear();
+    this.medkits.clear();
     this.hud.hideBanner();
     this.hud.setVisible(false, false);
     this.gameOver.hide();
@@ -280,6 +280,11 @@ export class Game {
   private compassMarkers() {
     const p = this.localPlayer.state;
     const out: Array<{ bearing: number; dist: number; kind: string }> = [];
+    for (const k of this.medkits.list()) {
+      const dx = k.x - p.x, dz = k.z - p.z, dist = Math.hypot(dx, dz);
+      if (dist > 140) continue;
+      out.push({ bearing: (((-Math.atan2(-dx, -dz) * 180) / Math.PI) % 360 + 360) % 360, dist: Math.min(dist, 60), kind: 'medkit' });
+    }
     for (const d of this.enemies.droids) {
       if (!d.state.alive) continue;
       const dx = d.state.x - p.x, dz = d.state.z - p.z;
@@ -359,17 +364,9 @@ export class Game {
     this.audio.explosion(at.x, at.y, at.z);
   }
 
-  /** Una baja más. Cada 3 bajas te curas 10 puntos de vida. */
+  /** Una baja más. */
   private registerKill() {
     this.state.kills++;
-    this.killsSinceHeal++;
-    if (this.killsSinceHeal >= KILLS_PER_HEAL) {
-      this.killsSinceHeal = 0;
-      const p = this.state.players[0];
-      if (p.health < 100) p.health = Math.min(100, p.health + HEAL_PER_STREAK);
-      this.hud.healPop(`+${HEAL_PER_STREAK} VIDA`);
-    }
-    this.hud.setKillPips(this.killsSinceHeal);
   }
 
   /** El jugador recibe un disparo. `fx, fz` = de dónde viene. */
@@ -455,6 +452,12 @@ export class Game {
         this.localPlayer.step(cmd, TICK);
         if (this.localPlayer.didJump) { this.localPlayer.didJump = false; this.jumpBuffer = 0; cmd.jump = false; }
         this.enemies.update(TICK);
+        this.medkits.update(TICK, this.localPlayer.state.x, this.localPlayer.state.y, this.localPlayer.state.z, true, (heal) => {
+          const pl = this.state.players[0];
+          pl.health = Math.min(100, pl.health + heal);
+          this.hud.healPop(`+${heal} VIDA`);
+          this.audio.pickup();
+        });
         this.grenadeSys.update(TICK);
         this.physics.step();
         if (this.blaster.update(TICK, cmd.fire)) this.shoot();
@@ -628,6 +631,11 @@ export class Game {
     this.viewModel.group.visible = true;
   }
 
+  /** Solo para pruebas: deja un kit médico en un punto. */
+  debugKit(x: number, z: number, heal = 25) {
+    this.medkits.drop(x, z, heal);
+  }
+
   /** Solo para pruebas: hace aparecer un droide de un tipo en un punto. */
   debugSpawn(kind: 'b1' | 'b2' | 'droideka', x: number, z: number) {
     const params = kind === 'b2' ? b2Params(this.waves.round || 1) : kind === 'droideka' ? droidekaParams(this.waves.round || 1) : b1Params(this.waves.round || 1);
@@ -655,6 +663,12 @@ export class Game {
     for (; n < Math.round(seconds / TICK) && this.mode === 'playing'; n++) {
       this.localPlayer.step(cmd, TICK);
       this.enemies.update(TICK);
+      this.medkits.update(TICK, this.localPlayer.state.x, this.localPlayer.state.y, this.localPlayer.state.z, true, (heal) => {
+        const pl = this.state.players[0];
+        pl.health = Math.min(100, pl.health + heal);
+        this.hud.healPop(`+${heal} VIDA`);
+        this.audio.pickup();
+      });
       this.physics.step();
       this.grenadeSys.update(TICK);
       this.waves.update(TICK);
@@ -670,6 +684,6 @@ export class Game {
 
   /** Solo para pruebas automáticas. */
   debug() {
-    return { audio: { jugados: this.audio.played, estadisticas: this.audio.stats }, arma: this.weapon, grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
+    return { kits: this.medkits.list().length, audio: { jugados: this.audio.played, estadisticas: this.audio.stats }, arma: this.weapon, grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
   }
 }

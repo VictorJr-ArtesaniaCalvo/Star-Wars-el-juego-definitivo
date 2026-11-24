@@ -9,7 +9,7 @@ Proyecto personal y experimental.
 - **Fase 2 (hecha):** bláster con sobrecalentamiento, droide B1 de prueba y ayuda al apuntar.
 - **Fase 3 (hecha):** oleadas de droides B1 que avanzan usando las rocas como cobertura y disparan; vida, ronda, fin de partida y menú oculto de pruebas.
 - Escenario: cañón de 80 m de ancho con paredes en terrazas, nave estrellada en un cráter y droides que llegan por los dos extremos.
-- Extras: salto, brújula azul, indicador de daño direccional, chispas y humo al destruir droides, y curación (+10 de vida cada 3 bajas, +30 al superar una ronda).
+- Extras: salto, brújula azul, indicador de daño direccional, chispas y humo al destruir droides, y curación (kits médicos que sueltan los droides, +30 al superar una ronda).
 - **Fase 4 (hecha):** 4 granadas por partida, con explosión de área. · Fase 5: más enemigos. · Fase 6: mejoras visuales y sonido.
 
 ## Controles
@@ -34,6 +34,11 @@ el de cadera dispara sin acercar la vista (con el disparo más abierto), salvo q
 | Droideka | 100 + escudo 150 | Rueda muy rápido, se despliega y dispara ráfagas largas bajo un escudo azul que absorbe los disparos de bláster (se regenera si lo dejas en paz 4 s). Las granadas atraviesan el escudo. Rodando recibe la mitad de daño. | Desde la ronda 7 |
 
 En la brújula, los B2 se marcan con un triángulo rojo más grande y los droidekas con uno azul.
+
+## Kits médicos
+
+Los droides pueden soltar un kit médico al morir (B1 14 %, B2 50 %, droideka siempre). Se recoge pasando por encima: B1 +15 de vida, B2 +25, droideka +40.
+Tiene una luz verde y una marca verde en la brújula; dura 20 s en el suelo (parpadea los últimos 5) y no puede haber más de 4 a la vez. Ya no hay curación por bajas.
 
 ## Menú oculto de pruebas
 
