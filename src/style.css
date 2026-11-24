@@ -32,27 +32,28 @@ html, body {
 #touch { position: fixed; inset: 0; z-index: 4; }
 #joyZone { position: absolute; left: 0; top: 0; width: 45%; height: 100%; }
 #lookZone { position: absolute; right: 0; top: 0; width: 55%; height: 100%; }
+/* Los botones se colocan por su CENTRO (right/bottom marcan el centro), como en los juegos de móvil:
+   disparo grande abajo a la derecha, saltar arriba a su derecha, agacharse abajo a su izquierda. */
 .tbtn {
-  position: absolute; width: 92px; height: 92px; border-radius: 50%;
+  position: absolute; width: 64px; height: 64px; border-radius: 50%; transform: translate(50%, 50%);
   border: 2px solid rgba(255,255,255,.26); background: rgba(255,255,255,.05); color: rgba(255,255,255,.62);
-  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 0;
 }
 .tbtn.on { background: rgba(255,170,90,.38); color: rgba(255,255,255,.9); }
 #btnFire {
-  width: 104px; height: 104px;
-  right: calc(26px + env(safe-area-inset-right));
-  bottom: calc(26px + env(safe-area-inset-bottom));
+  width: 94px; height: 94px; font-size: 11px;
+  right: calc(80px + env(safe-area-inset-right));
+  bottom: calc(86px + env(safe-area-inset-bottom));
 }
 #btnFire.on { background: rgba(102,184,255,.34); color: rgba(255,255,255,.95); }
 #btnJump {
-  width: 76px; height: 76px; font-size: 10px;
-  right: calc(40px + env(safe-area-inset-right));
-  bottom: calc(142px + env(safe-area-inset-bottom));
+  right: calc(42px + env(safe-area-inset-right));
+  bottom: calc(176px + env(safe-area-inset-bottom));
 }
 #btnCrouch {
-  width: 76px; height: 76px; font-size: 9px;
-  right: calc(142px + env(safe-area-inset-right));
-  bottom: calc(18px + env(safe-area-inset-bottom));
+  font-size: 9px;
+  right: calc(174px + env(safe-area-inset-right));
+  bottom: calc(44px + env(safe-area-inset-bottom));
 }
 #hitmark {
   position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px;
