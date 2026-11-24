@@ -3,7 +3,7 @@ import type RAPIER from '@dimforge/rapier3d-compat';
 import type { EnemyKind, EnemyState } from '../sim/types';
 import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from '../world/terrain';
 import { createB1, poseB1, type B1Bones } from './B1Rig';
-import { b2Geometry } from './Models';
+import { createB2, poseB2, type B2Bones } from './B2Rig';
 import { createDroideka, poseDroideka, type DekaBones } from './DroidekaRig';
 import { DroidBrain, type BrainContext, type BrainParams } from './DroidBrain';
 
@@ -39,6 +39,7 @@ export class Droid {
   private height: number;
   private rig: B1Bones | null = null;
   private dekaRig: DekaBones | null = null;
+  private b2Rig: B2Bones | null = null;
   private deploy = 0; // 0 = rueda, 1 = desplegado
   private unfold = 1;
   private walkBlend = 0;
@@ -67,7 +68,9 @@ export class Droid {
       this.group = r.mesh;
       this.dekaRig = r.bones;
     } else {
-      this.group = new THREE.Mesh(b2Geometry(), this.mat);
+      const r = createB2(this.mat);
+      this.group = r.mesh;
+      this.b2Rig = r.bones;
     }
     this.group.rotation.order = 'YXZ'; // primero el giro hacia donde mira y luego el balanceo o la rodadura
     this.group.castShadow = true;
@@ -86,6 +89,11 @@ export class Droid {
       this.shieldMesh.visible = false;
       this.group.add(this.shieldMesh);
     }
+  }
+
+  /** Solo para pruebas: pone al B2 en un punto del paso. */
+  poseB2Now(phase: number, walk: number) {
+    if (this.b2Rig) poseB2(this.b2Rig, walk, phase);
   }
 
   /** Solo para pruebas: aplica la postura actual del droideka. */
@@ -251,6 +259,10 @@ export class Droid {
     if (this.rig) {
       this.walkBlend += ((this.brain.moving ? 1 : 0) - this.walkBlend) * Math.min(1, dt * 8);
       poseB1(this.rig, 1, this.walkBlend, this.t);
+      this.group.rotation.z = 0;
+    } else if (this.b2Rig) {
+      this.walkBlend += ((this.brain.moving ? 1 : 0) - this.walkBlend) * Math.min(1, dt * 6);
+      poseB2(this.b2Rig, this.walkBlend, this.t * 0.8); // paso más lento que el del B1: es más grande
       this.group.rotation.z = 0;
     } else if (this.dekaRig) {
       poseDroideka(this.dekaRig, this.deploy, this.roll, this.t);
