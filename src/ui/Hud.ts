@@ -155,9 +155,10 @@ export class Hud {
   }
 
   /** Marca en la mira al acertar a un enemigo. */
-  hit(kill: boolean) {
+  hit(kill: boolean, shield = false) {
     this.hitLife = 1;
     this.hitmark.classList.toggle('kill', kill);
+    this.hitmark.classList.toggle('shield', shield && !kill);
   }
 
   update(dt: number) {

@@ -7,7 +7,7 @@ import { TICK, type GameState, type InputCommand } from '../sim/types';
 import { GameOver } from '../ui/GameOver';
 import { Hud } from '../ui/Hud';
 import { Menu } from '../ui/Menu';
-import { WaveManager } from '../waves/WaveManager';
+import { b1Params, b2Params, droidekaParams, WaveManager } from '../waves/WaveManager';
 import { SPAWN } from '../world/defenseZone';
 import { terrainHeight } from '../world/terrain';
 import { Blaster, BLASTER } from '../weapons/Blaster';
@@ -229,14 +229,14 @@ export class Game {
   /** Dirección y distancia de cada droide vivo (para las marcas rojas de la brújula). */
   private compassMarkers() {
     const p = this.localPlayer.state;
-    const out: Array<{ bearing: number; dist: number }> = [];
+    const out: Array<{ bearing: number; dist: number; kind: string }> = [];
     for (const d of this.enemies.droids) {
       if (!d.state.alive) continue;
       const dx = d.state.x - p.x, dz = d.state.z - p.z;
       const dist = Math.hypot(dx, dz);
       if (dist > 140) continue;
       const bearing = (((-Math.atan2(-dx, -dz) * 180) / Math.PI) % 360 + 360) % 360;
-      out.push({ bearing, dist });
+      out.push({ bearing, dist, kind: d.kind });
     }
     return out;
   }
@@ -290,7 +290,7 @@ export class Game {
       let dmg = GRENADE.maxDamage * falloff(dist);
       if (dist > 1 && covered(chest, dist)) dmg *= 0.4;
       if (dmg < 1) continue;
-      const killed = d.hit(dmg, this.enemies.context);
+      const killed = d.hit(dmg, this.enemies.context, true); // las granadas atraviesan el escudo
       this.hud.hit(killed);
       if (killed) this.registerKill();
     }
@@ -470,7 +470,7 @@ export class Game {
         const killed = droid.hit(BLASTER.damage, this.enemies.context);
         this.hits++;
         if (killed) this.registerKill();
-        this.hud.hit(killed);
+        this.hud.hit(killed, droid.lastShielded);
       }
     }
     this.camera.updateMatrixWorld();
@@ -566,6 +566,12 @@ export class Game {
     this.scene.fog = fog;
     this.world.sky.visible = true;
     this.viewModel.group.visible = true;
+  }
+
+  /** Solo para pruebas: hace aparecer un droide de un tipo en un punto. */
+  debugSpawn(kind: 'b1' | 'b2' | 'droideka', x: number, z: number) {
+    const params = kind === 'b2' ? b2Params(this.waves.round || 1) : kind === 'droideka' ? droidekaParams(this.waves.round || 1) : b1Params(this.waves.round || 1);
+    return this.enemies.spawnAt(kind, params, x, z);
   }
 
   /** Solo para pruebas: qué objeto se ve en un punto de la pantalla (-1..1). */

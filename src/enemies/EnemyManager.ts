@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
-import type { GameState } from '../sim/types';
+import type { EnemyKind, GameState } from '../sim/types';
 import type { Effects } from '../weapons/Effects';
 import type { Obstacle } from '../world/rocks';
 import { terrainHeight } from '../world/terrain';
-import { Droid } from './Droid';
+import { Droid, KINDS } from './Droid';
 import type { BrainContext, BrainParams } from './DroidBrain';
 
-export const MAX_DROIDS = 14; // tope de droides a la vez (cuida el rendimiento del móvil)
-export const B1_HEALTH = 60;
+// Reserva de droides de cada tipo (el total a la vez lo limitan las oleadas, para cuidar el móvil)
+const POOL: Record<EnemyKind, number> = { b1: 14, b2: 5, droideka: 4 };
 
 export interface EnemyHooks {
   effects: Effects;
@@ -47,12 +47,14 @@ export class EnemyManager {
     controller.enableAutostep(0.3, 0.1, false);
     controller.setSlideEnabled(true);
     this.spawnShape = new rapier.Capsule(0.6, 0.4);
-    for (let i = 0; i < MAX_DROIDS; i++) {
-      const st = { id: this.nextId++, kind: 'b1' as const, x: 0, y: 0, z: 0, yaw: 0, health: 0, alive: false, active: false };
-      state.enemies.push(st);
-      const d = new Droid(scene, rapier, physics, controller, st);
-      this.droids.push(d);
-      this.byCollider.set(d.collider.handle, d);
+    for (const kind of Object.keys(POOL) as EnemyKind[]) {
+      for (let i = 0; i < POOL[kind]; i++) {
+        const st = { id: this.nextId++, kind, x: 0, y: 0, z: 0, yaw: 0, health: 0, shield: KINDS[kind].shield, alive: false, active: false };
+        state.enemies.push(st);
+        const d = new Droid(scene, rapier, physics, controller, st);
+        this.droids.push(d);
+        this.byCollider.set(d.collider.handle, d);
+      }
     }
   }
 
@@ -63,9 +65,9 @@ export class EnemyManager {
     return this.byCollider.get(colliderHandle);
   }
 
-  aliveCount() {
+  aliveCount(kind?: EnemyKind) {
     let n = 0;
-    for (const d of this.droids) if (d.state.alive) n++;
+    for (const d of this.droids) if (d.state.alive && (!kind || d.kind === kind)) n++;
     return n;
   }
 
@@ -85,8 +87,8 @@ export class EnemyManager {
    * Al principio aparecen más cerca (rondas 1–2: 35–55 m; 3–4: 45–70 m; desde la 5: 60–88 m).
    * Devuelve null si ya hay el máximo.
    */
-  spawn(params: BrainParams, rear: boolean, round: number): Droid | null {
-    const d = this.droids.find((x) => !x.state.active);
+  spawn(kind: EnemyKind, params: BrainParams, rear: boolean, round: number): Droid | null {
+    const d = this.droids.find((x) => x.kind === kind && !x.state.active);
     if (!d) return null;
     const [zMin, zMax] = round <= 2 ? [35, 55] : round <= 4 ? [45, 70] : [60, 88];
     const T = this.ctx.player();
@@ -99,7 +101,15 @@ export class EnemyManager {
       if (Math.hypot(x - T.x, z - T.z) < 28) continue; // nunca encima del jugador
       if (this.free(x, z)) break;
     }
-    d.activate(x, z, B1_HEALTH, params, this.ctx);
+    d.activate(x, z, params, this.ctx);
+    return d;
+  }
+
+  /** Hace aparecer un droide en un punto concreto (para pruebas). */
+  spawnAt(kind: EnemyKind, params: BrainParams, x: number, z: number): Droid | null {
+    const d = this.droids.find((q) => q.kind === kind && !q.state.active);
+    if (!d) return null;
+    d.activate(x, z, params, this.ctx);
     return d;
   }
 

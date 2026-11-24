@@ -25,6 +25,16 @@ Proyecto personal y experimental.
 **Apuntar:** acerca la vista, afina la puntería y baja la velocidad. El disparo principal apunta mientras se mantiene pulsado;
 el de cadera dispara sin acercar la vista (con el disparo más abierto), salvo que ya estés apuntando.
 
+## Enemigos
+
+| | Vida | Particularidad | Aparece |
+|---|---|---|---|
+| B1 | 60 | Débil y lento. Disparos de poco daño. | Desde la ronda 1 |
+| B2 | 180 | Lento y resistente (8 disparos de bláster). Disparos más fuertes. | Desde la ronda 4 |
+| Droideka | 100 + escudo 150 | Rueda muy rápido, se despliega y dispara ráfagas largas bajo un escudo azul que absorbe los disparos de bláster (se regenera si lo dejas en paz 4 s). Las granadas atraviesan el escudo. Rodando recibe la mitad de daño. | Desde la ronda 7 |
+
+En la brújula, los B2 se marcan con un triángulo rojo más grande y los droidekas con uno azul.
+
 ## Menú oculto de pruebas
 
 En el menú de inicio, toca 5 veces seguidas el título «GEONOSIS». Permite empezar en cualquier ronda, ser invencible y ver los FPS.

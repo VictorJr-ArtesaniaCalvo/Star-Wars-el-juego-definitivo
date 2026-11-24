@@ -24,14 +24,17 @@ export interface InputCommand {
   fire: boolean;
 }
 
+export type EnemyKind = 'b1' | 'b2' | 'droideka';
+
 export interface EnemyState {
   id: number;
-  kind: 'b1'; // más adelante: 'b2', 'droideka'
+  kind: EnemyKind;
   x: number;
   y: number;
   z: number;
   yaw: number;
   health: number;
+  shield: number; // escudo (solo droidekas)
   alive: boolean; // false = destruido (o sin usar)
   active: boolean; // false = guardado en la reserva, no existe en el mundo
 }

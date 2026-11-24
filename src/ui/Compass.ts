@@ -3,7 +3,7 @@ const SPAN = 140; // grados que se ven a la vez
 const LETTERS: Record<number, string> = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SO', 270: 'O', 315: 'NO' };
 
 /** Un droide visto desde la brújula: su rumbo (0–360°) y su distancia en metros. */
-export interface CompassMarker { bearing: number; dist: number }
+export interface CompassMarker { bearing: number; dist: number; kind?: string }
 
 export class Compass {
   private canvas = document.getElementById('compass') as HTMLCanvasElement;
@@ -99,8 +99,9 @@ export class Compass {
       const a = 0.45 + 0.55 * Math.max(0, Math.min(1, 1 - m.dist / 140));
       if (Math.abs(delta) <= SPAN / 2) {
         const x = w / 2 + (delta / SPAN) * w;
-        const s = m.dist < 25 ? 5.5 : 4.2;
-        ctx.fillStyle = `rgba(255,86,66,${a})`;
+        // B2: más grandes · droidekas: azules (llevan escudo)
+        const s = (m.dist < 25 ? 5.5 : 4.2) * (m.kind === 'b2' ? 1.35 : 1);
+        ctx.fillStyle = m.kind === 'droideka' ? `rgba(110,200,255,${a})` : `rgba(255,86,66,${a})`;
         ctx.beginPath();
         ctx.moveTo(x - s, 48);
         ctx.lineTo(x + s, 48);

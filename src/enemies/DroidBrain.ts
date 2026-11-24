@@ -27,6 +27,9 @@ export interface BrainParams {
   spread: number; // desvío máximo de cada disparo, en radianes
   cooldown: [number, number]; // pausa entre ráfagas (s)
   burst: [number, number]; // disparos por ráfaga
+  interval?: number; // segundos entre disparos de una ráfaga (por defecto 0,22)
+  coverTime?: [number, number]; // cuánto se queda parado en cada parada (por defecto 0,7–1,5 s)
+  deployTime?: number; // solo droidekas: tiempo que tardan en desplegarse tras rodar
 }
 
 const HOLD_DIST = 14; // a esta distancia del jugador deja de avanzar y se queda disparando
@@ -63,6 +66,9 @@ export class DroidBrain {
   private avoid = new ObstacleAvoidanceBehavior(getYukaObstacles());
   mode: Mode = 'advance';
   moving = true;
+  /** Los droidekas solo disparan (y tienen escudo) desplegados; el resto siempre. */
+  deployed = true;
+  private deployT = 0;
   yaw = 0;
 
   private cover: Obstacle | null = null;
@@ -111,6 +117,8 @@ export class DroidBrain {
     this.stuck = 0;
     this.holdDist = HOLD_DIST;
     this.noLos = 0;
+    this.deployed = !params.deployTime;
+    this.deployT = 0;
     this.bad.clear();
     this.choose(ctx);
   }
@@ -251,6 +259,8 @@ export class DroidBrain {
     this.losTimer = 0;
     this.burstLeft = 0;
     this.cooldown = Math.min(this.cooldown, rnd(0.1, 0.4)); // dispara enseguida al llegar
+    this.deployed = !this.params.deployTime;
+    this.deployT = this.params.deployTime ?? 0;
   }
 
   /**
@@ -281,7 +291,7 @@ export class DroidBrain {
       const t = this.seek.target;
       const arrived = Math.hypot(t.x - x, t.z - z) < 1.3;
       if (arrived || this.timer <= 0) {
-        if (this.mode === 'advance' && (arrived || Math.hypot(t.x - x, t.z - z) < 4)) { this.mode = 'cover'; this.timer = ctx.rush ? 0.2 : rnd(0.7, 1.5); this.stop(); }
+        if (this.mode === 'advance' && (arrived || Math.hypot(t.x - x, t.z - z) < 4)) { this.mode = 'cover'; this.timer = ctx.rush ? 0.2 : rnd(this.params.coverTime?.[0] ?? 0.7, this.params.coverTime?.[1] ?? 1.5); this.stop(); }
         else if (this.mode === 'hold') { this.timer = rnd(4, 8); this.stop(); }
         else this.choose(ctx);
       } else {
@@ -290,6 +300,7 @@ export class DroidBrain {
         out.dz = v.position.z - z;
         const sp = Math.hypot(v.velocity.x, v.velocity.z);
         if (sp > 0.3) this.yaw = Math.atan2(-v.velocity.x, -v.velocity.z);
+        if (this.params.deployTime) this.deployed = false; // rodando, cerrado
       }
     } else {
       // Quieto: gira hacia el jugador y dispara.
@@ -297,7 +308,8 @@ export class DroidBrain {
       let d = want - this.yaw;
       d = Math.atan2(Math.sin(d), Math.cos(d));
       this.yaw += Math.sign(d) * Math.min(Math.abs(d), dt * 5);
-      this.fire(dt, x, y, z, T, dT, ctx);
+      if (!this.deployed) { this.deployT -= dt; if (this.deployT <= 0) this.deployed = true; }
+      if (this.deployed) this.fire(dt, x, y, z, T, dT, ctx);
 
       this.timer -= dt;
       if (this.timer <= 0 && this.burstLeft === 0) this.choose(ctx);
@@ -333,7 +345,7 @@ export class DroidBrain {
     if (this.burstLeft > 0) {
       this.shotTimer -= dt;
       if (this.shotTimer <= 0) {
-        this.shotTimer = 0.22;
+        this.shotTimer = this.params.interval ?? 0.22;
         this.burstLeft--;
         this.shoot(tx, ty, tz, dT, ctx);
         if (this.burstLeft === 0) this.cooldown = rnd(this.params.cooldown[0], this.params.cooldown[1]);
