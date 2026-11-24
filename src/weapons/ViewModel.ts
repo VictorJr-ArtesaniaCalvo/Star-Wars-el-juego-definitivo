@@ -81,7 +81,7 @@ export class ViewModel {
       this.muzzle.position.set(0, 0.012, -0.4);
     }
     this.group.add(this.muzzle);
-    this.setArms(null); // los brazos están preparados (propuestas A y B) pero apagados hasta elegir
+    this.setArms('A'); // propuesta A elegida (se revisa antes de subir)
     // Destello azul al disparar (dura una fracción de segundo)
     const fc = document.createElement('canvas'); fc.width = fc.height = 64;
     const fg = fc.getContext('2d')!;
