@@ -9,7 +9,7 @@ import { QUALITY, type Quality } from '../core/Settings';
 
 // Monta todo el escenario: terreno, cielo, rocas y zona de defensa.
 export class World {
-  private sky: THREE.Mesh;
+  readonly sky: THREE.Mesh;
   private sun: THREE.DirectionalLight;
 
   constructor(

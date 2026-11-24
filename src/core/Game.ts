@@ -9,6 +9,7 @@ import { Hud } from '../ui/Hud';
 import { Menu } from '../ui/Menu';
 import { WaveManager } from '../waves/WaveManager';
 import { SPAWN } from '../world/defenseZone';
+import { terrainHeight } from '../world/terrain';
 import { Blaster, BLASTER } from '../weapons/Blaster';
 import { Effects } from '../weapons/Effects';
 import { ViewModel } from '../weapons/ViewModel';
@@ -355,6 +356,30 @@ export class Game {
   /** Solo para pruebas: hace daño al jugador desde un punto del mapa. */
   debugHurt(amount: number, fx = 0, fz = -20) {
     this.damagePlayer(amount, fx, fz);
+  }
+
+  /** Solo para pruebas: altura del terreno en un punto. */
+  debugHeight(x: number, z: number) {
+    return terrainHeight(x, z);
+  }
+
+  /** Solo para pruebas: dibuja el mapa visto desde arriba (arriba = hacia el enemigo). */
+  debugTopDown(cx: number, cz: number, halfWidth: number) {
+    const aspect = this.camera.aspect;
+    const hh = halfWidth / aspect;
+    const cam = new THREE.OrthographicCamera(-halfWidth, halfWidth, hh, -hh, 1, 800);
+    cam.position.set(cx, 300, cz);
+    cam.up.set(0, 0, -1);
+    cam.lookAt(cx, 0, cz);
+    const fog = this.scene.fog;
+    this.scene.fog = null;
+    this.world.sky.visible = false;
+    this.viewModel.group.visible = false;
+    this.renderer.setClearColor(0x2a1a14);
+    this.renderer.render(this.scene, cam);
+    this.scene.fog = fog;
+    this.world.sky.visible = true;
+    this.viewModel.group.visible = true;
   }
 
   /** Solo para pruebas: qué objeto se ve en un punto de la pantalla (-1..1). */
