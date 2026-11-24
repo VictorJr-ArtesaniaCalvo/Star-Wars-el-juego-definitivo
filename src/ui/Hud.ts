@@ -61,6 +61,16 @@ export class Hud {
     this.root.classList.toggle('ads', active);
   }
 
+  /** Qué llevas en la mano: el botón de granada se enciende y los de disparo pasan a decir LANZAR. */
+  setWeapon(w: 'blaster' | 'grenade') {
+    const g = w === 'grenade';
+    this.btnGrenade.classList.toggle('on', g);
+    $('btnFire').textContent = g ? 'LANZAR' : 'DISPARAR';
+    const span = document.querySelector<HTMLElement>('#btnHip span');
+    if (span) span.textContent = g ? 'LANZAR' : 'CADERA';
+    this.root.classList.toggle('grenadeMode', g);
+  }
+
   /** Granadas que te quedan. */
   setGrenades(n: number) {
     this.grenadeDots.forEach((d, i) => d.classList.toggle('spent', i >= n));

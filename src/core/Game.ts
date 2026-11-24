@@ -56,6 +56,9 @@ export class Game {
   private adsZoom = 0;
   private grenadeSys!: GrenadeSystem;
   private grenadeCd = 0;
+  private weapon: 'blaster' | 'grenade' = 'blaster';
+  private swapT = 0;
+  private prevFire = false;
   private shake = 0;
   private killsSinceHeal = 0;
   private jumpBuffer = 0;
@@ -176,6 +179,10 @@ export class Game {
     this.grenadeSys.clear();
     this.grenadeCd = 0;
     this.shake = 0;
+    this.weapon = 'blaster';
+    this.swapT = 0;
+    this.prevFire = false;
+    this.hud.setWeapon('blaster');
     this.hud.setGrenades(p.grenades);
     this.adsToggled = false;
     this.ads = false;
@@ -234,7 +241,20 @@ export class Game {
     return out;
   }
 
-  /** Lanza una granada hacia donde miras (si te quedan y no acabas de lanzar otra). */
+  /** Saca la granada (o la guarda y vuelve al bláster si ya la llevas). */
+  private toggleGrenade() {
+    if (this.mode !== 'playing') return;
+    if (this.weapon === 'grenade') { this.setWeapon('blaster'); return; }
+    if (this.state.players[0].grenades > 0 && this.grenadeCd <= 0) this.setWeapon('grenade');
+  }
+
+  private setWeapon(w: 'blaster' | 'grenade') {
+    this.weapon = w;
+    this.swapT = 0.3;
+    this.hud.setWeapon(w);
+  }
+
+  /** Lanza la granada que llevas en la mano hacia donde miras y vuelve al bláster. */
   private throwGrenade() {
     const p = this.state.players[0];
     if (this.mode !== 'playing' || p.grenades <= 0 || this.grenadeCd > 0) return;
@@ -245,6 +265,9 @@ export class Game {
     const cp = Math.cos(this.pitch);
     const dir = this.v2.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
     this.grenadeSys.throwFrom(eye, dir);
+    this.viewModel.throwAnim();
+    this.setWeapon('blaster');
+    this.swapT = 0.45; // el bláster tarda un poco en volver a estar listo
   }
 
   /** Explosión de área: daño a los droides (y a ti si estás cerca), menos si hay rocas o muros por medio. */
@@ -343,7 +366,9 @@ export class Game {
     if (this.mode === 'playing') {
       // Apuntar: el botón alterna; el disparo principal apunta mientras se mantiene; mando/ratón: mantener.
       if (inp.aimToggled) this.adsToggled = !this.adsToggled;
-      this.ads = this.adsToggled || inp.aimHeld || inp.fire;
+      // Con la granada en la mano no se apunta con zoom ni se dispara el bláster.
+      const ready = this.swapT <= 0;
+      this.ads = this.weapon === 'blaster' && (this.adsToggled || inp.aimHeld || (inp.fire && ready));
       this.adsZoom += ((this.ads ? 1 : 0) - this.adsZoom) * Math.min(1, dt * 14);
       if (Math.abs(this.adsZoom - (this.ads ? 1 : 0)) < 0.002) this.adsZoom = this.ads ? 1 : 0;
       const fov = FOV_HIP + (FOV_ADS - FOV_HIP) * this.adsZoom;
@@ -357,14 +382,19 @@ export class Game {
       this.yaw -= inp.yaw;
       this.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.pitch - inp.pitch));
       if (inp.crouchPressed) this.wantCrouch = !this.wantCrouch;
-      if (inp.grenadePressed) this.throwGrenade();
+      if (inp.grenadePressed) this.toggleGrenade();
+      this.swapT = Math.max(0, this.swapT - dt);
+      const fireNow = inp.fire || inp.fireHip;
+      // Con la granada en la mano, cada pulsación de disparo la lanza (y vuelve el bláster).
+      if (this.weapon === 'grenade' && this.swapT <= 0 && fireNow && !this.prevFire) this.throwGrenade();
+      this.prevFire = fireNow;
       this.grenadeCd = Math.max(0, this.grenadeCd - dt);
       this.shake = Math.max(0, this.shake - dt * 2.6);
       // Saltar: si estás agachado, primero te levantas.
       if (inp.jumpPressed) { if (this.wantCrouch) this.wantCrouch = false; else this.jumpBuffer = 0.14; }
       this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
 
-      const cmd: InputCommand = { moveX: inp.moveX * moveK, moveZ: inp.moveZ * moveK, yaw: this.yaw, pitch: this.pitch, crouch: this.wantCrouch, jump: this.jumpBuffer > 0, fire: inp.fire || inp.fireHip };
+      const cmd: InputCommand = { moveX: inp.moveX * moveK, moveZ: inp.moveZ * moveK, yaw: this.yaw, pitch: this.pitch, crouch: this.wantCrouch, jump: this.jumpBuffer > 0, fire: fireNow && this.weapon === 'blaster' && this.swapT <= 0 };
       this.acc += dt;
       let steps = 0;
       while (this.acc >= TICK && steps < 5) {
@@ -394,7 +424,7 @@ export class Game {
       this.syncCamera(dt);
       this.effects.update(dt);
       this.world.tick(dt);
-      this.viewModel.update(dt, this.blaster.heat, this.adsZoom);
+      this.viewModel.update(dt, this.blaster.heat, this.adsZoom, this.weapon);
       this.dirty = true;
     }
 
@@ -574,6 +604,6 @@ export class Game {
 
   /** Solo para pruebas automáticas. */
   debug() {
-    return { grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
+    return { arma: this.weapon, grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
   }
 }

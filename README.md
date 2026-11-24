@@ -20,7 +20,7 @@ Proyecto personal y experimental.
 | Mando | Stick izquierdo | Stick derecho | RT / R2 | RB / R1 | LT / L2 (mantener) | A / Cruz | B / Círculo | Options / Menu |
 | Teclado | WASD | Ratón o flechas | F | Clic izquierdo | Clic derecho (mantener) o Q (alterna) | Espacio | C | P |
 
-**Granada:** botón GRANADA (táctil, arriba a la derecha), LB / L1 (mando) o G (teclado). Se lanza hacia donde miras (mira más arriba para llegar más lejos), rebota y explota a los 2,4 s. Radio de 7 m: destruye a un B1 a menos de unos 3,5 m y lo daña hasta los 7 m; las rocas y muros por medio reducen el daño. Si estás cerca, también te hiere.
+**Granada:** pulsa GRANADA (táctil, arriba a la derecha), LB / L1 (mando) o G (teclado) para sacarla; se coge en la mano y los botones de disparo pasan a decir LANZAR. Al disparar se lanza hacia donde miras (mira más arriba para llegar más lejos) y vuelve el bláster; pulsar GRANADA otra vez la guarda sin lanzarla. Rebota y explota a los 2,4 s. Radio de 7 m: destruye a un B1 a menos de unos 3,5 m y lo daña hasta los 7 m; las rocas y muros por medio reducen el daño. Si estás cerca, también te hiere.
 
 **Apuntar:** acerca la vista, afina la puntería y baja la velocidad. El disparo principal apunta mientras se mantiene pulsado;
 el de cadera dispara sin acercar la vista (con el disparo más abierto), salvo que ya estés apuntando.

@@ -70,12 +70,14 @@ html, body {
 #btnHip.on { background: rgba(255,170,90,.34); color: rgba(255,255,255,.95); }
 #btnGrenade {
   width: 62px; height: 62px; font-size: 8px;
-  right: calc(102px + env(safe-area-inset-right));
-  bottom: calc(256px + env(safe-area-inset-bottom));
+  right: calc(42px + env(safe-area-inset-right));
+  bottom: calc(248px + env(safe-area-inset-bottom));
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
 }
 #btnGrenade svg { width: 22px; height: 22px; fill: rgba(190,225,150,.7); }
 #btnGrenade.empty { opacity: .35; }
+#btnGrenade.on { background: rgba(150,200,110,.34); border-color: rgba(190,230,150,.7); color: rgba(255,255,255,.95); }
+#hud.grenadeMode #crosshair { background: rgba(190,230,150,.95); }
 #btnCrouch {
   font-size: 9px;
   right: calc(160px + env(safe-area-inset-right));

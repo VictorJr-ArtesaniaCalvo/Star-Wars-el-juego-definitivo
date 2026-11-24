@@ -4,7 +4,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 // Granadas: se lanzan en arco, rebotan en el suelo y las rocas, y explotan al acabar la mecha.
 export const GRENADE = {
   perGame: 4, // granadas por partida
-  speed: 20, // m/s al lanzar
+  speed: 24.5, // m/s al lanzar
   lift: 4, // impulso hacia arriba al lanzar
   fuse: 2.4, // segundos hasta explotar
   radius: 7, // radio de la explosión (m)
