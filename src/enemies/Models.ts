@@ -58,9 +58,11 @@ export function b2Geometry() {
 export function droidekaBallGeometry() {
   if (ball) return ball;
   ball = assemble([
-    { geo: new THREE.SphereGeometry(0.5, 12, 9), color: 0x7a6a50, at: [0, 0.5, 0] },
-    { geo: new THREE.TorusGeometry(0.5, 0.06, 6, 16), color: 0x3a3228, at: [0, 0.5, 0] },
-    { geo: new THREE.TorusGeometry(0.5, 0.06, 6, 16), color: 0x3a3228, at: [0, 0.5, 0], rot: [Math.PI / 2, 0, 0] },
+    // Centrada en el origen: el modelo gira sobre el centro de la bola (se coloca a 0,5 m del suelo).
+    { geo: new THREE.SphereGeometry(0.5, 12, 9), color: 0x7a6a50 },
+    { geo: new THREE.TorusGeometry(0.5, 0.06, 6, 16), color: 0x3a3228 },
+    { geo: new THREE.TorusGeometry(0.5, 0.06, 6, 16), color: 0x3a3228, rot: [Math.PI / 2, 0, 0] },
+    { geo: new THREE.TorusGeometry(0.5, 0.06, 6, 16), color: 0x3a3228, rot: [0, Math.PI / 2, 0] },
   ]);
   return ball;
 }
