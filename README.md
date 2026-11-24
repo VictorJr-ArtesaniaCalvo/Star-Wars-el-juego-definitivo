@@ -85,7 +85,7 @@ Destello azul en la boca del bláster y naranja en la de los droides, auras de c
 
 El B1 usa un modelo 3D real (`public/models/b1.bin` + `b1-atlas.jpg`) con dos niveles de detalle (5.000 y 1.700 triángulos) y un esqueleto de 17 huesos.
 Se genera desde el OBJ original con `node tools/convert-b1.mjs <B1DROID.obj> public/models/b1.bin <carpeta-de-texturas-jpg>` (necesita `npm install`; el OBJ original no está en el repositorio).
-Solo se tienen 5 de las ~40 texturas pintadas; el resto del modelo va en color arena. Para añadir más, se agregan a la tabla `TEXTURED` de `tools/convert-b1.mjs`.
+Se tienen 31 de las ~40 texturas pintadas, reunidas en un atlas de 2048×2048 que solo se usa en el nivel de detalle cercano (de lejos, color arena por vértice). Faltan las del brazo superior (`B1 arm.L`) y los tubos del hombro (`arm_rotat.L/R`), que van en color arena, y el rifle va en gris metálico por vértice. Cada textura se asigna por *material* del modelo en la tabla `TEXTURED` de `tools/convert-b1.mjs` (las dudosas están marcadas con `?`).
 
 ## Modelos del B2 y de la cañonera
 

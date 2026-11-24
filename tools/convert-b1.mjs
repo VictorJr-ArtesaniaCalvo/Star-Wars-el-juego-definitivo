@@ -25,7 +25,8 @@ let cur = null;
 for (const line of fs.readFileSync(src, 'utf8').split('\n')) {
   if (line.startsWith('v ')) { const t = line.trim().split(/\s+/); V.push([+t[1], +t[2], +t[3]]); }
   else if (line.startsWith('vt ')) { const t = line.trim().split(/\s+/); VT.push([+t[1], +t[2]]); }
-  else if (line.startsWith('o ')) { cur = { name: line.slice(2).trim(), faces: [], fvt: [] }; parts.push(cur); }
+  else if (line.startsWith('o ')) { cur = { name: line.slice(2).trim(), faces: [], fvt: [], mat: null }; parts.push(cur); }
+  else if (line.startsWith('usemtl ') && cur) { cur.mat ??= line.slice(7).trim(); }
   else if (line.startsWith('f ') && cur) {
     const tk = line.trim().split(/\s+/).slice(1);
     cur.faces.push(tk.map((t) => parseInt(t.split('/')[0], 10) - 1));
@@ -111,17 +112,33 @@ pivotsOrig.armR = [-0.069, pivotsOrig.armR[1], 0.0005];
 const bonesOut = BONES.map(([name, parent]) => ({ name, parent, pivot: tf(...pivotsOrig[name]).map((v) => +v.toFixed(5)) }));
 
 // ---------- Texturas pintadas ----------
-// Qué textura lleva cada pieza (nombre de archivo sin extensión, en la carpeta de texturas). Se ha comprobado superponiendo las
-// coordenadas de textura de cada pieza sobre cada imagen (los bordes de las islas de la imagen coinciden con los de la pieza).
-// De las ~40 texturas del modelo solo se tienen estas 5; el resto de piezas lleva el color arena (o gris) de su tipo.
+// Qué textura lleva cada pieza. El OBJ asigna a cada objeto un material («Material.001»…) y el MTL le pone el nombre de la textura original
+// (B1 body.png, leg_rotat.L.png…); aquí se indica, por material, la imagen que se tiene (archivo `nombre.jpg` en la carpeta de texturas)
+// y el tamaño (px) con que entra en el atlas. Cada emparejamiento se comprobó superponiendo los bordes de las islas UV de la pieza sobre la
+// imagen (tools: ver CRÉDITOS/README). Los marcados «?» son dudosos: la imagen encaja igual de bien en varios materiales con el mismo despliegue.
+// El rifle («rifle gun.png», 12 000 triángulos con cientos de islas minúsculas) no admite simplificarse sin perder el mapeado: lleva gris metálico por vértice.
+// Sin imagen: arm.L (Material.002) y arm_rotat.L/R (Material.018/019): esas piezas llevan el color arena de su tipo.
 const TEXTURED = [
-  [/^neck_Cube\.016/, 'neck'],
-  [/^neck\.001_/, 'neck-plus'],
-  [/^(leg_part|neck_controller|hand_controller)/, 'cubo'], // la misma imagen en cruz (un cubo desplegado) sirve a todas las piezas-cubo
-  [/^arm_2_controller\.L/, 'piston-L'],
-  [/^arm_2_controller\.R/, 'piston-R'],
+  ['Material.001', 'body', 512], ['Material', 'head', 512], ['Material.023', 'neck', 256], ['Material.024', 'neck-plus', 256],
+  ['Material.025', 'neck-rotat', 256], // ? cubo
+  ['Material.040', 'leg-part', 256], // ? cubo
+  ['Material.027', 'hand-controller', 256], // ? cubo
+  ['Material.006', 'piston-L', 256], ['Material.007', 'piston-R', 256],
+  ['Material.004', 'arm2-L', 512], ['Material.005', 'arm2-R', 512],
+  ['Material.013', 'small-finger-D', 256], ['Material.014', 'small-finger-C', 256], ['Material.015', 'small-finger-C', 256],
+  ['Material.010', 'long-fingers', 256], ['Material.011', 'long-fingers', 256], ['Material.012', 'long-fingers', 256],
+  ['Material.008', 'hand-L', 256], ['Material.009', 'hand-R', 256],
+  ['Material.033', 'leg-rotat-L', 256], ['Material.034', 'leg-rotat-R', 256],
+  ['Material.035', 'leg', 512], ['Material.036', 'leg2', 512], ['Material.037', 'foot', 512], ['Material.041', 'foot-rotat', 256],
+  ['Material.026', 'body-controller', 256],
+  ['Material.028', 'radio-bag', 512], ['Material.029', 'radio-bag-part', 256], ['Material.030', 'radio-bag-part2', 256],
+  ['Material.032', 'radio-pole', 256], ['Material.031', 'radio-pole-basic', 256],
+  ['Material.022', 'head-rotat', 256], // ?
+  ['Material.016', 'finger-rotat', 256], ['Material.017', 'finger-rotat', 256], // ?
+  ['Material.020', 'rotat-cyl', 256], ['Material.021', 'rotat-cyl', 256], ['Material.038', 'rotat-cyl', 256], ['Material.039', 'rotat-cyl', 256], // ?
 ];
-const TILE = 512; // cada textura se baja a 512×512 dentro del atlas
+const GAIN = {};
+const PAD = 2; // margen de cada cuadro del atlas (se repiten los bordes) para que las islas no «sangren» en las vecinas
 const atlas = { tiles: new Map(), W: 0, H: 0, data: null, white: [0, 0] };
 function loadTexture(name) {
   if (!texDir) return null;
@@ -131,34 +148,56 @@ function loadTexture(name) {
   return { w: d.width, h: d.height, data: d.data };
 }
 {
-  const wanted = [...new Set(TEXTURED.map((t) => t[1]))].map((n) => [n, loadTexture(n)]).filter(([, t]) => t);
+  const size = new Map(TEXTURED.map(([, n, s]) => [n, s]));
+  const wanted = [...size.keys()].map((n) => [n, loadTexture(n)]).filter(([, t]) => t).sort((a, b) => size.get(b[0]) - size.get(a[0]));
   if (wanted.length) {
-    const slots = wanted.length + 1; // +1: cuadro blanco para las piezas sin textura
-    atlas.W = 2048; atlas.H = Math.max(TILE, 2 ** Math.ceil(Math.log2(Math.ceil(slots / (atlas.W / TILE)) * TILE)));
+    atlas.W = 2048;
+    const WH = 16; // cuadro blanco para las piezas sin textura
+    const items = [...wanted.map(([n]) => [n, size.get(n)]), ['(blanco)', WH]];
+    // reparto «guillotina»: cada cuadro va al primer hueco libre donde cabe
+    const place = (H) => {
+      const free = [{ x: 0, y: 0, w: atlas.W, h: H }]; const out = new Map();
+      for (const [n, s] of items) {
+        const i = free.findIndex((r) => r.w >= s && r.h >= s);
+        if (i < 0) return null;
+        const r = free.splice(i, 1)[0]; out.set(n, { x: r.x, y: r.y, w: s, h: s });
+        free.push({ x: r.x + s, y: r.y, w: r.w - s, h: s }, { x: r.x, y: r.y + s, w: r.w, h: r.h - s });
+        free.sort((a, b) => a.y - b.y || a.x - b.x);
+      }
+      return out;
+    };
+    let H = 2048, spots = place(H); while (!spots) { H *= 2; spots = place(H); }
+    atlas.H = H;
     atlas.data = new Uint8Array(atlas.W * atlas.H * 4).fill(255);
-    wanted.forEach(([name, t], i) => {
-      const tx = (i % (atlas.W / TILE)) * TILE, ty = Math.floor(i / (atlas.W / TILE)) * TILE;
-      const sx = t.w / TILE, sy = t.h / TILE;
-      for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+    for (const [name, t] of wanted) {
+      const r = spots.get(name), S = r.w, gain = GAIN[name] ?? 1;
+      const inner = S - 2 * PAD;
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
         const acc = [0, 0, 0];
         for (let dy = 0; dy < 4; dy++) for (let dx = 0; dx < 4; dx++) {
-          const px = Math.min(t.w - 1, Math.floor((x + (dx + 0.5) / 4) * sx)), py = Math.min(t.h - 1, Math.floor((y + (dy + 0.5) / 4) * sy));
+          // la imagen entera se reparte en el interior del cuadro; el margen repite el borde
+          const fx = Math.min(1, Math.max(0, (x - PAD + (dx + 0.5) / 4) / inner)), fy = Math.min(1, Math.max(0, (y - PAD + (dy + 0.5) / 4) / inner));
+          const px = Math.min(t.w - 1, Math.floor(fx * t.w)), py = Math.min(t.h - 1, Math.floor(fy * t.h));
           const o = (py * t.w + px) * 4; acc[0] += t.data[o]; acc[1] += t.data[o + 1]; acc[2] += t.data[o + 2];
         }
-        const o = ((ty + y) * atlas.W + tx + x) * 4;
-        atlas.data[o] = acc[0] / 16; atlas.data[o + 1] = acc[1] / 16; atlas.data[o + 2] = acc[2] / 16;
+        const o = ((r.y + y) * atlas.W + r.x + x) * 4;
+        for (let q = 0; q < 3; q++) atlas.data[o + q] = Math.min(255, (acc[q] / 16) * gain);
       }
-      atlas.tiles.set(name, { x: tx, y: ty, w: TILE, h: TILE });
-    });
-    const wi = wanted.length; atlas.white = [((wi % (atlas.W / TILE)) * TILE + TILE / 2) / atlas.W, (Math.floor(wi / (atlas.W / TILE)) * TILE + TILE / 2) / atlas.H];
-    console.log('atlas', atlas.W + '×' + atlas.H, '—', wanted.length, 'texturas:', wanted.map(([n]) => n).join(', '));
+      atlas.tiles.set(name, r);
+    }
+    const wr = spots.get('(blanco)'); atlas.white = [(wr.x + WH / 2) / atlas.W, (wr.y + WH / 2) / atlas.H];
+    console.log('atlas', atlas.W + '×' + atlas.H, '—', wanted.length, 'texturas');
+    const falta = [...size.keys()].filter((n) => !wanted.some(([m]) => m === n)); if (falta.length) console.log('faltan archivos:', falta.join(', '));
   } else console.log('sin texturas pintadas (no se indicó carpeta o faltan los archivos)');
 }
+const byMat = new Map(TEXTURED.map(([m, n]) => [m, n]));
+const sinTextura = [];
 for (const p of use) {
-  const hit = TEXTURED.find(([re]) => re.test(p.name));
-  p.tile = hit ? atlas.tiles.get(hit[1]) ?? null : null;
-  if (p.tile) console.log('con textura:', p.name.padEnd(30), '→', hit[1]);
+  const name = byMat.get(p.mat);
+  p.tile = name ? atlas.tiles.get(name) ?? null : null;
+  if (p.tile) console.log('con textura:', p.name.padEnd(30), p.mat.padEnd(13), '→', name); else sinTextura.push(p.name + ' (' + p.mat + ')');
 }
+if (sinTextura.length) console.log('SIN textura:', sinTextura.join(', '));
 
 // El rifle se coloca centrado ante el pecho, apuntando hacia delante (en coordenadas del modelo, antes del giro).
 const GUN_TARGET = [0.0, 0.44, 0.155];
@@ -168,12 +207,13 @@ const RATIO = { body: 0.15, head: 0.2, limb: 0.22, joint: 0.06, finger: 0.25, ra
 const MIN = { joint: 36, finger: 20, radio: 40, neck: 24, foot: 40, limb: 60, head: 200, gun: 300, body: 300 };
 
 function simplifyPart(p, lod) {
+  const tex = !!p.tile && lod === 0; // la imagen solo se usa de cerca; de lejos basta el color arena por vértice (y se puede simplificar mucho más)
   // posiciones compactas y triángulos (las piezas con textura también distinguen vértices por sus coordenadas de textura)
   const map = new Map(); const pos = []; const uvs = []; const tri = [];
   const vid = (i, q) => {
-    const key = p.tile ? i + '/' + q : i;
+    const key = tex ? i + '/' + q : i;
     let k = map.get(key);
-    if (k === undefined) { k = pos.length / 3; map.set(key, k); pos.push(...V[i]); if (p.tile) uvs.push(VT[q][0], VT[q][1]); }
+    if (k === undefined) { k = pos.length / 3; map.set(key, k); pos.push(...V[i]); if (tex) uvs.push(VT[q][0], VT[q][1]); }
     return k;
   };
   p.faces.forEach((f, fi) => { const ft = p.fvt[fi]; for (let k = 1; k < f.length - 1; k++) tri.push(vid(f[0], ft[0]), vid(f[k], ft[k]), vid(f[k + 1], ft[k + 1])); });
@@ -195,10 +235,11 @@ function simplifyPart(p, lod) {
   if (target < total) {
     let err = 0.02;
     for (let tries = 0; tries < 6; tries++) {
-      const [res] = p.tile ? MeshoptSimplifier.simplifyWithAttributes(idx, P, 3, UV, 2, [1, 1], null, target * 3, err) : MeshoptSimplifier.simplify(idx, P, 3, target * 3, err);
+      const [res] = tex ? MeshoptSimplifier.simplifyWithAttributes(idx, P, 3, UV, 2, [1, 1], null, target * 3, err) : MeshoptSimplifier.simplify(idx, P, 3, target * 3, err);
       idx = res; if (idx.length / 3 <= target * 1.15) break; err *= 3;
     }
   }
+  if (process.env.DBG) console.log("LOD" + lod, p.kind.padEnd(7), p.name.padEnd(30), "total", total, "objetivo", target, "resultado", idx.length / 3, tex ? "TEX" : "");
   return { P, idx, UV };
 }
 
@@ -212,6 +253,7 @@ function buildLod(lod) {
   let tris = 0;
   for (const p of use) {
     const { P, idx, UV } = simplifyPart(p, lod);
+    const tex = !!p.tile && lod === 0;
     const nt = idx.length / 3; tris += nt;
     if (process.env.VERBOSE && lod === 0) console.log(String(nt).padStart(5), p.kind.padEnd(7), p.name);
     // normales de cara y suavizado por ángulo (35°)
@@ -244,12 +286,12 @@ function buildLod(lod) {
         const sh = tone * (0.93 + 0.07 * Math.min(1, Math.max(0, (acc[1] / l + 1) / 2)));
         const C3 = base.map((c) => Math.min(255, Math.round(c * sh))); // color de respaldo (sin textura)
         // con textura: la pieza con imagen lleva solo el sombreado (la imagen pone el color); las demás, su color en lineal
-        const CT3 = p.tile ? [255, 255, 255].map((c) => Math.round(c * Math.min(1, sh))) : base.map((c) => Math.min(255, Math.round(lin(c) * sh)));
+        const CT3 = tex ? [255, 255, 255].map((c) => Math.round(c * Math.min(1, sh))) : base.map((c) => Math.min(255, Math.round(lin(c) * sh)));
         let U2 = [0, 0];
         if (atlas.data) {
-          if (p.tile) {
+          if (tex) {
             const t = p.tile, u = Math.min(1, Math.max(0, UV[v * 2])), w = Math.min(1, Math.max(0, UV[v * 2 + 1]));
-            U2 = [(t.x + 0.5 + u * (t.w - 1)) / atlas.W, (t.y + 0.5 + (1 - w) * (t.h - 1)) / atlas.H]; // v del OBJ crece hacia arriba
+            U2 = [(t.x + PAD + u * (t.w - 2 * PAD)) / atlas.W, (t.y + PAD + (1 - w) * (t.h - 2 * PAD)) / atlas.H]; // v del OBJ crece hacia arriba
           } else U2 = atlas.white;
         }
         const U16 = U2.map((q) => Math.round(q * 65535));
