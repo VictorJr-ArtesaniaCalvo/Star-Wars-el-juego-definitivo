@@ -18,6 +18,9 @@ export class AudioEngine {
   // Disparos reales del bláster del jugador (6 clips). Si alguno no carga, se usa el sonido sintético de respaldo.
   private clonClips: Array<{ howl: Howl; ok: boolean }> = [];
   private lastClon = -1;
+  // Disparos reales del droideka (2 clips). Si no cargan, se usa el sonido sintético de respaldo.
+  private dekaClips: Array<{ howl: Howl; ok: boolean }> = [];
+  private lastDeka = -1;
   private loadSound: { howl: Howl; ok: boolean } | null = null;
   private lastAppear = 0;
   private wind: Howl | null = null;
@@ -44,6 +47,11 @@ export class AudioEngine {
       const clip = { howl: null as unknown as Howl, ok: false };
       clip.howl = new Howl({ src: [`${base}audio/clon-${i}.mp3`], preload: true, onload: () => { clip.ok = true; }, onloaderror: () => { clip.ok = false; } });
       this.clonClips.push(clip);
+    }
+    for (let i = 1; i <= 2; i++) {
+      const clip = { howl: null as unknown as Howl, ok: false };
+      clip.howl = new Howl({ src: [`${base}audio/deka-${i}.mp3`], preload: true, onload: () => { clip.ok = true; }, onloaderror: () => { clip.ok = false; } });
+      this.dekaClips.push(clip);
     }
     const ld = { howl: null as unknown as Howl, ok: false };
     ld.howl = new Howl({ src: [`${base}audio/b1-load.mp3`], preload: true, onload: () => { ld.ok = true; }, onloaderror: () => { ld.ok = false; } });
@@ -143,6 +151,7 @@ export class AudioEngine {
     this.recentEnemyShots.push(now);
     // Los B1 y los B2 comparten los mismos disparos (los 4 clips reales); si no cargaron, suena el sintético de cada uno
     if ((kind === 'b1' || kind === 'b2') && this.playB1Clip(x, y, z)) return;
+    if (kind === 'droideka' && this.playDekaClip(x, y, z)) return;
     const id: SoundId = kind === 'b2' ? 'b2' : kind === 'droideka' ? 'deka' : 'b1';
     const vol = kind === 'b2' ? 0.7 : kind === 'droideka' ? 0.45 : 0.5;
     this.play(id, vol, rnd(0.93, 1.08), [x, y, z], kind === 'b2' ? 9 : 7);
@@ -161,6 +170,24 @@ export class AudioEngine {
     l.howl.pos(x, y, z, sid);
     l.howl.pannerAttr({ panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 22, rolloffFactor: 1.0, maxDistance: 400 }, sid);
     this.played['b1-carga'] = (this.played['b1-carga'] ?? 0) + 1;
+  }
+
+  /** Disparo del droideka con uno de los dos clips reales; con solo dos, el tono varía algo más para que las ráfagas no suenen repetidas. */
+  private playDekaClip(x: number, y: number, z: number): boolean {
+    const ok = this.dekaClips.map((c, i) => (c.ok ? i : -1)).filter((i) => i >= 0);
+    if (!ok.length) return false;
+    const pool = ok.filter((i) => i !== this.lastDeka);
+    const list = pool.length ? pool : ok;
+    const i = list[Math.floor(Math.random() * list.length)];
+    this.lastDeka = i;
+    const h = this.dekaClips[i].howl;
+    const sid = h.play();
+    h.volume(0.42, sid);
+    h.rate(rnd(0.93, 1.1), sid);
+    h.pos(x, y, z, sid);
+    h.pannerAttr({ panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 7, rolloffFactor: 1.15, maxDistance: 400 }, sid);
+    this.played[`deka-clip${i + 1}`] = (this.played[`deka-clip${i + 1}`] ?? 0) + 1;
+    return true;
   }
 
   /** Disparo del B1 con uno de los cuatro clips reales (nunca el mismo dos veces seguidas). Devuelve false si no hay ninguno cargado. */
