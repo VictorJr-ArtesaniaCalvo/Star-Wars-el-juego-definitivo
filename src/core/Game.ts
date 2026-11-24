@@ -18,6 +18,8 @@ import { QUALITY, Settings } from './Settings';
 
 type Mode = 'menu' | 'playing' | 'paused' | 'gameover';
 const HEAL_BETWEEN_ROUNDS = 30;
+const KILLS_PER_HEAL = 3;
+const HEAL_PER_STREAK = 10;
 const PITCH_LIMIT = (85 * Math.PI) / 180;
 const ASSIST_CONE = (6 * Math.PI) / 180;
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -41,6 +43,8 @@ export class Game {
   private blaster = new Blaster();
   private effects!: Effects;
   private viewModel!: ViewModel;
+  private killsSinceHeal = 0;
+  private jumpBuffer = 0;
   private shots = 0;
   private hits = 0;
   private localPlayer!: PlayerController;
@@ -116,7 +120,7 @@ export class Game {
     this.menu.setHelp(
       this.input.hasTouch
         ? 'Izquierda: moverse · Derecha: deslizar para mirar · Puedes apuntar sin soltar DISPARAR\nCon mando Bluetooth los botones táctiles se ocultan solos.\nPara pantalla completa: Compartir → «Añadir a pantalla de inicio».'
-        : 'WASD moverse · Ratón mirar · Clic disparar · C agacharse · P pausa\nMando: sticks moverse y mirar · RT/R2 disparar · B/Círculo agacharse · Options pausa',
+        : 'WASD moverse · Ratón mirar · Clic disparar · Espacio saltar · C agacharse · P pausa\nMando: sticks moverse y mirar · RT/R2 disparar · A/Cruz saltar · B/Círculo agacharse · Options pausa',
     );
     this.menu.ready();
     this.syncCamera(1);
@@ -153,6 +157,9 @@ export class Game {
     this.wantCrouch = false;
     this.blaster = new Blaster();
     this.state.kills = 0;
+    this.killsSinceHeal = 0;
+    this.jumpBuffer = 0;
+    this.hud.setKillPips(0);
     this.shots = 0;
     this.hits = 0;
     this.gameOver.hide();
@@ -184,6 +191,19 @@ export class Game {
     const record = !this.testMode && round > this.settings.data.best;
     if (record) this.settings.set({ best: round });
     this.gameOver.show(round, this.state.kills, this.settings.data.best, record, this.testMode);
+  }
+
+  /** Una baja más. Cada 3 bajas te curas 10 puntos de vida. */
+  private registerKill() {
+    this.state.kills++;
+    this.killsSinceHeal++;
+    if (this.killsSinceHeal >= KILLS_PER_HEAL) {
+      this.killsSinceHeal = 0;
+      const p = this.state.players[0];
+      if (p.health < 100) p.health = Math.min(100, p.health + HEAL_PER_STREAK);
+      this.hud.healPop(`+${HEAL_PER_STREAK} VIDA`);
+    }
+    this.hud.setKillPips(this.killsSinceHeal);
   }
 
   /** El jugador recibe un disparo. `fx, fz` = de dónde viene. */
@@ -234,12 +254,16 @@ export class Game {
       this.yaw -= inp.yaw;
       this.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.pitch - inp.pitch));
       if (inp.crouchPressed) this.wantCrouch = !this.wantCrouch;
+      // Saltar: si estás agachado, primero te levantas.
+      if (inp.jumpPressed) { if (this.wantCrouch) this.wantCrouch = false; else this.jumpBuffer = 0.14; }
+      this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
 
-      const cmd: InputCommand = { moveX: inp.moveX, moveZ: inp.moveZ, yaw: this.yaw, pitch: this.pitch, crouch: this.wantCrouch, fire: inp.fire };
+      const cmd: InputCommand = { moveX: inp.moveX, moveZ: inp.moveZ, yaw: this.yaw, pitch: this.pitch, crouch: this.wantCrouch, jump: this.jumpBuffer > 0, fire: inp.fire };
       this.acc += dt;
       let steps = 0;
       while (this.acc >= TICK && steps < 5) {
         this.localPlayer.step(cmd, TICK);
+        if (this.localPlayer.didJump) { this.localPlayer.didJump = false; this.jumpBuffer = 0; cmd.jump = false; }
         this.enemies.update(TICK);
         this.physics.step();
         if (this.blaster.update(TICK, cmd.fire)) this.shoot();
@@ -255,6 +279,7 @@ export class Game {
       this.hud.setCrouching(this.localPlayer.state.crouching);
       this.hud.setHeat(this.blaster.heat, this.blaster.locked);
       this.hud.setHealth(this.state.players[0].health);
+      this.hud.setHeading(this.yaw);
       this.hud.setRound(this.waves.round, this.waves.remaining);
       this.state.round = this.waves.round;
       this.hud.update(dt);
@@ -301,7 +326,7 @@ export class Game {
       if (droid) {
         const killed = droid.hit(BLASTER.damage, this.enemies.context);
         this.hits++;
-        if (killed) this.state.kills++;
+        if (killed) this.registerKill();
         this.hud.hit(killed);
       }
     }
@@ -398,7 +423,7 @@ export class Game {
 
   /** Solo para pruebas: avanza la simulación unos segundos de golpe, sin dibujar (jugador quieto). */
   debugSim(seconds: number, crouch = false, moveX = 0, moveZ = 0) {
-    const cmd: InputCommand = { moveX, moveZ, yaw: this.yaw, pitch: this.pitch, crouch, fire: false };
+    const cmd: InputCommand = { moveX, moveZ, yaw: this.yaw, pitch: this.pitch, crouch, jump: false, fire: false };
     const t0 = performance.now();
     let n = 0;
     for (; n < Math.round(seconds / TICK) && this.mode === 'playing'; n++) {
@@ -413,7 +438,7 @@ export class Game {
 
   /** Solo para pruebas: destruye a todos los droides vivos. */
   debugKillAll() {
-    for (const d of this.enemies.droids) if (d.state.alive) { d.hit(9999, this.enemies.context); this.state.kills++; }
+    for (const d of this.enemies.droids) if (d.state.alive) { d.hit(9999, this.enemies.context); this.registerKill(); }
   }
 
   /** Solo para pruebas automáticas. */

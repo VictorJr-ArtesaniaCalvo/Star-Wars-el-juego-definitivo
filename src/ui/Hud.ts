@@ -1,5 +1,7 @@
 // Indicadores en pantalla: vida, ronda, calor del bláster, avisos, daño recibido y pausa.
 // Las granadas se añadirán en la Fase 4.
+import { Compass } from './Compass';
+
 const $ = (id: string) => document.getElementById(id)!;
 
 export class Hud {
@@ -30,6 +32,9 @@ export class Hud {
   private dmgDir = $('dmgDir');
   private dmgLife = 0;
   private dirLife = 0;
+  private compass = new Compass();
+  private pips = Array.from(document.querySelectorAll<HTMLElement>('#pips i'));
+  private healPopEl = $('healPop');
   private fps = $('fps');
   private frames = 0;
   private fpsTime = 0;
@@ -41,6 +46,23 @@ export class Hud {
   setVisible(v: boolean, touch: boolean) {
     this.root.hidden = !v;
     this.touch.hidden = !(v && touch);
+  }
+
+  setHeading(yaw: number) {
+    this.compass.draw(yaw);
+  }
+
+  /** Cuántas bajas llevas hacia la próxima curación (0–2). */
+  setKillPips(n: number) {
+    this.pips.forEach((p, i) => p.classList.toggle('on', i < n));
+  }
+
+  /** Aviso flotante junto a la vida ("+10 VIDA"). */
+  healPop(text: string) {
+    this.healPopEl.textContent = text;
+    this.healPopEl.classList.remove('go');
+    void this.healPopEl.offsetWidth;
+    this.healPopEl.classList.add('go');
   }
 
   setHealth(hp: number) {
@@ -75,7 +97,7 @@ export class Hud {
 
   /** Destello rojo al recibir daño y flecha hacia el lugar de donde viene (ángulo en grados, 0 = delante). */
   damaged(amount: number, angleDeg: number) {
-    this.dmgLife = Math.min(1, 0.45 + amount / 14);
+    this.dmgLife = Math.min(1, 0.4 + amount / 16);
     this.dirLife = 1;
     this.dmgDir.style.transform = `rotate(${angleDeg}deg)`;
   }
@@ -124,7 +146,7 @@ export class Hud {
     }
     if (this.dirLife > 0) {
       this.dirLife = Math.max(0, this.dirLife - dt * 1.1);
-      this.dmgDir.style.opacity = String(this.dirLife);
+      this.dmgDir.style.opacity = String(this.dirLife * 0.85);
     }
     // Contador de fotogramas por segundo (solo si está activado en el modo de pruebas).
     this.frames++;

@@ -24,8 +24,8 @@ html, body {
 #btnPause {
   pointer-events: auto; position: absolute;
   top: calc(10px + env(safe-area-inset-top)); right: calc(14px + env(safe-area-inset-right));
-  width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4);
-  background: rgba(0,0,0,.35); color: #fff; font-weight: 700; font-size: 14px;
+  width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.22);
+  background: rgba(0,0,0,.18); color: rgba(255,255,255,.7); font-weight: 700; font-size: 14px;
 }
 
 /* ---------- Táctil ---------- */
@@ -34,16 +34,21 @@ html, body {
 #lookZone { position: absolute; right: 0; top: 0; width: 55%; height: 100%; }
 .tbtn {
   position: absolute; width: 92px; height: 92px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,.55); background: rgba(0,0,0,.3); color: #fff;
+  border: 2px solid rgba(255,255,255,.26); background: rgba(255,255,255,.05); color: rgba(255,255,255,.62);
   font-size: 11px; font-weight: 700; letter-spacing: 1px;
 }
-.tbtn.on { background: rgba(255,170,90,.7); color: #2a1208; }
+.tbtn.on { background: rgba(255,170,90,.38); color: rgba(255,255,255,.9); }
 #btnFire {
   width: 104px; height: 104px;
   right: calc(26px + env(safe-area-inset-right));
   bottom: calc(26px + env(safe-area-inset-bottom));
 }
-#btnFire.on { background: rgba(102,184,255,.6); color: #06213a; }
+#btnFire.on { background: rgba(102,184,255,.34); color: rgba(255,255,255,.95); }
+#btnJump {
+  width: 76px; height: 76px; font-size: 10px;
+  right: calc(40px + env(safe-area-inset-right));
+  bottom: calc(142px + env(safe-area-inset-bottom));
+}
 #btnCrouch {
   width: 76px; height: 76px; font-size: 9px;
   right: calc(142px + env(safe-area-inset-right));
@@ -111,7 +116,7 @@ button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 #testTag { margin-top: 6px; font-size: 10px; letter-spacing: 2px; color: #ffd060; text-shadow: 0 0 2px #000; }
 #fps { margin-top: 4px; font-size: 11px; font-family: ui-monospace, Menlo, monospace; color: #b8ffb8; text-shadow: 0 0 2px #000; }
 #roundBox {
-  position: absolute; left: 50%; transform: translateX(-50%); top: calc(10px + env(safe-area-inset-top));
+  position: absolute; left: 50%; transform: translateX(-50%); top: calc(58px + env(safe-area-inset-top));
   text-align: center; text-shadow: 0 0 3px #000;
 }
 #roundNum { font-size: 16px; font-weight: 700; letter-spacing: 4px; color: #ffcf9a; }
@@ -122,13 +127,28 @@ button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 @keyframes bannerIn { from { opacity: 0; transform: scale(1.25); } to { opacity: 1; transform: scale(1); } }
 #damage {
   position: absolute; inset: 0; opacity: 0;
-  box-shadow: inset 0 0 90px 28px rgba(220,30,10,.75);
+  box-shadow: inset 0 0 80px 14px rgba(220,30,10,.4);
 }
 #dmgDir { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
-#dmgDir .wedge {
-  position: absolute; left: -55px; top: calc(-1 * min(150px, 30vh)); width: 110px; height: 26px; border-radius: 50% 50% 0 0;
-  background: radial-gradient(ellipse at 50% 100%, rgba(255,50,30,.95), rgba(255,50,30,0) 70%);
+#dmgDir .arc {
+  position: absolute; width: min(78vh, 420px); height: min(78vh, 420px);
+  left: calc(min(78vh, 420px) / -2); top: calc(min(78vh, 420px) / -2); border-radius: 50%;
+  background: conic-gradient(from -26deg, rgba(255,60,40,0) 0deg, rgba(255,60,40,.55) 26deg, rgba(255,60,40,0) 52deg, rgba(255,60,40,0) 360deg);
+  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 26px), #000 calc(100% - 8px), #000 calc(100% - 2px), transparent 100%);
+  mask: radial-gradient(circle closest-side, transparent calc(100% - 26px), #000 calc(100% - 8px), #000 calc(100% - 2px), transparent 100%);
 }
+
+/* ---------- Brújula, bajas y curación ---------- */
+#compass {
+  position: absolute; left: 50%; transform: translateX(-50%); top: calc(6px + env(safe-area-inset-top));
+  width: min(400px, 46vw); height: 46px; pointer-events: none;
+}
+#pips { display: flex; gap: 6px; margin-top: 7px; }
+#pips i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(140,210,255,.65); background: transparent; transition: background .15s; }
+#pips i.on { background: rgba(110,200,255,.85); }
+#healPop { position: absolute; left: 4px; top: 40px; font-size: 14px; font-weight: 800; letter-spacing: 1px; color: #8fffa6; text-shadow: 0 0 3px #000; opacity: 0; }
+#healPop.go { animation: healUp 1.3s ease-out; }
+@keyframes healUp { 0% { opacity: 0; transform: translateY(8px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
 
 /* ---------- Menú: extras ---------- */
 .ghost { width: 100%; margin-top: 8px; padding: 10px; font-size: 13px; letter-spacing: 3px; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; background: transparent; color: #fff; }

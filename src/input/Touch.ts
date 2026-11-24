@@ -16,6 +16,7 @@ export class Touch implements InputSource {
   private lastX = 0;
   private lastY = 0;
   private crouch = false;
+  private jump = false;
   private firing = false;
   /** true cuando se ha tocado la pantalla hace poco (para saber qué control se está usando) */
   used = false;
@@ -25,12 +26,13 @@ export class Touch implements InputSource {
     const lookZone = root.querySelector<HTMLElement>('#lookZone')!;
     const btnCrouch = root.querySelector<HTMLElement>('#btnCrouch')!;
     const btnFire = root.querySelector<HTMLElement>('#btnFire')!;
+    const btnJump = root.querySelector<HTMLElement>('#btnJump')!;
 
     const joy = nipplejs.create({
       zone: joyZone,
       mode: 'dynamic',
       size: 130,
-      color: 'rgba(255,255,255,0.7)',
+      color: 'rgba(255,255,255,0.32)',
       fadeTime: 100,
     });
     joy.on('move', (evt) => {
@@ -87,6 +89,13 @@ export class Touch implements InputSource {
       this.used = true;
     }, opts);
 
+    btnJump.addEventListener('touchstart', (e) => {
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+      this.jump = true;
+      this.used = true;
+    }, opts);
+
     // Evita zoom y menús del navegador mientras se juega.
     document.addEventListener('gesturestart', (e) => e.preventDefault());
     document.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -109,5 +118,6 @@ export class Touch implements InputSource {
 
   fire() { return this.firing; }
   consumeCrouch() { const v = this.crouch; this.crouch = false; return v; }
+  consumeJump() { const v = this.jump; this.jump = false; return v; }
   consumePause() { return false; }
 }

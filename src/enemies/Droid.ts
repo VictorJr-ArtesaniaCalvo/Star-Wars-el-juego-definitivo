@@ -19,6 +19,7 @@ export class Droid {
   private flash = 0;
   private deadTime = 0;
   private t = 0;
+  private smokeT = 0;
   private out = { dx: 0, dz: 0 };
 
   constructor(
@@ -80,8 +81,10 @@ export class Droid {
     if (this.state.health > 0) return false;
     this.state.alive = false;
     this.deadTime = 0;
+    this.smokeT = 0.3;
     this.collider.setEnabled(false);
     this.brain.release(ctx);
+    ctx.effects.deathBurst(this.state.x, this.state.y + 1.2, this.state.z);
     return true;
   }
 
@@ -96,6 +99,12 @@ export class Droid {
       // Se desploma hacia atrás.
       this.group.rotation.x = Math.min(Math.PI / 2, this.deadTime * 5);
       this.group.position.y = s.y + Math.min(0.12, this.deadTime * 0.5);
+      // El droide caído echa humo un momento
+      this.smokeT -= dt;
+      if (this.smokeT <= 0 && this.deadTime < 1.7) {
+        this.smokeT = 0.4;
+        ctx.effects.smokePuff(s.x + (Math.random() - 0.5) * 0.5, s.y + 0.5, s.z + (Math.random() - 0.5) * 0.5);
+      }
       if (this.deadTime > CORPSE_TIME) this.deactivate(ctx);
       return;
     }

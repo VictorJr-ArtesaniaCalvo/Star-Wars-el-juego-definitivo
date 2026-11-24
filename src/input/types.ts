@@ -8,5 +8,6 @@ export interface InputSource {
   /** ¿Se está manteniendo pulsado el disparo? */
   fire(): boolean;
   consumeCrouch(): boolean;
+  consumeJump(): boolean;
   consumePause(): boolean;
 }

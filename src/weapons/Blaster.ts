@@ -2,7 +2,7 @@
 // Si llega al tope se bloquea unos segundos hasta enfriarse del todo.
 export const BLASTER = {
   fireRate: 5.5, // disparos por segundo manteniendo pulsado
-  heatPerShot: 0.046, // ~22 disparos seguidos hasta sobrecalentar
+  heatPerShot: 0.0556, // 18 disparos seguidos hasta sobrecalentar
   coolDelay: 0.35, // segundos sin disparar antes de empezar a enfriar
   coolRate: 0.45, // calor que pierde por segundo
   lockTime: 2.6, // segundos bloqueado al sobrecalentarse

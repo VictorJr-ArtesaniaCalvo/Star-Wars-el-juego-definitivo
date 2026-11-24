@@ -19,6 +19,7 @@ export interface InputCommand {
   yaw: number;
   pitch: number;
   crouch: boolean;
+  jump: boolean;
   fire: boolean;
 }
 

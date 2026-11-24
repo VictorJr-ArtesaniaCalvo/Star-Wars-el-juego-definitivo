@@ -9,15 +9,16 @@ Proyecto personal y experimental.
 - **Fase 2 (hecha):** bláster con sobrecalentamiento, droide B1 de prueba y ayuda al apuntar.
 - **Fase 3 (hecha):** oleadas de droides B1 que avanzan usando las rocas como cobertura y disparan; vida, ronda, fin de partida y menú oculto de pruebas.
 - Escenario: cañón de 80 m de ancho con paredes en terrazas, nave estrellada en un cráter y droides que llegan por los dos extremos.
+- Extras: salto, brújula azul, indicador de daño direccional, chispas y humo al destruir droides, y curación (+10 de vida cada 3 bajas, +30 al superar una ronda).
 - Fase 4: granadas. · Fase 5: más enemigos. · Fase 6: mejoras visuales y sonido.
 
 ## Controles
 
-| | Moverse | Mirar | Disparar | Agacharse | Pausa |
-|---|---|---|---|---|---|
-| Táctil | Joystick (mitad izquierda) | Deslizar (mitad derecha) | Botón (se puede apuntar sin soltarlo) | Botón | Botón II |
-| Mando | Stick izquierdo | Stick derecho | RT / R2 | B / Círculo | Options / Menu |
-| Teclado | WASD | Ratón o flechas | Clic o Espacio | C | P |
+| | Moverse | Mirar | Disparar | Saltar | Agacharse | Pausa |
+|---|---|---|---|---|---|---|
+| Táctil | Joystick (mitad izquierda) | Deslizar (mitad derecha) | Botón (se puede apuntar sin soltarlo) | Botón | Botón | Botón II |
+| Mando | Stick izquierdo | Stick derecho | RT / R2 | A / Cruz | B / Círculo | Options / Menu |
+| Teclado | WASD | Ratón o flechas | Clic o F | Espacio | C | P |
 
 ## Menú oculto de pruebas
 

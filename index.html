@@ -18,10 +18,13 @@
   <!-- Indicadores en pantalla -->
   <div id="hud" hidden>
     <div id="damage"></div>
-    <div id="dmgDir"><div class="wedge"></div></div>
+    <div id="dmgDir"><div class="arc"></div></div>
+    <canvas id="compass"></canvas>
     <div id="crosshair"></div>
     <div id="vitals">
       <div id="hpBar"><div id="hpFill"></div><span id="hpLabel">VIDA 100</span></div>
+      <div id="pips" title="3 bajas = +10 de vida"><i></i><i></i><i></i></div>
+      <div id="healPop"></div>
       <div id="testTag" hidden>MODO PRUEBAS</div>
       <div id="fps" hidden></div>
     </div>
@@ -38,6 +41,7 @@
     <div id="joyZone"></div>
     <div id="lookZone"></div>
     <button id="btnFire" class="tbtn">DISPARAR</button>
+    <button id="btnJump" class="tbtn">SALTAR</button>
     <button id="btnCrouch" class="tbtn">AGACHARSE</button>
   </div>
 
