@@ -386,10 +386,11 @@ export class DroidBrain {
     const d = h ? h.timeOfImpact : 80;
     this.end.copy(this.org).addScaledVector(this.dir, d);
     ctx.effects.enemyBolt(this.org, this.end);
+    ctx.effects.muzzle(this.org, 'enemy');
     ctx.audio?.(this.params.sfx ?? 'b1', this.org.x, this.org.y, this.org.z, dT);
     if (h) {
       if (h.collider.handle === ctx.playerCollider()) ctx.damagePlayer(this.params.damage, this.org.x, this.org.z);
-      else ctx.effects.flash(this.end, 0xffa060);
+      else { ctx.effects.flash(this.end, 0xffa060); ctx.effects.impact(this.end, this.dir, 'enemy'); }
     }
   }
 }

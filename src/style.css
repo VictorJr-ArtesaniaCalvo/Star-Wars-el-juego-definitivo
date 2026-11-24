@@ -207,6 +207,7 @@ button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
   position: absolute; inset: 0; opacity: 0;
   box-shadow: inset 0 0 80px 14px rgba(220,30,10,.4);
 }
+#screenFlash { position: absolute; inset: 0; opacity: 0; pointer-events: none; background: radial-gradient(circle at 50% 55%, rgba(255,248,225,.95), rgba(255,190,100,.6) 55%, rgba(255,120,40,.25) 100%); }
 #dmgDir { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
 #dmgDir .arc {
   position: absolute; width: min(78vh, 420px); height: min(78vh, 420px);

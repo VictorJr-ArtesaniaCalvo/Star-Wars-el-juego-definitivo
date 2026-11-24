@@ -6,9 +6,10 @@ Three.js, Rapier, Yuka, Howler.js, nipplejs, Vite (todas con licencias libres).
 ## Gráficos
 Texturas del terreno, rocas, droideka y efectos: generados por código en este proyecto (originales).
 
-**Droide B1** (`public/models/b1.bin`): modelo 3D aportado por el autor del proyecto (archivo `B1 DROID.blend/.obj`; las rutas internas
-de sus texturas mencionan «Blue Evolution Studio»). Se ha convertido y simplificado con `tools/convert-b1.mjs` (de 45.000 a ~5.000 triángulos),
-y se ha coloreado con el tono arena de las texturas originales; las texturas pintadas no se usan (solo llegaron 5 de ~35).
+**Droide B1** (`public/models/b1.bin` y `b1-atlas.jpg`): modelo 3D aportado por el autor del proyecto (archivo `B1 DROID.blend/.obj`; las rutas internas
+de sus texturas mencionan «Blue Evolution Studio»). Se ha convertido y simplificado con `tools/convert-b1.mjs` (de 45.000 a ~5.000 triángulos).
+De las ~40 texturas pintadas del modelo solo se tienen 5 (cuello, cuello extra, cubo de las piezas pequeñas y los dos pistones de los antebrazos): se aplican
+con sus coordenadas, reunidas en un atlas. El resto de piezas lleva el color arena de esas texturas (o gris metálico en el rifle) hasta que lleguen las que faltan.
 **Autoría y licencia del modelo por confirmar.** El personaje es propiedad de Lucasfilm Ltd. / Disney. Si el proyecto se difunde,
 conviene confirmar los derechos del modelo o sustituirlo (el juego trae un B1 de cajas de respaldo que se usa si el archivo falta).
 

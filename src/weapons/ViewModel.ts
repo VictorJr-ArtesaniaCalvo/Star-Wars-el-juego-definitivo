@@ -6,6 +6,7 @@ export class ViewModel {
   readonly muzzle = new THREE.Object3D();
   private body: THREE.MeshLambertMaterial;
   private kick = 0;
+  private flashSprite: THREE.Sprite;
   private grenade = new THREE.Group();
   private bRaise = 1; // 0 = guardada, 1 = en la mano
   private gRaise = 0;
@@ -27,6 +28,15 @@ export class ViewModel {
     box(0.03, 0.03, 0.12, 0, 0.055, -0.02, dark); // mira
     this.muzzle.position.set(0, 0.012, -0.4);
     this.group.add(this.muzzle);
+    // Destello azul al disparar (dura una fracción de segundo)
+    const fc = document.createElement('canvas'); fc.width = fc.height = 64;
+    const fg = fc.getContext('2d')!;
+    const fgrad = fg.createRadialGradient(32, 32, 0, 32, 32, 32);
+    fgrad.addColorStop(0, 'rgba(255,255,255,1)'); fgrad.addColorStop(0.35, 'rgba(150,215,255,0.85)'); fgrad.addColorStop(1, 'rgba(60,140,255,0)');
+    fg.fillStyle = fgrad; fg.fillRect(0, 0, 64, 64);
+    this.flashSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(fc), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false, opacity: 0 }));
+    this.flashSprite.scale.setScalar(0.34);
+    this.muzzle.add(this.flashSprite);
     this.group.position.set(0.2, -0.19, -0.5);
     this.group.scale.setScalar(0.62);
     camera.add(this.group);
@@ -52,6 +62,8 @@ export class ViewModel {
   /** `zoom` va de 0 (desde la cadera) a 1 (apuntando): el arma se centra y baja un poco. */
   update(dt: number, heat: number, zoom = 0, weapon: 'blaster' | 'grenade' = 'blaster') {
     this.kick = Math.max(0, this.kick - dt * 9);
+    (this.flashSprite.material as THREE.SpriteMaterial).opacity = Math.max(0, (this.kick - 0.45) / 0.55);
+    this.flashSprite.scale.setScalar(0.28 + 0.2 * this.kick);
     // Se guarda un arma bajándola y se saca la otra subiéndola
     const k = Math.min(1, dt * 11);
     this.bRaise += ((weapon === 'blaster' ? 1 : 0) - this.bRaise) * k;

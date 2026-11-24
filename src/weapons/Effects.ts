@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SoftPoints } from '../world/crashFx';
 
 const BOLT_SPEED = 170; // m/s
 const BOLT_LENGTH = 2.2;
@@ -108,11 +109,36 @@ export class Effects {
   private sparks: ParticlePool;
   private smoke: ParticlePool;
   private blasts: Array<{ ball: THREE.Mesh; ring: THREE.Mesh; life: number; size: number }> = [];
+  // Partículas suaves: polvo, humo grande, llamas y destellos (cada reserva es un solo objeto dibujable)
+  private dust: SoftPoints;
+  private smokeBig: SoftPoints;
+  private fire: SoftPoints;
+  private blue: SoftPoints;
+  // Marcas de quemado que dejan las explosiones en el suelo (se desvanecen solas)
+  private scorches: Array<{ mesh: THREE.Mesh; life: number }> = [];
 
   constructor(scene: THREE.Scene) {
     const dot = dotTexture();
     this.sparks = new ParticlePool(scene, 120, 0.22, [1, 0.62, 0.2], 9, 0.6, true, dot);
     this.smoke = new ParticlePool(scene, 80, 2.8, [0.2, 0.17, 0.15], 0, 0.9, false, dot);
+    this.dust = new SoftPoints(scene, { n: 70, additive: false, gravity: -0.35, drag: 1.6, wind: [0.4, 0, 0.1], colorA: [0.78, 0.58, 0.4], colorB: [0.56, 0.41, 0.3], alpha: 0.5 });
+    this.smokeBig = new SoftPoints(scene, { n: 60, additive: false, gravity: -0.5, drag: 0.8, wind: [0.5, 0.2, 0.1], colorA: [0.13, 0.11, 0.1], colorB: [0.36, 0.31, 0.27], alpha: 0.5 });
+    this.fire = new SoftPoints(scene, { n: 70, additive: true, gravity: -1.2, drag: 2.2, wind: [0, 0, 0], colorA: [1, 0.85, 0.5], colorB: [0.85, 0.2, 0.04], alpha: 0.85 });
+    this.blue = new SoftPoints(scene, { n: 40, additive: true, gravity: 0, drag: 3, wind: [0, 0, 0], colorA: [0.8, 0.95, 1], colorB: [0.2, 0.5, 1], alpha: 0.9 });
+    // Marcas de quemado en el suelo
+    const sc = document.createElement('canvas'); sc.width = sc.height = 128;
+    const sg = sc.getContext('2d')!;
+    const grad = sg.createRadialGradient(64, 64, 4, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(10,7,5,0.85)'); grad.addColorStop(0.55, 'rgba(14,10,7,0.55)'); grad.addColorStop(1, 'rgba(14,10,7,0)');
+    sg.fillStyle = grad; sg.fillRect(0, 0, 128, 128);
+    const scTex = new THREE.CanvasTexture(sc);
+    const scGeo = new THREE.CircleGeometry(1, 24); scGeo.rotateX(-Math.PI / 2);
+    for (let i = 0; i < 4; i++) {
+      const mesh = new THREE.Mesh(scGeo, new THREE.MeshBasicMaterial({ map: scTex, transparent: true, depthWrite: false, opacity: 0, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, fog: true }));
+      mesh.visible = false; mesh.renderOrder = 1;
+      scene.add(mesh);
+      this.scorches.push({ mesh, life: 0 });
+    }
     // Explosiones de granada: bola de fuego y onda expansiva (se reutilizan)
     const ballGeo = new THREE.IcosahedronGeometry(1, 2);
     const ringGeo = new THREE.RingGeometry(0.82, 1, 40);
@@ -127,8 +153,12 @@ export class Effects {
     const boltGeo = new THREE.BoxGeometry(0.045, 0.045, BOLT_LENGTH);
     boltGeo.translate(0, 0, BOLT_LENGTH / 2);
     const boltMat = new THREE.MeshBasicMaterial({ color: 0x66b8ff, fog: false });
+    const glowGeo = new THREE.BoxGeometry(0.16, 0.16, BOLT_LENGTH * 1.15);
+    glowGeo.translate(0, 0, BOLT_LENGTH * 0.575);
+    const boltGlow = new THREE.MeshBasicMaterial({ color: 0x4aa8ff, transparent: true, opacity: 0.26, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
     for (let i = 0; i < 14; i++) {
       const mesh = new THREE.Mesh(boltGeo, boltMat);
+      mesh.add(new THREE.Mesh(glowGeo, boltGlow)); // aura azul
       mesh.visible = false;
       scene.add(mesh);
       this.bolts.push({ mesh, dir: new THREE.Vector3(), left: 0, active: false });
@@ -137,8 +167,12 @@ export class Effects {
     const eGeo = new THREE.BoxGeometry(0.07, 0.07, 1.6);
     eGeo.translate(0, 0, 0.8);
     const eMat = new THREE.MeshBasicMaterial({ color: 0xff3a30, fog: false });
+    const eGlowGeo = new THREE.BoxGeometry(0.24, 0.24, 1.9);
+    eGlowGeo.translate(0, 0, 0.95);
+    const eGlow = new THREE.MeshBasicMaterial({ color: 0xff4a2a, transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
     for (let i = 0; i < 40; i++) {
       const mesh = new THREE.Mesh(eGeo, eMat);
+      mesh.add(new THREE.Mesh(eGlowGeo, eGlow)); // aura roja
       mesh.visible = false;
       scene.add(mesh);
       this.enemyBolts.push({ mesh, dir: new THREE.Vector3(), left: 0, active: false });
@@ -185,17 +219,52 @@ export class Effects {
     b.active = true;
   }
 
-  /** Chispas y humo cuando un droide queda destruido. */
+  /** Destello en la boca del arma al disparar (azul el del jugador, naranja el de los droides). */
+  muzzle(at: THREE.Vector3, who: 'player' | 'enemy') {
+    if (who === 'player') {
+      this.blue.emit(at.x, at.y, at.z, 0, 0, 0, 0.09, 0.3, 0.7);
+      this.blue.emit(at.x, at.y, at.z, 0, 0, 0, 0.06, 0.14, 0.36);
+    } else {
+      this.fire.emit(at.x, at.y, at.z, 0, 0, 0, 0.12, 0.7, 1.5);
+      this.fire.emit(at.x, at.y, at.z, 0, 0, 0, 0.08, 0.35, 0.7);
+    }
+  }
+
+  /** Impacto de un disparo: chispas hacia atrás y polvo en el suelo, destello azul en el escudo, chispas y humo en un droide. */
+  impact(at: THREE.Vector3, dir: THREE.Vector3, kind: 'ground' | 'droid' | 'shield' | 'enemy') {
+    const bx = -dir.x, by = -dir.y, bz = -dir.z;
+    const spark = (n: number, speed: number) => {
+      for (let i = 0; i < n; i++) {
+        const s = speed * (0.5 + Math.random());
+        this.sparks.emit(at.x, at.y, at.z, bx * s + (Math.random() - 0.5) * 4, Math.abs(by) * s * 0.5 + 1 + Math.random() * 3, bz * s + (Math.random() - 0.5) * 4, 0.25 + Math.random() * 0.45);
+      }
+    };
+    if (kind === 'shield') {
+      this.blue.emit(at.x, at.y, at.z, 0, 0, 0, 0.32, 0.8, 2.2);
+      this.blue.emit(at.x, at.y, at.z, 0, 0, 0, 0.22, 0.5, 1.4);
+    } else if (kind === 'droid') {
+      spark(7, 3.5);
+      this.fire.emit(at.x, at.y, at.z, 0, 0.3, 0, 0.22, 0.5, 1.0);
+      this.smokeBig.emit(at.x, at.y, at.z, bx * 0.4, 0.8, bz * 0.4, 1.0, 0.5, 1.4);
+    } else {
+      spark(kind === 'enemy' ? 5 : 6, 4);
+      const n = kind === 'enemy' ? 2 : 3;
+      for (let i = 0; i < n; i++) this.dust.emit(at.x + (Math.random() - 0.5) * 0.2, at.y + 0.05, at.z + (Math.random() - 0.5) * 0.2, bx * 0.6 + (Math.random() - 0.5) * 0.8, 0.5 + Math.random() * 0.8, bz * 0.6 + (Math.random() - 0.5) * 0.8, 0.8 + Math.random() * 0.6, 0.6, 1.9);
+    }
+  }
+
+  /** Chispas, llamas y humo cuando un droide queda destruido. */
   deathBurst(x: number, y: number, z: number) {
     for (let i = 0; i < 18; i++) {
       const a = Math.random() * Math.PI * 2, s = 2 + Math.random() * 5;
       this.sparks.emit(x, y, z, Math.cos(a) * s, 2 + Math.random() * 5, Math.sin(a) * s, 0.45 + Math.random() * 0.5);
     }
-    for (let i = 0; i < 4; i++) this.smokePuff(x + (Math.random() - 0.5) * 0.4, y + Math.random() * 0.3, z + (Math.random() - 0.5) * 0.4);
+    for (let i = 0; i < 3; i++) this.fire.emit(x + (Math.random() - 0.5) * 0.4, y + (Math.random() - 0.3) * 0.4, z + (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 1.5, 0.8 + Math.random(), (Math.random() - 0.5) * 1.5, 0.45 + Math.random() * 0.3, 0.5, 1.5);
+    for (let i = 0; i < 3; i++) this.smokeBig.emit(x + (Math.random() - 0.5) * 0.4, y + Math.random() * 0.3, z + (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.8, 1 + Math.random() * 0.8, (Math.random() - 0.5) * 0.8, 1.6 + Math.random() * 0.8, 0.5, 1.9);
     this.flash(new THREE.Vector3(x, y, z), 0xffb060);
   }
 
-  /** Explosión de granada: bola de fuego, onda expansiva, chispas y mucho humo. `radius` = alcance real de la explosión. */
+  /** Explosión de granada: bola de fuego en capas, onda de polvo por el suelo, columna de humo, chispas y una marca quemada. `radius` = alcance real. */
   explosion(x: number, y: number, z: number, radius: number) {
     const b = this.blasts.find((q) => q.life <= 0) ?? this.blasts[0];
     b.life = 1;
@@ -203,14 +272,29 @@ export class Effects {
     b.ball.position.set(x, y + 0.3, z);
     b.ring.position.set(x, y + 0.12, z);
     b.ball.visible = b.ring.visible = true;
-    for (let i = 0; i < 46; i++) {
-      const a = Math.random() * Math.PI * 2, s = 3 + Math.random() * 9;
-      this.sparks.emit(x, y + 0.3, z, Math.cos(a) * s, 2 + Math.random() * 8, Math.sin(a) * s, 0.5 + Math.random() * 0.7);
+    const R = radius, r = () => Math.random();
+    // llamas
+    for (let i = 0; i < 9; i++) this.fire.emit(x + (r() - 0.5) * 1.2, y + 0.4 + r() * 0.8, z + (r() - 0.5) * 1.2, (r() - 0.5) * 2.5, 2 + r() * 3.5, (r() - 0.5) * 2.5, 0.8 + r() * 0.6, R * 0.3, R * 0.8);
+    // onda de polvo que se extiende por el suelo
+    for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2 + r() * 0.3, s = 7 + r() * 6; this.dust.emit(x, y + 0.2, z, Math.cos(a) * s, 0.3 + r() * 0.9, Math.sin(a) * s, 1 + r() * 0.7, 0.9, 3.6); }
+    // columna de humo oscuro
+    for (let i = 0; i < 10; i++) this.smokeBig.emit(x + (r() - 0.5) * 0.9, y + 0.5, z + (r() - 0.5) * 0.9, (r() - 0.5) * 1.2, 2.5 + r() * 3, (r() - 0.5) * 1.2, 3.4 + r() * 1.4, 1.4, 5.4);
+    // chispas y fragmentos
+    for (let i = 0; i < 60; i++) {
+      const a = r() * Math.PI * 2, s = 3 + r() * 10;
+      this.sparks.emit(x, y + 0.3, z, Math.cos(a) * s, 2 + r() * 9, Math.sin(a) * s, 0.5 + r() * 0.8);
     }
     for (let i = 0; i < 12; i++) {
-      const a = Math.random() * Math.PI * 2, s = Math.random() * 2.2;
-      this.smoke.emit(x + (Math.random() - 0.5), y + 0.2 + Math.random() * 0.6, z + (Math.random() - 0.5), Math.cos(a) * s, 0.8 + Math.random() * 1.6, Math.sin(a) * s, 1.8 + Math.random() * 1.4);
+      const a = r() * Math.PI * 2, s = r() * 2.2;
+      this.smoke.emit(x + (r() - 0.5), y + 0.2 + r() * 0.6, z + (r() - 0.5), Math.cos(a) * s, 0.8 + r() * 1.6, Math.sin(a) * s, 1.8 + r() * 1.4);
     }
+    // marca quemada en el suelo
+    const sc = this.scorches.find((q) => q.life <= 0) ?? this.scorches[0];
+    sc.mesh.position.set(x, y + 0.04, z);
+    sc.mesh.scale.setScalar(R * 0.55);
+    sc.mesh.rotation.y = r() * 6.28;
+    sc.life = 12;
+    sc.mesh.visible = true;
   }
 
   /** Una bocanada de humo oscuro que sube despacio. */
@@ -222,6 +306,8 @@ export class Effects {
   clear() {
     this.sparks.clear();
     this.smoke.clear();
+    this.dust.clear(); this.smokeBig.clear(); this.fire.clear(); this.blue.clear();
+    for (const q of this.scorches) { q.life = 0; q.mesh.visible = false; }
     for (const b of this.blasts) { b.life = 0; b.ball.visible = b.ring.visible = false; }
     for (const b of [...this.bolts, ...this.enemyBolts]) { b.active = false; b.mesh.visible = false; }
     for (const f of this.flashes) { f.active = false; f.mesh.visible = false; }
@@ -235,12 +321,19 @@ export class Effects {
       const k = 1 - b.life; // 0 → 1
       b.ball.scale.setScalar(b.size * 0.12 + b.size * 0.3 * Math.sqrt(k));
       b.ball.scale.y *= 0.85;
-      (b.ball.material as THREE.MeshBasicMaterial).opacity = Math.min(1, b.life * 1.3) * 0.5;
+      (b.ball.material as THREE.MeshBasicMaterial).opacity = Math.min(1, b.life * 1.3) * 0.28;
       b.ring.scale.setScalar(Math.max(0.2, b.size * Math.sqrt(k)));
       (b.ring.material as THREE.MeshBasicMaterial).opacity = b.life * 0.7;
     }
     this.sparks.update(dt);
     this.smoke.update(dt);
+    this.dust.update(dt); this.smokeBig.update(dt); this.fire.update(dt); this.blue.update(dt);
+    for (const q of this.scorches) {
+      if (q.life <= 0) continue;
+      q.life -= dt;
+      (q.mesh.material as THREE.MeshBasicMaterial).opacity = Math.min(0.8, q.life * 0.5, Math.min(1, (12 - q.life) * 6) * 0.8);
+      if (q.life <= 0) q.mesh.visible = false;
+    }
     for (const b of this.enemyBolts) {
       if (!b.active) continue;
       const step = ENEMY_BOLT_SPEED * dt;

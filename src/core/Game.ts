@@ -365,6 +365,7 @@ export class Game {
     }
     this.shake = Math.max(this.shake, Math.min(1, 1.2 - dp / 28));
     this.effects.explosion(at.x, at.y, at.z, R);
+    this.hud.flash(Math.max(0, 1 - dp / 18)); // fogonazo en pantalla si estalla cerca
     this.audio.explosion(at.x, at.y, at.z);
   }
 
@@ -490,6 +491,7 @@ export class Game {
       this.audio.listener(this.camera.position.x, this.camera.position.y, this.camera.position.z, this.yaw, this.pitch);
       this.effects.update(dt);
       this.world.tick(dt);
+      this.audio.setWindLevel(this.world.gust);
       this.viewModel.update(dt, this.blaster.heat, this.adsZoom, this.weapon);
       this.dirty = true;
     }
@@ -529,6 +531,7 @@ export class Game {
     const end = this.v3.copy(eye).addScaledVector(dir, dist);
 
     this.shots++;
+    let kind: 'ground' | 'droid' | 'shield' = 'ground';
     if (hit) {
       this.effects.flash(end);
       const droid = this.enemies.find(hit.collider.handle);
@@ -537,10 +540,14 @@ export class Game {
         this.hits++;
         if (killed) this.registerKill();
         this.hud.hit(killed, droid.lastShielded);
+        kind = droid.lastShielded ? 'shield' : 'droid';
       }
+      this.effects.impact(end, dir, kind);
     }
     this.camera.updateMatrixWorld();
-    this.effects.bolt(this.viewModel.muzzle.getWorldPosition(this.v1), end);
+    const muzzlePos = this.viewModel.muzzle.getWorldPosition(this.v1);
+    this.effects.muzzle(muzzlePos, 'player');
+    this.effects.bolt(muzzlePos, end);
     this.viewModel.shot();
     this.audio.playerShot();
   }

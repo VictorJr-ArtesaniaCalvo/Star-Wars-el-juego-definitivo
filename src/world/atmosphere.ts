@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeRng, terrainHeight, WRECK } from './terrain';
+import { SoftPoints } from './crashFx';
 
 // Ambiente lejano: columnas de humo y enjambres de criaturas voladoras. Todo ligero:
 // el humo es un único objeto y los voladores son puntos.
@@ -32,11 +33,20 @@ export function glowTexture(): THREE.Texture {
   return new THREE.CanvasTexture(c);
 }
 
+const range2 = (a: number, b: number) => a + Math.random() * (b - a);
+const smooth = (a: number, b: number, v: number) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+
 export class Atmosphere {
   private flyers: THREE.Points;
   private embers: THREE.Points;
   private emberVel: Float32Array;
-  private dust: Array<{ sprite: THREE.Sprite; vx: number; vz: number }> = [];
+  private dust: Array<{ sprite: THREE.Sprite; vx: number; vz: number; base: number }> = [];
+  /** Fuerza de la ráfaga de viento y arena actual (0 = calma, 1 = tormenta). */
+  gust = 0;
+  /** Con calidad baja no se dibuja el polvo de las ráfagas. */
+  gustDustOn = true;
+  private gustDust: SoftPoints;
+  private gustAcc = 0;
   private focus = new THREE.Vector3();
   private fires: Array<{ sprite: THREE.Sprite; size: number; phase: number }> = [];
   private t = 0;
@@ -116,13 +126,17 @@ export class Atmosphere {
     // --- Polvo bajo: nubes grandes y suaves que se desplazan con el viento ---
     const puff = puffTexture();
     for (let i = 0; i < 14; i++) {
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: 0xc9966a, transparent: true, opacity: range(0.07, 0.13), depthWrite: false, fog: false }));
+      const base = range(0.07, 0.13);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: puff, color: 0xc9966a, transparent: true, opacity: base, depthWrite: false, fog: false }));
       sprite.scale.setScalar(range(14, 26));
       sprite.position.set(range(-60, 60), range(1.5, 6), range(-60, 60));
       sprite.renderOrder = 1;
       scene.add(sprite);
-      this.dust.push({ sprite, vx: range(1.0, 2.4), vz: range(-0.5, 0.5) });
+      this.dust.push({ sprite, vx: range(1.0, 2.4), vz: range(-0.5, 0.5), base });
     }
+
+    // --- Polvo que levanta el viento en las ráfagas (pasa a toda velocidad cerca del jugador) ---
+    this.gustDust = new SoftPoints(scene, { n: 110, additive: false, gravity: 0, drag: 0.05, wind: [0, 0, 0], colorA: [0.82, 0.62, 0.44], colorB: [0.7, 0.52, 0.37], alpha: 0.42 });
 
     // --- Enjambres de criaturas voladoras (puntos oscuros que giran despacio) ---
     const n = 140;
@@ -147,15 +161,28 @@ export class Atmosphere {
 
   tick(dt: number) {
     this.t += dt;
+    // Ráfagas: cada 43 s sube el viento durante unos segundos (más polvo, más rápido y más brasas) y vuelve la calma
+    const c = (this.t + 30) % 43;
+    this.gust = smooth(0, 3, c) * (1 - smooth(10, 15, c));
+    const g = this.gust;
+    if (g > 0.02 && this.gustDustOn) {
+      this.gustAcc += g * 42 * dt;
+      const f = this.focus;
+      while (this.gustAcc >= 1) {
+        this.gustAcc -= 1;
+        this.gustDust.emit(f.x - 26 + range2(-3, 3), f.y - 1 + range2(0, 5), f.z + range2(-24, 24), range2(9, 15), range2(-0.3, 0.3), range2(-1.8, 1.8), range2(3, 4.2), 1.8, 4.2);
+      }
+    }
+    this.gustDust.update(dt);
     // Brasas: suben y derivan con el viento; las que se alejan reaparecen al otro lado
     const pos = this.embers.geometry.attributes.position as THREE.BufferAttribute;
     const a = pos.array as Float32Array;
     const f = this.focus;
     for (let i = 0; i < a.length / 3; i++) {
       const k = i * 3;
-      a[k] += this.emberVel[k] * dt + Math.sin(this.t * 1.3 + i) * 0.4 * dt;
+      a[k] += this.emberVel[k] * dt * (1 + 2.4 * g) + Math.sin(this.t * 1.3 + i) * 0.4 * dt;
       a[k + 1] += this.emberVel[k + 1] * dt;
-      a[k + 2] += this.emberVel[k + 2] * dt + Math.cos(this.t * 1.1 + i * 2) * 0.4 * dt;
+      a[k + 2] += this.emberVel[k + 2] * dt * (1 + 1.5 * g) + Math.cos(this.t * 1.1 + i * 2) * 0.4 * dt;
       if (a[k] - f.x > 34) a[k] -= 68; else if (a[k] - f.x < -34) a[k] += 68;
       if (a[k + 2] - f.z > 34) a[k + 2] -= 68; else if (a[k + 2] - f.z < -34) a[k + 2] += 68;
       if (a[k + 1] - f.y > 15) a[k + 1] -= 14.5; else if (a[k + 1] - f.y < -2) a[k + 1] += 14.5;
@@ -164,7 +191,8 @@ export class Atmosphere {
     // Polvo: avanza con el viento y se recoloca alrededor del jugador
     for (const d of this.dust) {
       const p = d.sprite.position;
-      p.x += d.vx * dt; p.z += d.vz * dt;
+      p.x += d.vx * dt * (1 + 3.5 * g); p.z += d.vz * dt * (1 + 2 * g);
+      (d.sprite.material as THREE.SpriteMaterial).opacity = d.base * (1 + 2.6 * g);
       if (p.x - f.x > 62) p.x -= 124; else if (p.x - f.x < -62) p.x += 124;
       if (p.z - f.z > 62) p.z -= 124; else if (p.z - f.z < -62) p.z += 124;
     }

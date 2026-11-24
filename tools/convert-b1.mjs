@@ -1,12 +1,15 @@
 // Conversor del modelo 3D del droide B1 (OBJ con piezas separadas) a un archivo compacto para el juego.
-//   node tools/convert-b1.mjs <B1DROID.obj> [salida=public/models/b1.bin]
+//   node tools/convert-b1.mjs <B1DROID.obj> [salida=public/models/b1.bin] [carpeta-de-texturas]
 // - Quita piezas duplicadas, reparte cada pieza a un hueso del esqueleto y simplifica cada una (meshoptimizer).
-// - Colorea con la arena de las texturas del autor (las texturas pintadas no se usan: se pasa solo la geometría).
+// - Colorea con la arena de las texturas del autor. Las texturas pintadas que se tengan (carpeta opcional, ver TEXTURED) se aplican de verdad,
+//   con sus coordenadas, reunidas en un atlas; las piezas sin textura llevan el color arena (o gris metálico) según su tipo.
 // - Genera dos niveles de detalle: 0 (cerca) y 1 (lejos), con el mismo esqueleto.
 import fs from 'node:fs';
+import path from 'node:path';
+import jpeg from 'jpeg-js';
 import { MeshoptSimplifier } from 'meshoptimizer';
 
-const [, , src, out = 'public/models/b1.bin'] = process.argv;
+const [, , src, out = 'public/models/b1.bin', texDir] = process.argv;
 if (!src) { console.error('Uso: node tools/convert-b1.mjs B1DROID.obj [salida]'); process.exit(1); }
 await MeshoptSimplifier.ready;
 
@@ -16,12 +19,18 @@ const tf = (x, y, z) => [-x * SCALE, y * SCALE, -z * SCALE];
 
 // ---------- Leer el OBJ ----------
 const V = [];
+const VT = [];
 const parts = [];
 let cur = null;
 for (const line of fs.readFileSync(src, 'utf8').split('\n')) {
   if (line.startsWith('v ')) { const t = line.trim().split(/\s+/); V.push([+t[1], +t[2], +t[3]]); }
-  else if (line.startsWith('o ')) { cur = { name: line.slice(2).trim(), faces: [] }; parts.push(cur); }
-  else if (line.startsWith('f ') && cur) cur.faces.push(line.trim().split(/\s+/).slice(1).map((t) => parseInt(t.split('/')[0], 10) - 1));
+  else if (line.startsWith('vt ')) { const t = line.trim().split(/\s+/); VT.push([+t[1], +t[2]]); }
+  else if (line.startsWith('o ')) { cur = { name: line.slice(2).trim(), faces: [], fvt: [] }; parts.push(cur); }
+  else if (line.startsWith('f ') && cur) {
+    const tk = line.trim().split(/\s+/).slice(1);
+    cur.faces.push(tk.map((t) => parseInt(t.split('/')[0], 10) - 1));
+    cur.fvt.push(tk.map((t) => { const q = t.split('/')[1]; return q ? parseInt(q, 10) - 1 : -1; }));
+  }
 }
 
 // ---------- Esqueleto ----------
@@ -101,6 +110,56 @@ pivotsOrig.armL = [0.069, pivotsOrig.armL[1], 0.0005];
 pivotsOrig.armR = [-0.069, pivotsOrig.armR[1], 0.0005];
 const bonesOut = BONES.map(([name, parent]) => ({ name, parent, pivot: tf(...pivotsOrig[name]).map((v) => +v.toFixed(5)) }));
 
+// ---------- Texturas pintadas ----------
+// Qué textura lleva cada pieza (nombre de archivo sin extensión, en la carpeta de texturas). Se ha comprobado superponiendo las
+// coordenadas de textura de cada pieza sobre cada imagen (los bordes de las islas de la imagen coinciden con los de la pieza).
+// De las ~40 texturas del modelo solo se tienen estas 5; el resto de piezas lleva el color arena (o gris) de su tipo.
+const TEXTURED = [
+  [/^neck_Cube\.016/, 'neck'],
+  [/^neck\.001_/, 'neck-plus'],
+  [/^(leg_part|neck_controller|hand_controller)/, 'cubo'], // la misma imagen en cruz (un cubo desplegado) sirve a todas las piezas-cubo
+  [/^arm_2_controller\.L/, 'piston-L'],
+  [/^arm_2_controller\.R/, 'piston-R'],
+];
+const TILE = 512; // cada textura se baja a 512×512 dentro del atlas
+const atlas = { tiles: new Map(), W: 0, H: 0, data: null, white: [0, 0] };
+function loadTexture(name) {
+  if (!texDir) return null;
+  const f = path.join(texDir, name + '.jpg');
+  if (!fs.existsSync(f)) return null;
+  const d = jpeg.decode(fs.readFileSync(f), { useTArray: true });
+  return { w: d.width, h: d.height, data: d.data };
+}
+{
+  const wanted = [...new Set(TEXTURED.map((t) => t[1]))].map((n) => [n, loadTexture(n)]).filter(([, t]) => t);
+  if (wanted.length) {
+    const slots = wanted.length + 1; // +1: cuadro blanco para las piezas sin textura
+    atlas.W = 2048; atlas.H = Math.max(TILE, 2 ** Math.ceil(Math.log2(Math.ceil(slots / (atlas.W / TILE)) * TILE)));
+    atlas.data = new Uint8Array(atlas.W * atlas.H * 4).fill(255);
+    wanted.forEach(([name, t], i) => {
+      const tx = (i % (atlas.W / TILE)) * TILE, ty = Math.floor(i / (atlas.W / TILE)) * TILE;
+      const sx = t.w / TILE, sy = t.h / TILE;
+      for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+        const acc = [0, 0, 0];
+        for (let dy = 0; dy < 4; dy++) for (let dx = 0; dx < 4; dx++) {
+          const px = Math.min(t.w - 1, Math.floor((x + (dx + 0.5) / 4) * sx)), py = Math.min(t.h - 1, Math.floor((y + (dy + 0.5) / 4) * sy));
+          const o = (py * t.w + px) * 4; acc[0] += t.data[o]; acc[1] += t.data[o + 1]; acc[2] += t.data[o + 2];
+        }
+        const o = ((ty + y) * atlas.W + tx + x) * 4;
+        atlas.data[o] = acc[0] / 16; atlas.data[o + 1] = acc[1] / 16; atlas.data[o + 2] = acc[2] / 16;
+      }
+      atlas.tiles.set(name, { x: tx, y: ty, w: TILE, h: TILE });
+    });
+    const wi = wanted.length; atlas.white = [((wi % (atlas.W / TILE)) * TILE + TILE / 2) / atlas.W, (Math.floor(wi / (atlas.W / TILE)) * TILE + TILE / 2) / atlas.H];
+    console.log('atlas', atlas.W + '×' + atlas.H, '—', wanted.length, 'texturas:', wanted.map(([n]) => n).join(', '));
+  } else console.log('sin texturas pintadas (no se indicó carpeta o faltan los archivos)');
+}
+for (const p of use) {
+  const hit = TEXTURED.find(([re]) => re.test(p.name));
+  p.tile = hit ? atlas.tiles.get(hit[1]) ?? null : null;
+  if (p.tile) console.log('con textura:', p.name.padEnd(30), '→', hit[1]);
+}
+
 // El rifle se coloca centrado ante el pecho, apuntando hacia delante (en coordenadas del modelo, antes del giro).
 const GUN_TARGET = [0.0, 0.44, 0.155];
 
@@ -109,11 +168,17 @@ const RATIO = { body: 0.15, head: 0.2, limb: 0.22, joint: 0.06, finger: 0.25, ra
 const MIN = { joint: 36, finger: 20, radio: 40, neck: 24, foot: 40, limb: 60, head: 200, gun: 300, body: 300 };
 
 function simplifyPart(p, lod) {
-  // posiciones compactas y triángulos
-  const map = new Map(); const pos = []; const tri = [];
-  const vid = (i) => { let k = map.get(i); if (k === undefined) { k = pos.length / 3; map.set(i, k); pos.push(...V[i]); } return k; };
-  for (const f of p.faces) for (let k = 1; k < f.length - 1; k++) tri.push(vid(f[0]), vid(f[k]), vid(f[k + 1]));
+  // posiciones compactas y triángulos (las piezas con textura también distinguen vértices por sus coordenadas de textura)
+  const map = new Map(); const pos = []; const uvs = []; const tri = [];
+  const vid = (i, q) => {
+    const key = p.tile ? i + '/' + q : i;
+    let k = map.get(key);
+    if (k === undefined) { k = pos.length / 3; map.set(key, k); pos.push(...V[i]); if (p.tile) uvs.push(VT[q][0], VT[q][1]); }
+    return k;
+  };
+  p.faces.forEach((f, fi) => { const ft = p.fvt[fi]; for (let k = 1; k < f.length - 1; k++) tri.push(vid(f[0], ft[0]), vid(f[k], ft[k]), vid(f[k + 1], ft[k + 1])); });
   let P = new Float32Array(pos);
+  const UV = new Float32Array(uvs);
   if (p.kind === 'gun') {
     // mover el rifle (sus coordenadas originales) al punto deseado
     const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
@@ -130,21 +195,23 @@ function simplifyPart(p, lod) {
   if (target < total) {
     let err = 0.02;
     for (let tries = 0; tries < 6; tries++) {
-      const [res] = MeshoptSimplifier.simplify(idx, P, 3, target * 3, err);
+      const [res] = p.tile ? MeshoptSimplifier.simplifyWithAttributes(idx, P, 3, UV, 2, [1, 1], null, target * 3, err) : MeshoptSimplifier.simplify(idx, P, 3, target * 3, err);
       idx = res; if (idx.length / 3 <= target * 1.15) break; err *= 3;
     }
   }
-  return { P, idx };
+  return { P, idx, UV };
 }
 
 function buildLod(lod) {
-  const pos = [], nor = [], col = [], bone = [], index = [];
+  const pos = [], nor = [], col = [], colTex = [], uvs = [], bone = [], index = [];
   const uniq = new Map();
+  // Las texturas están en sRGB y el juego mezcla la luz en lineal: los colores de las piezas sin textura se pasan a lineal para que casen.
+  const lin = (v) => Math.pow(v / 255, 2.2) * 255;
   const rng = (() => { let a = 12345; return () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; }; })();
-  const TAN = [198, 156, 108], DARK = [160, 126, 88], GUNM = [52, 54, 58], NECK = [174, 138, 96];
+  const TAN = [198, 156, 108], DARK = [160, 126, 88], GUNM = [92, 95, 101], NECK = [174, 138, 96];
   let tris = 0;
   for (const p of use) {
-    const { P, idx } = simplifyPart(p, lod);
+    const { P, idx, UV } = simplifyPart(p, lod);
     const nt = idx.length / 3; tris += nt;
     if (process.env.VERBOSE && lod === 0) console.log(String(nt).padStart(5), p.kind.padEnd(7), p.name);
     // normales de cara y suavizado por ángulo (35°)
@@ -175,15 +242,25 @@ function buildLod(lod) {
         const N3 = [Math.round((-acc[0] / l) * 127), Math.round((acc[1] / l) * 127), Math.round((-acc[2] / l) * 127)];
         // un poco más oscuro en la parte baja de cada pieza (sombreado de oclusión barato)
         const sh = tone * (0.93 + 0.07 * Math.min(1, Math.max(0, (acc[1] / l + 1) / 2)));
-        const C3 = base.map((c) => Math.min(255, Math.round(c * sh)));
-        const key = `${P3.join(',')}|${N3.join(',')}|${p.bone}|${C3.join(',')}`;
+        const C3 = base.map((c) => Math.min(255, Math.round(c * sh))); // color de respaldo (sin textura)
+        // con textura: la pieza con imagen lleva solo el sombreado (la imagen pone el color); las demás, su color en lineal
+        const CT3 = p.tile ? [255, 255, 255].map((c) => Math.round(c * Math.min(1, sh))) : base.map((c) => Math.min(255, Math.round(lin(c) * sh)));
+        let U2 = [0, 0];
+        if (atlas.data) {
+          if (p.tile) {
+            const t = p.tile, u = Math.min(1, Math.max(0, UV[v * 2])), w = Math.min(1, Math.max(0, UV[v * 2 + 1]));
+            U2 = [(t.x + 0.5 + u * (t.w - 1)) / atlas.W, (t.y + 0.5 + (1 - w) * (t.h - 1)) / atlas.H]; // v del OBJ crece hacia arriba
+          } else U2 = atlas.white;
+        }
+        const U16 = U2.map((q) => Math.round(q * 65535));
+        const key = `${P3.join(',')}|${N3.join(',')}|${p.bone}|${C3.join(',')}|${CT3.join(',')}|${U16.join(',')}`;
         let id = uniq.get(key);
-        if (id === undefined) { id = pos.length / 3; uniq.set(key, id); pos.push(...P3); nor.push(...N3); col.push(...C3); bone.push(p.bone); }
+        if (id === undefined) { id = pos.length / 3; uniq.set(key, id); pos.push(...P3); nor.push(...N3); col.push(...C3); colTex.push(...CT3); uvs.push(...U16); bone.push(p.bone); }
         index.push(id);
       }
     }
   }
-  return { pos, nor, col, bone, index, tris };
+  return { pos, nor, col, colTex, uvs, bone, index, tris };
 }
 
 const lods = [buildLod(0), buildLod(1)];
@@ -196,9 +273,12 @@ const lodMeta = lods.map((l) => ({
   verts: l.pos.length / 3, tris: l.tris,
   indices: l.index.length,
   index: push(new Uint16Array(l.index)), pos: push(new Float32Array(l.pos)), nor: push(new Int8Array(l.nor)), col: push(new Uint8Array(l.col)), bone: push(new Uint8Array(l.bone)),
+  ...(atlas.data ? { colTex: push(new Uint8Array(l.colTex)), uv: push(new Uint16Array(l.uvs)) } : {}),
 }));
 const body = Buffer.concat(chunks);
-const header = Buffer.from(JSON.stringify({ version: 1, scale: SCALE, bones: bonesOut, lods: lodMeta }));
+let atlasName;
+if (atlas.data) { atlasName = 'b1-atlas.jpg'; const af = path.join(path.dirname(out), atlasName); fs.mkdirSync(path.dirname(af), { recursive: true }); fs.writeFileSync(af, jpeg.encode({ data: atlas.data, width: atlas.W, height: atlas.H }, 88).data); console.log('atlas guardado', af, (fs.statSync(af).size / 1024).toFixed(0), 'KB'); }
+const header = Buffer.from(JSON.stringify({ version: 1, scale: SCALE, ...(atlasName ? { atlas: atlasName } : {}), bones: bonesOut, lods: lodMeta }));
 const head = Buffer.alloc(8); head.write('B1M1', 0, 'ascii'); head.writeUInt32LE(header.length, 4);
 const padH = Buffer.alloc((4 - ((8 + header.length) % 4)) % 4);
 fs.mkdirSync(out.replace(/[^/]*$/, '') || '.', { recursive: true });

@@ -23,10 +23,11 @@ attribute vec3 aColor;
 varying float vAlpha;
 varying vec3 vColor;
 uniform float uScale;
+uniform float uMax;
 void main() {
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = aSize * uScale / max(0.1, -mv.z);
+  gl_PointSize = min(aSize * uScale / max(0.1, -mv.z), uMax);
   vAlpha = aAlpha;
   vColor = aColor;
 }`;
@@ -39,7 +40,7 @@ void main() {
   gl_FragColor = vec4(vColor, a * a * vAlpha);
 }`;
 
-interface PoolOpts {
+export interface PoolOpts {
   n: number;
   additive: boolean;
   gravity: number; // m/s² (positivo = cae)
@@ -51,7 +52,7 @@ interface PoolOpts {
 }
 
 /** Reserva de partículas suaves: tamaño, opacidad y color cambian a lo largo de su vida. */
-class SoftPoints {
+export class SoftPoints {
   readonly points: THREE.Points;
   private n: number;
   private pos: Float32Array; private vel: Float32Array;
@@ -73,7 +74,7 @@ class SoftPoints {
     g.setAttribute('aAlpha', new THREE.BufferAttribute(this.alpha, 1));
     g.setAttribute('aColor', new THREE.BufferAttribute(this.color, 3));
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uScale: { value: 400 } },
+      uniforms: { uScale: { value: 400 }, uMax: { value: 400 } },
       vertexShader: VERT, fragmentShader: FRAG,
       transparent: true, depthWrite: false, blending: o.additive ? THREE.AdditiveBlending : THREE.NormalBlending, fog: false,
     });
@@ -82,7 +83,9 @@ class SoftPoints {
     this.points.renderOrder = 2;
     // el tamaño de cada punto sigue a la distancia y a la pantalla
     this.points.onBeforeRender = (renderer, _scene, camera) => {
-      mat.uniforms.uScale.value = renderer.getDrawingBufferSize(this.tmpV).y * 0.5 * (camera as THREE.PerspectiveCamera).projectionMatrix.elements[5];
+      const h = renderer.getDrawingBufferSize(this.tmpV).y;
+      mat.uniforms.uScale.value = h * 0.5 * (camera as THREE.PerspectiveCamera).projectionMatrix.elements[5];
+      mat.uniforms.uMax.value = h * 0.55; // una bocanada muy cerca de la cámara no cubre toda la pantalla
     };
     scene.add(this.points);
   }
@@ -92,6 +95,13 @@ class SoftPoints {
     this.next = (this.next + 1) % this.n;
     this.pos.set([x, y, z], i * 3); this.vel.set([vx, vy, vz], i * 3);
     this.age[i] = 0; this.life[i] = life; this.s0[i] = s0; this.s1[i] = s1;
+  }
+
+  clear() {
+    this.age.fill(1); this.life.fill(1); this.alpha.fill(0);
+    for (let i = 0; i < this.n; i++) this.pos[i * 3 + 1] = -1000;
+    const a = this.points.geometry.attributes;
+    (a.position as THREE.BufferAttribute).needsUpdate = true; (a.aAlpha as THREE.BufferAttribute).needsUpdate = true;
   }
 
   update(dt: number) {

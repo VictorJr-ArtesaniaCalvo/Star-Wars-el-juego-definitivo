@@ -21,6 +21,7 @@ export class World {
   private skyLife: SkyLife;
   private crashFx: CrashFx | null = null;
   private time = 0;
+  private baseFar = 0;
 
   constructor(
     private scene: THREE.Scene,
@@ -43,6 +44,9 @@ export class World {
     if (laatReady()) this.crashFx = new CrashFx(scene); // humo, chispas y llamas de la cañonera derribada
   }
 
+  /** Fuerza de la ráfaga de viento y arena (0 a 1). */
+  get gust() { return this.atmosphere.gust; }
+
   setQuality(q: Quality) {
     const cfg = QUALITY[q];
     this.sun.castShadow = cfg.shadows;
@@ -51,7 +55,8 @@ export class World {
       this.sun.shadow.map?.dispose();
       (this.sun.shadow as unknown as { map: unknown }).map = null;
     }
-    (this.scene.fog as THREE.Fog).far = cfg.viewDistance;
+    (this.scene.fog as THREE.Fog).far = this.baseFar = cfg.viewDistance;
+    this.atmosphere.gustDustOn = q !== 'low';
   }
 
   /** Las nubes avanzan y los voladores giran. */
@@ -61,6 +66,8 @@ export class World {
     this.atmosphere.tick(dt);
     this.skyLife.update(dt);
     this.crashFx?.tick(dt);
+    // en las ráfagas la niebla de arena se cierra un poco
+    if (this.baseFar > 0) (this.scene.fog as THREE.Fog).far = this.baseFar * (1 - 0.3 * this.atmosphere.gust);
   }
 
   /** El cielo y la luz del sol acompañan al jugador. */

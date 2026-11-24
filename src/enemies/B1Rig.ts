@@ -19,26 +19,39 @@ export interface B1Bones {
 }
 
 interface BoneDef { name: keyof Omit<B1Bones, 'hipY' | 'lods'>; parent: number; pivot: [number, number, number] }
-interface Model { bones: BoneDef[]; lods: THREE.BufferGeometry[]; source: 'archivo' | 'respaldo' }
+interface Model { bones: BoneDef[]; lods: THREE.BufferGeometry[]; source: 'archivo' | 'respaldo'; map?: THREE.Texture }
 
 let model: Model | null = null;
+const B1_BRIGHT = 1.35;
 
 /** Descarga y prepara el modelo. Si falla, se usa el de respaldo (cajas). Hay que llamarlo antes de crear droides. */
 export async function loadB1Model(url: string): Promise<'archivo' | 'respaldo'> {
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    model = parse(await res.arrayBuffer());
+    const m = parseModelFile(await res.arrayBuffer(), 'B1M1');
+    model = { bones: m.bones as BoneDef[], lods: m.lods, source: 'archivo' };
+    if (m.atlas) {
+      // Texturas pintadas del autor (atlas). Si no se pudieran cargar, se queda el color por vértice de siempre.
+      try {
+        const tex = await new THREE.TextureLoader().loadAsync(url.replace(/[^/]*$/, '') + m.atlas);
+        tex.flipY = false; // las coordenadas del modelo tienen el origen arriba a la izquierda
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 4;
+        for (const g of m.lods) {
+          const ct = g.userData.colTex as Uint8Array | undefined;
+          if (ct) g.setAttribute('color', new THREE.BufferAttribute(ct, 3, true));
+        }
+        model.map = tex;
+      } catch (e) {
+        console.warn('No se pudo cargar la textura del B1; se usa el color por vértice.', e);
+      }
+    }
   } catch (e) {
     console.warn('No se pudo cargar el modelo del B1; se usa el de respaldo.', e);
     model = fallback();
   }
   return model.source;
-}
-
-function parse(buf: ArrayBuffer): Model {
-  const m = parseModelFile(buf, 'B1M1');
-  return { bones: m.bones as BoneDef[], lods: m.lods, source: 'archivo' };
 }
 
 // ---------- Modelo de respaldo: una caja por hueso ----------
@@ -113,6 +126,13 @@ export function createB1(material: THREE.Material): { mesh: THREE.SkinnedMesh; b
     list[i].position.set(d.pivot[0] - (parent ? parent.pivot[0] : 0), d.pivot[1] - (parent ? parent.pivot[1] : 0), d.pivot[2] - (parent ? parent.pivot[2] : 0));
     if (parent) list[d.parent].add(list[i]);
   });
+  if (model.map) {
+    // Con la textura, el color llega en lineal: se aclara un poco (como el B2) para que no se pierda con la luz cálida de Geonosis.
+    const m = material as THREE.MeshLambertMaterial;
+    m.map = model.map;
+    m.color.setScalar(B1_BRIGHT);
+    m.needsUpdate = true;
+  }
   const mesh = new THREE.SkinnedMesh(model.lods[0], material);
   mesh.add(list[0]);
   mesh.updateMatrixWorld(true);

@@ -29,6 +29,8 @@ export class Hud {
   private banner = $('banner');
   private bannerLife = 0;
   private damage = $('damage');
+  private screenFlash = $('screenFlash');
+  private flashLife = 0;
   private dmgDir = $('dmgDir');
   private dmgLife = 0;
   private dirLife = 0;
@@ -124,6 +126,12 @@ export class Hud {
     this.dmgDir.style.transform = `rotate(${angleDeg}deg)`;
   }
 
+  /** Fogonazo blanco-naranja en toda la pantalla (explosión cercana). `k` de 0 a 1. */
+  flash(k: number) {
+    if (k < 0.05) return;
+    this.flashLife = Math.max(this.flashLife, Math.min(1, k));
+  }
+
   setTestTag(on: boolean) {
     $('testTag').hidden = !on;
   }
@@ -166,6 +174,10 @@ export class Hud {
     if (this.dmgLife > 0) {
       this.dmgLife = Math.max(0, this.dmgLife - dt * 1.4);
       this.damage.style.opacity = String(this.dmgLife);
+    }
+    if (this.flashLife > 0) {
+      this.flashLife = Math.max(0, this.flashLife - dt * 2.6);
+      this.screenFlash.style.opacity = String(this.flashLife * 0.8);
     }
     if (this.dirLife > 0) {
       this.dirLife = Math.max(0, this.dirLife - dt * 1.1);

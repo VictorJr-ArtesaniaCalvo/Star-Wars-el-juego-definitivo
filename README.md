@@ -68,6 +68,10 @@ Abrir el enlace del juego en Safari → Compartir → «Añadir a pantalla de in
 `npm install` · `npm run dev` (probar en local) · `npm run build` (generar la versión publicable).
 Cada subida a GitHub publica el juego automáticamente en GitHub Pages.
 
+## Efectos
+
+Destello azul en la boca del bláster y naranja en la de los droides, auras de color en los rayos, impactos (chispas y polvo en el suelo, destello azul en los escudos, chispas y humo en los droides), explosión de granada en capas (llamas, onda de polvo, columna de humo, marca quemada y fogonazo en pantalla si estalla cerca) y ráfagas periódicas de viento y arena. Todo con reservas fijas de partículas, ligeras para el móvil (`src/weapons/Effects.ts`, `src/world/crashFx.ts`).
+
 ## Pendiente (acordado)
 
 - **Células de vida:** algunos droides las soltarán al morir para recogerlas. Cuando se hagan, se quita la curación de +10 de vida cada 3 bajas.
@@ -75,8 +79,9 @@ Cada subida a GitHub publica el juego automáticamente en GitHub Pages.
 
 ## Modelo del B1
 
-El B1 usa un modelo 3D real (`public/models/b1.bin`, 240 KB) con dos niveles de detalle (5.000 y 1.500 triángulos) y un esqueleto de 17 huesos.
-Se genera desde el OBJ original con `node tools/convert-b1.mjs <B1DROID.obj>` (necesita `npm install`; el OBJ original no está en el repositorio).
+El B1 usa un modelo 3D real (`public/models/b1.bin` + `b1-atlas.jpg`) con dos niveles de detalle (5.000 y 1.700 triángulos) y un esqueleto de 17 huesos.
+Se genera desde el OBJ original con `node tools/convert-b1.mjs <B1DROID.obj> public/models/b1.bin <carpeta-de-texturas-jpg>` (necesita `npm install`; el OBJ original no está en el repositorio).
+Solo se tienen 5 de las ~40 texturas pintadas; el resto del modelo va en color arena. Para añadir más, se agregan a la tabla `TEXTURED` de `tools/convert-b1.mjs`.
 
 ## Modelos del B2 y de la cañonera
 

@@ -70,6 +70,11 @@ export class AudioEngine {
     Howler.volume(this.volume);
   }
 
+  /** El viento suena más fuerte durante las ráfagas de tormenta de arena (`k` de 0 a 1). */
+  setWindLevel(k: number) {
+    if (this.wind && this.windId !== undefined) this.wind.volume(0.2 + 0.3 * k, this.windId);
+  }
+
   /** Arranca el ambiente. Debe llamarse tras un toque del jugador (iOS no deja sonar antes). */
   start() {
     if (!this.wind) return;

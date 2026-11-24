@@ -14,13 +14,15 @@ export function parseModelFile(buf: ArrayBuffer, magic: string): ModelFile {
   const jsonLen = dv.getUint32(4, true);
   const meta = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, jsonLen)));
   const base = 8 + jsonLen + ((4 - ((8 + jsonLen) % 4)) % 4);
-  const lods = meta.lods.map((l: { verts: number; indices: number; index: number; pos: number; nor: number; col: number; bone: number; uv?: number }) => {
+  const lods = meta.lods.map((l: { verts: number; indices: number; index: number; pos: number; nor: number; col: number; bone: number; uv?: number; colTex?: number }) => {
     const g = new THREE.BufferGeometry();
     g.setIndex(new THREE.BufferAttribute(new Uint16Array(buf.slice(base + l.index, base + l.index + l.indices * 2)), 1));
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(buf.slice(base + l.pos, base + l.pos + l.verts * 12)), 3));
     g.setAttribute('normal', new THREE.BufferAttribute(new Int8Array(buf.slice(base + l.nor, base + l.nor + l.verts * 3)), 3, true));
     g.setAttribute('color', new THREE.BufferAttribute(new Uint8Array(buf.slice(base + l.col, base + l.col + l.verts * 3)), 3, true));
     if (l.uv !== undefined) g.setAttribute('uv', new THREE.BufferAttribute(new Uint16Array(buf.slice(base + l.uv, base + l.uv + l.verts * 4)), 2, true));
+    // color para cuando hay textura (solo sombreado en las piezas con imagen); se usa si el atlas se carga
+    if (l.colTex !== undefined) g.userData.colTex = new Uint8Array(buf.slice(base + l.colTex, base + l.colTex + l.verts * 3));
     const bones = new Uint8Array(buf.slice(base + l.bone, base + l.bone + l.verts));
     const si = new Uint16Array(l.verts * 4), sw = new Float32Array(l.verts * 4);
     for (let i = 0; i < l.verts; i++) { si[i * 4] = bones[i]; sw[i * 4] = 1; }
