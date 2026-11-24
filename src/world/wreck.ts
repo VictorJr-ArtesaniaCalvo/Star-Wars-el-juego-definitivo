@@ -2,13 +2,15 @@ import * as THREE from 'three';
 import { Builder, place } from './builder';
 import { makeRng, terrainHeight, WRECK } from './terrain';
 
-const HULL = 0xb9aa8c; // casco crema
-const CORE = 0x7c766e;
-const DARK = 0x3d3834;
-const SCORCH = 0x2a221d;
+const HULL = 0xb7babd; // casco gris claro y blanco
+const CORE = 0x6b7075;
+const DARK = 0x2d3035;
+const SCORCH = 0x141311;
 
 /** Puntos donde arde fuego en los restos (para los destellos y el humo). */
 export const WRECK_FIRES: Array<{ x: number; y: number; z: number; size: number }> = [];
+/** Luces azules y blancas que parpadean en los restos (las dibuja Atmosphere). */
+export const WRECK_LIGHTS: Array<{ x: number; y: number; z: number; size: number; color: number }> = [];
 
 /**
  * Nave droide estrellada (modelo provisional): un gran anillo medio enterrado, como una puerta rota,
@@ -63,5 +65,11 @@ export function buildDroidWreck(b: Builder) {
     const w = toWorld(x, y, z);
     w.size = size;
     WRECK_FIRES.push(w);
+  }
+  // luces azules y blancas (pilotos y pantallas) a lo largo del anillo y en la esfera
+  WRECK_LIGHTS.length = 0;
+  for (const [x, y, z, size, color] of [[-28, 4, 2, 3.2, 0x7fb8ff], [-20, 22, 2, 2.6, 0xeaf4ff], [-6, 33, 2, 3, 0x7fb8ff], [10, 31, 2, 2.6, 0xeaf4ff], [22, 20, 2, 3.2, 0x7fb8ff], [28, 6, 2, 2.6, 0xeaf4ff], [7, 12, 8, 3.4, 0x7fb8ff], [2, 4, 9, 2.4, 0xeaf4ff]] as const) {
+    const w = toWorld(x, y, z);
+    WRECK_LIGHTS.push({ x: w.x, y: w.y, z: w.z, size, color });
   }
 }

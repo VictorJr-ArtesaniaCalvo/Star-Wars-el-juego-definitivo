@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { Builder } from './builder';
 import { Atmosphere } from './atmosphere';
-import { buildDroidWreck, WRECK_FIRES } from './wreck';
-import { GUNSHIP_FIRES, CrashFx } from './crashFx';
+import { buildDroidWreck, WRECK_FIRES, WRECK_LIGHTS } from './wreck';
+import { GUNSHIP_FIRES, GUNSHIP_LIGHTS, CrashFx } from './crashFx';
 import { laatReady } from './laat';
 import { buildDefenseZone } from './defenseZone';
 import { buildRocks } from './rocks';
@@ -53,7 +53,7 @@ export class World {
     this.scatter = new Scatter(scene, b.spots); // lajas de piedra y piedrecitas (calidad media y alta)
     this.ledges = new Ledges(scene, rapier, physics); // repisas de roca en capas (calidad media y alta)
     if (wallDetailOn()) this.wallBlocks = new WallBlocks(scene); // bloques apilados y escombros en las paredes (calidad media y alta)
-    this.atmosphere = new Atmosphere(scene, [...WRECK_FIRES, ...GUNSHIP_FIRES]);
+    this.atmosphere = new Atmosphere(scene, [...WRECK_FIRES, ...GUNSHIP_FIRES], [...WRECK_LIGHTS, ...GUNSHIP_LIGHTS]);
     this.skyLife = new SkyLife(scene, hooks.skyFire);
     // humo, columna de humo alta, brasas, chispas y llamas de la cañonera derribada (si falta el modelo, solo la columna desde el casco sencillo)
     this.crashFx = new CrashFx(scene, undefined, laatReady() ? undefined : { x: CRASH.x - 5, y: terrainHeight(CRASH.x - 5, CRASH.z) + 2.6, z: CRASH.z });

@@ -177,6 +177,8 @@ export function terrainHeight(x: number, z: number): number {
 }
 
 // Colores de las capas de roca de las paredes (como los estratos del Gran Cañón).
+const PALE_SAND = new THREE.Color(0xd9a878); // caminos de arena más clara
+const DARK_ROCK = new THREE.Color(0x4c2c26); // zonas de roca más oscura
 const SAND = new THREE.Color(0xc98a58); // arena clara removida en el accidente
 const STRATA = [0xa84a2a, 0xc2693c, 0x8a3a22, 0xb85a32, 0x74301c, 0xcf7a44].map((c) => new THREE.Color(c));
 
@@ -248,6 +250,11 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
     } else {
       const k = 0.5 + 0.5 * Math.sin(x * 0.05 + Math.sin(z * 0.08) * 2) * Math.cos(z * 0.043 + 1);
       tmp.copy(dark).lerp(light, Math.min(1, Math.max(0, k * 0.7 + h * 0.06 + 0.2)));
+      // variedad: caminos sinuosos de arena más clara a lo largo del cañón y zonas de roca más oscura (junto a las paredes y en manchas)
+      const c1 = 12 * Math.sin(z * 0.025) + 8 * Math.sin(z * 0.067 + 1), c2 = c1 - 26 + 6 * Math.sin(z * 0.045 + 2);
+      const path = Math.max(1 - smoothstep(3, 9, Math.abs(x - c1)), 1 - smoothstep(2.5, 7, Math.abs(x - c2)));
+      const rockZone = Math.max(smoothstep(24, 38, Math.abs(x)) * 0.85, smoothstep(0.55, 0.85, Math.sin(x * 0.07 + z * 0.05) * Math.sin(z * 0.04 - x * 0.03) * 0.5 + 0.5) * 0.9);
+      tmp.lerp(PALE_SAND, 0.65 * path).lerp(DARK_ROCK, 0.6 * rockZone * (1 - path));
     }
     shadeColor(sunShadow(x, h, z, nor.getX(i), nor.getY(i), nor.getZ(i)), tmp); // sombra de las paredes (pintada al cargar)
     const cf = crashField(x, z);

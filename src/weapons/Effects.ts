@@ -121,7 +121,7 @@ export class Effects {
     this.sparks = new ParticlePool(scene, 120, 0.22, [1, 0.62, 0.2], 9, 0.6, true, dot);
     this.dust = new SoftPoints(scene, { n: 70, additive: false, gravity: -0.35, drag: 1.6, wind: [0.4, 0, 0.1], colorA: [0.78, 0.58, 0.4], colorB: [0.56, 0.41, 0.3], alpha: 0.5, sprites: SPRITES.dust, spin: 0.5 });
     this.smokeBig = new SoftPoints(scene, { n: 90, additive: false, gravity: -0.5, drag: 0.8, wind: [0.5, 0.2, 0.1], colorA: [0.13, 0.11, 0.1], colorB: [0.36, 0.31, 0.27], alpha: 0.5, sprites: SPRITES.smoke, spin: 0.45 });
-    this.fire = new SoftPoints(scene, { n: 70, additive: true, gravity: -1.2, drag: 2.2, wind: [0, 0, 0], colorA: [1, 0.85, 0.5], colorB: [0.85, 0.2, 0.04], alpha: 0.85, sprites: SPRITES.fire, tilt: 0.5, spin: 0.4 });
+    this.fire = new SoftPoints(scene, { n: 70, additive: true, gravity: -1.2, drag: 2.2, wind: [0, 0, 0], colorA: [1, 0.97, 0.78], colorB: [0.95, 0.5, 0.12], alpha: 0.85, sprites: SPRITES.fire, tilt: 0.5, spin: 0.4 });
     this.blue = new SoftPoints(scene, { n: 40, additive: true, gravity: 0, drag: 3, wind: [0, 0, 0], colorA: [0.8, 0.95, 1], colorB: [0.2, 0.5, 1], alpha: 0.9, sprites: SPRITES.sparks, spin: 2 });
     // Marcas de quemado en el suelo
     const sc = document.createElement('canvas'); sc.width = sc.height = 128;
@@ -142,8 +142,8 @@ export class Effects {
     const ringGeo = new THREE.RingGeometry(0.82, 1, 40);
     ringGeo.rotateX(-Math.PI / 2);
     for (let i = 0; i < 3; i++) {
-      const ball = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
-      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffd090, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
+      const ball = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: 0xffd488, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xfff2c8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
       ball.visible = ring.visible = false;
       scene.add(ball, ring);
       this.blasts.push({ ball, ring, life: 0, size: 1 });

@@ -6,6 +6,8 @@ import { METAL_WALL_SPOTS } from './wreckage';
 import { CANYON_HALF_L, CANYON_HALF_W, crashField, makeRng, terrainHeight, WORLD_SEED } from './terrain';
 
 const ROCK = 0x8a4a30;
+const ROCK_DARK = 0x4a3532; // roca oscura, tipo basalto
+const ROCK_PALE = 0xa98066; // roca clara de arenisca
 const SPIRE = 0x96502f;
 const CAP = 0xa8643c;
 // Capas de roca para mesetas y setas
@@ -131,11 +133,13 @@ export function buildRocks(b: Builder) {
     }
   };
 
+  /** Color de una roca suelta según la zona: por manchas, algunas son oscuras y otras más claras. */
+  const rockTone = (x: number, z: number) => { const v = Math.sin(x * 0.11 + z * 0.07) * Math.sin(z * 0.09 - x * 0.05); return v > 0.3 ? ROCK_DARK : v < -0.45 ? ROCK_PALE : ROCK; };
   const boulder = (x: number, z: number, r: number) => {
     const s = new THREE.Vector3(r * range(0.8, 1.3), r * range(0.55, 0.9), r * range(0.8, 1.3));
     const floor = onFloor(x, z);
     if (floor) OBSTACLES.push({ x, z, radius: Math.max(s.x, s.z) * 0.95, height: s.y * 1.6 });
-    b.addHull(boulderGeometry(seed++), place(x, terrainHeight(x, z) + s.y * 0.3, z, range(0, 6.28), 0, 0, s), ROCK, range(0.75, 1.1), floor);
+    b.addHull(boulderGeometry(seed++), place(x, terrainHeight(x, z) + s.y * 0.3, z, range(0, 6.28), 0, 0, s), rockTone(x, z), range(0.75, 1.1), floor);
   };
 
   // Sitios libres: ni la zona de defensa ni el cráter ni el surco de la nave.

@@ -13,6 +13,8 @@ export interface SparkSource { x: number; y: number; z: number; every: [number, 
 
 /** Puntos donde arde fuego en la cañonera (destellos que parpadean, ver Atmosphere). */
 export const GUNSHIP_FIRES: FirePoint[] = [];
+/** Luces azules y blancas que parpadean en la cañonera (pilotos y pantallas; las dibuja Atmosphere). */
+export const GUNSHIP_LIGHTS: Array<{ x: number; y: number; z: number; size: number; color: number }> = [];
 /** Dónde sale humo, saltan chispas y arden llamas en la cañonera (se rellena al montar el escenario). */
 export const GUNSHIP_FX = {
   smoke: [] as SmokeSource[],
@@ -192,6 +194,7 @@ export class CrashFx {
   private column: SoftPoints;
   private embers: SoftPoints;
   private sparks: SoftPoints;
+  private sparksBlue: SoftPoints;
   private flames: SoftPoints;
   private dust: SoftPoints;
   private smokeAcc: number[];
@@ -211,10 +214,12 @@ export class CrashFx {
     // Columna alta: sube despacio durante casi 20 s hasta unos 70 m, inclinada por el viento, y se aclara hasta el color de la neblina
     this.column = new SoftPoints(scene, { n: 64, additive: false, gravity: 0, drag: 0.06, wind: [0.18, 0.25, 0.04], colorA: [0.11, 0.095, 0.085], colorB: [0.62, 0.46, 0.31], alpha: 0.34, sprites: SPRITES.smoke, spin: 0.15 });
     // Brasas: puntitos incandescentes que suben desde los fuegos y se van con el viento
-    this.embers = new SoftPoints(scene, { n: 50, additive: true, gravity: -0.5, drag: 0.3, wind: [0.7, 0, 0.1], colorA: [1, 0.7, 0.28], colorB: [0.8, 0.14, 0.03], alpha: 1, sprites: SPRITES.sparks, spin: 1.5 });
+    this.embers = new SoftPoints(scene, { n: 50, additive: true, gravity: -0.5, drag: 0.3, wind: [0.7, 0, 0.1], colorA: [1, 0.96, 0.72], colorB: [0.95, 0.5, 0.14], alpha: 1, sprites: SPRITES.sparks, spin: 1.5 });
     // Chispas (caen) y llamas (suben): puntos que brillan, se suman a la luz
-    this.sparks = new SoftPoints(scene, { n: 60, additive: true, gravity: 8, drag: 0.5, wind: [0, 0, 0], colorA: [1, 0.85, 0.45], colorB: [0.9, 0.25, 0.05], alpha: 1, sprites: SPRITES.sparks, spin: 3 });
-    this.flames = new SoftPoints(scene, { n: 80, additive: true, gravity: -2.2, drag: 1.2, wind: [0.5, 0, 0.1], colorA: [1, 0.72, 0.25], colorB: [0.75, 0.12, 0.02], alpha: 0.9, sprites: SPRITES.fire, tilt: 0.3, spin: 0.35 });
+    // chispas eléctricas azul y blanco (la mitad de los puntos) y chispas de metal amarillo blanquecino (el resto)
+    this.sparksBlue = new SoftPoints(scene, { n: 40, additive: true, gravity: 8, drag: 0.5, wind: [0, 0, 0], colorA: [0.9, 0.97, 1], colorB: [0.25, 0.5, 1], alpha: 1, sprites: SPRITES.sparks, spin: 3 });
+    this.sparks = new SoftPoints(scene, { n: 60, additive: true, gravity: 8, drag: 0.5, wind: [0, 0, 0], colorA: [1, 0.97, 0.8], colorB: [0.95, 0.45, 0.1], alpha: 1, sprites: SPRITES.sparks, spin: 3 });
+    this.flames = new SoftPoints(scene, { n: 80, additive: true, gravity: -2.2, drag: 1.2, wind: [0.5, 0, 0.1], colorA: [1, 0.97, 0.78], colorB: [0.95, 0.58, 0.18], alpha: 0.9, sprites: SPRITES.fire, tilt: 0.3, spin: 0.35 });
     // Polvo: la arena que se levanta lentamente alrededor del morro hundido y del muñón del ala
     this.dust = new SoftPoints(scene, { n: 40, additive: false, gravity: -0.15, drag: 0.5, wind: [0.9, 0.1, 0.2], colorA: [0.62, 0.42, 0.28], colorB: [0.5, 0.35, 0.25], alpha: 0.4, sprites: SPRITES.dust, spin: 0.3 });
     this.smokeAcc = fx.smoke.map(() => Math.random());
@@ -267,7 +272,7 @@ export class CrashFx {
       const n = Math.round(s.count * rnd(0.6, 1.2));
       for (let k = 0; k < n; k++) {
         const a = Math.random() * Math.PI * 2, v = rnd(1.5, 4.5);
-        this.sparks.emit(s.x, s.y, s.z, Math.cos(a) * v, rnd(1.5, 4.5), Math.sin(a) * v, rnd(0.35, 0.8), 0.14, 0.05);
+        (i % 2 === 0 ? this.sparksBlue : this.sparks).emit(s.x, s.y, s.z, Math.cos(a) * v, rnd(1.5, 4.5), Math.sin(a) * v, rnd(0.35, 0.8), 0.14, 0.05);
       }
     });
     // llamas pequeñas
@@ -289,6 +294,7 @@ export class CrashFx {
     this.smoke.update(dt);
     this.embers.update(dt);
     this.sparks.update(dt);
+    this.sparksBlue.update(dt);
     this.flames.update(dt);
     this.dust.update(dt);
   }

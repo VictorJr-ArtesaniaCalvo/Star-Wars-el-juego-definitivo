@@ -25,9 +25,9 @@ export function glowTexture(): THREE.Texture {
   c.width = c.height = s;
   const g = c.getContext('2d')!;
   const grad = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
-  grad.addColorStop(0, 'rgba(255,240,200,1)');
-  grad.addColorStop(0.3, 'rgba(255,150,50,0.8)');
-  grad.addColorStop(1, 'rgba(255,80,0,0)');
+  grad.addColorStop(0, 'rgba(255,248,225,1)');
+  grad.addColorStop(0.3, 'rgba(255,212,130,0.8)');
+  grad.addColorStop(1, 'rgba(255,150,40,0)');
   g.fillStyle = grad;
   g.fillRect(0, 0, s, s);
   return new THREE.CanvasTexture(c);
@@ -49,9 +49,10 @@ export class Atmosphere {
   private gustAcc = 0;
   private focus = new THREE.Vector3();
   private fires: Array<{ sprite: THREE.Sprite; size: number; phase: number }> = [];
+  private lights: Array<{ sprite: THREE.Sprite; rate: number; phase: number; steady: boolean }> = [];
   private t = 0;
 
-  constructor(scene: THREE.Scene, fires: Array<{ x: number; y: number; z: number; size: number }> = []) {
+  constructor(scene: THREE.Scene, fires: Array<{ x: number; y: number; z: number; size: number }> = [], lights: Array<{ x: number; y: number; z: number; size: number; color: number }> = []) {
     const rng = makeRng(777);
     const range = (a: number, b: number) => a + rng() * (b - a);
 
@@ -109,6 +110,15 @@ export class Atmosphere {
       this.fires.push({ sprite, size: f.size, phase: range(0, 6.28) });
     }
 
+    // --- Luces azules y blancas que parpadean (pilotos y pantallas de los restos) ---
+    for (const l of lights) {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: l.color, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true }));
+      sprite.position.set(l.x, l.y, l.z);
+      sprite.scale.setScalar(l.size);
+      scene.add(sprite);
+      this.lights.push({ sprite, rate: range(1.2, 3.2), phase: range(0, 6.28), steady: rng() < 0.3 });
+    }
+
     // --- Brasas que flotan en el aire alrededor del jugador (como en las referencias) ---
     const ne = 150;
     const ep = new Float32Array(ne * 3);
@@ -119,7 +129,7 @@ export class Atmosphere {
     }
     const eg = new THREE.BufferGeometry();
     eg.setAttribute('position', new THREE.BufferAttribute(ep, 3));
-    this.embers = new THREE.Points(eg, new THREE.PointsMaterial({ map: glowTexture(), color: 0xff9a40, size: 0.5, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    this.embers = new THREE.Points(eg, new THREE.PointsMaterial({ map: glowTexture(), color: 0xffe0a0, size: 0.5, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
     this.embers.frustumCulled = false;
     scene.add(this.embers);
 
@@ -198,6 +208,11 @@ export class Atmosphere {
     }
     this.flyers.rotation.y += dt * 0.035;
     this.flyers.position.y = Math.sin(this.t * 0.4) * 2;
+    for (const l of this.lights) {
+      // algunas lucen fijas y otras parpadean a su ritmo
+      const on = l.steady ? 0.85 : Math.sin(this.t * l.rate + l.phase) > -0.25 ? 1 : 0.12;
+      (l.sprite.material as THREE.SpriteMaterial).opacity = on * (0.8 + 0.2 * Math.sin(this.t * 11 + l.phase));
+    }
     for (const f of this.fires) {
       const k = 0.85 + 0.15 * Math.sin(this.t * 7 + f.phase) + 0.08 * Math.sin(this.t * 13.3 + f.phase * 2);
       f.sprite.scale.setScalar(f.size * k);

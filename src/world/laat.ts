@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Builder } from './builder';
-import { GUNSHIP_FIRES, GUNSHIP_FX } from './crashFx';
+import { GUNSHIP_FIRES, GUNSHIP_FX, GUNSHIP_LIGHTS } from './crashFx';
 import { CRASH, terrainHeight } from './terrain';
 
 // Cañonera LAAT derribada. El modelo 3D (public/models/laat.bin) se genera con tools/convert-laat.mjs a partir del glTF
@@ -121,6 +121,7 @@ function sootTexture(): THREE.Texture {
 export function buildLaatWreck(b: Builder) {
   const d = data!;
   GUNSHIP_FIRES.length = 0;
+  GUNSHIP_LIGHTS.length = 0;
   GUNSHIP_FX.smoke.length = 0; GUNSHIP_FX.sparks.length = 0; GUNSHIP_FX.flames.length = 0; GUNSHIP_FX.dust.length = 0;
 
   // --- Colocación del casco: ladeada hacia el enemigo (-Z), con el morro hundido en la arena y el ala entera apoyando la punta ---
@@ -221,6 +222,12 @@ export function buildLaatWreck(b: Builder) {
       m.renderOrder = 1;
       b.addObject(m);
     }
+  }
+
+  // --- Luces azules y blancas (pilotos y pantallas): cabina, bahía, morro, motores y la punta del ala ---
+  for (const [x, y, z, size, color] of [[4.8, 0.5, 0.0, 1.7, 0x7fb8ff], [1.5, -1.2, 1.0, 1.0, 0xeaf4ff], [6.6, -0.9, 0.3, 0.8, 0x7fb8ff], [-7.6, 2.0, 0.9, 0.9, 0xeaf4ff], [-7.6, 2.0, -0.9, 0.9, 0x7fb8ff], [-1.5, -1.3, -8.2, 0.9, 0xeaf4ff]] as const) {
+    const w = toWorld(x, y, z);
+    GUNSHIP_LIGHTS.push({ x: w.x, y: w.y, z: w.z, size, color });
   }
 
   // --- Humo, chispas y fuego (los dibuja CrashFx; los destellos, Atmosphere) ---
