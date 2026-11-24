@@ -2,8 +2,9 @@ import * as THREE from 'three';
 
 // Aspecto de los droides, sutil: metal con brillo suave (en calidad Media y Alta), aristas algo más claras por el desgaste, manchas muy suaves de uso y
 // polvo rojizo de Geonosis en piernas y pies (más intenso cerca del suelo). Se añade al material de cada droide.
-export const DROID_METAL = { value: 1 };
-export const setDroidMetal = (on: boolean) => { DROID_METAL.value = on ? 1 : 0; };
+export const DROID_METAL = { value: 0.8 };
+// el brillo metálico es un 20 % menor que en la primera versión (0,8 en vez de 1)
+export const setDroidMetal = (on: boolean) => { DROID_METAL.value = on ? 0.8 : 0; };
 const WEAR = { value: 1 }; // intensidad general (1 = la que se ve ahora; se puede subir)
 
 export function withDroidWear<T extends THREE.Material>(mat: T): T {

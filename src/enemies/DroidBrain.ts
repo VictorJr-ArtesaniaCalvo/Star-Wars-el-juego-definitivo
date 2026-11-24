@@ -40,6 +40,7 @@ export interface BrainParams {
   muzzleY?: number; // altura de la que salen los disparos (por defecto 1,2 m)
   muzzleFwd?: number; // cuánto por delante del cuerpo (por defecto 0,35 m)
   muzzleSide?: number; // desplazamiento lateral (+ = a su derecha; por defecto 0)
+  muzzleAlt?: boolean; // si es true, los disparos salen alternando a derecha e izquierda (±muzzleSide): una mano cada vez
 }
 
 const HOLD_DIST = 14; // a esta distancia del jugador deja de avanzar y se queda disparando
@@ -340,7 +341,7 @@ export class DroidBrain {
     const playerHandle = ctx.playerCollider();
     const tx = T.x, ty = T.y + (T.crouching ? 0.6 : 1.2), tz = T.z;
     const mf = this.params.muzzleFwd ?? 0.35;
-    const ms = this.params.muzzleSide ?? 0;
+    const ms = (this.params.muzzleSide ?? 0) * (this.params.muzzleAlt ? this.handSide : 1);
     this.org.set(x - Math.sin(this.yaw) * mf + Math.cos(this.yaw) * ms, y + (this.params.muzzleY ?? 1.2), z - Math.cos(this.yaw) * mf - Math.sin(this.yaw) * ms);
 
     // ¿Veo al jugador? (se comprueba unas cuatro veces por segundo)
@@ -371,8 +372,11 @@ export class DroidBrain {
     }
   }
 
+  private handSide = 1;
+
   private shoot(tx: number, ty: number, tz: number, dT: number, ctx: BrainContext) {
     const R = ctx.rapier;
+    this.handSide = -this.handSide; // el siguiente disparo saldrá de la otra mano
     this.dir.set(tx - this.org.x, ty - this.org.y, tz - this.org.z).normalize();
     // Desvío aleatorio: más a larga distancia.
     this.side.crossVectors(this.dir, this.up).normalize();

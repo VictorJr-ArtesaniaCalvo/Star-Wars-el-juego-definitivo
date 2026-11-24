@@ -67,6 +67,8 @@ export function droidekaParams(round: number): BrainParams {
     sfx: 'droideka' as const,
     muzzleY: 0.75, // los cañones del modelo real, más bajos y adelantados que los del de formas sencillas
     muzzleFwd: 1.25,
+    muzzleSide: 0.52, // salen de las manos (a ±0,52 m del centro) y se alternan: un disparo por cada mano
+    muzzleAlt: true,
   };
 }
 

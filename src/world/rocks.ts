@@ -89,8 +89,9 @@ function layeredWall(w: number, h: number, seed: number) {
   return g;
 }
 
-function boulderGeometry(seed: number) {
-  const g = new THREE.IcosahedronGeometry(1, 1);
+/** `detail`: 0 = 20 caras (rocas pequeñas, más angulosas y ligeras) · 1 = 80 caras (rocas grandes). */
+function boulderGeometry(seed: number, detail = 1) {
+  const g = new THREE.IcosahedronGeometry(1, detail);
   const p = g.attributes.position as THREE.BufferAttribute;
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
@@ -100,7 +101,8 @@ function boulderGeometry(seed: number) {
     const base = y < -0.35 ? 1.08 : 1;
     p.setXYZ(i, x * k * base, y < -0.55 ? -0.55 * k : y * k, z * k * base);
   }
-  // sombreado suave sin llegar a una bola: la luz mezcla la cara plana (45 %) con la media de las caras vecinas (55 %)
+  // sombreado casi plano para que se vean los cantos: la luz mezcla la cara plana con un poco de la media de las caras vecinas
+  const SMOOTH = detail === 0 ? 0.1 : 0.22;
   g.computeVertexNormals();
   const n = g.attributes.normal as THREE.BufferAttribute;
   const sum = new Map<string, THREE.Vector3>();
@@ -109,7 +111,7 @@ function boulderGeometry(seed: number) {
   const v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) {
     const sm = sum.get(key(i))!.clone().normalize();
-    v.set(n.getX(i), n.getY(i), n.getZ(i)).multiplyScalar(0.45).addScaledVector(sm, 0.55).normalize();
+    v.set(n.getX(i), n.getY(i), n.getZ(i)).multiplyScalar(1 - SMOOTH).addScaledVector(sm, SMOOTH).normalize();
     n.setXYZ(i, v.x, v.y, v.z);
   }
   g.userData.keepNormals = true;
@@ -155,7 +157,7 @@ export function buildRocks(b: Builder) {
     const s = new THREE.Vector3(r * range(0.8, 1.3), r * range(0.55, 0.9), r * range(0.8, 1.3));
     const floor = onFloor(x, z);
     if (floor) OBSTACLES.push({ x, z, radius: Math.max(s.x, s.z) * 0.95, height: s.y * 1.6 });
-    b.addHull(boulderGeometry(seed++), place(x, terrainHeight(x, z) + s.y * 0.3, z, range(0, 6.28), 0, 0, s), rockTone(x, z), range(0.75, 1.1), floor);
+    b.addHull(boulderGeometry(seed++, r < 1.5 ? 0 : 1), place(x, terrainHeight(x, z) + s.y * 0.3, z, range(0, 6.28), 0, 0, s), rockTone(x, z), range(0.75, 1.1), floor);
   };
 
   // Sitios libres: ni la zona de defensa ni el cráter ni el surco de la nave.
