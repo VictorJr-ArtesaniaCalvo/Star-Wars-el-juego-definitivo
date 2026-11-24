@@ -6,6 +6,7 @@ import { buildDroidWreck, WRECK_FIRES } from './wreck';
 import { buildDefenseZone } from './defenseZone';
 import { buildRocks } from './rocks';
 import { buildSky, SUN_DIR } from './sky';
+import { SkyLife } from './skyLife';
 import { buildTerrain } from './terrain';
 import { QUALITY, type Quality } from '../core/Settings';
 
@@ -15,6 +16,7 @@ export class World {
   private sun: THREE.DirectionalLight;
   private skyMat: THREE.ShaderMaterial;
   private atmosphere: Atmosphere;
+  private skyLife: SkyLife;
   private time = 0;
 
   constructor(
@@ -33,6 +35,7 @@ export class World {
     buildDroidWreck(b);
     b.finish(scene);
     this.atmosphere = new Atmosphere(scene, WRECK_FIRES);
+    this.skyLife = new SkyLife(scene);
   }
 
   setQuality(q: Quality) {
@@ -46,6 +49,7 @@ export class World {
     this.time += dt;
     this.skyMat.uniforms.time.value = this.time;
     this.atmosphere.tick(dt);
+    this.skyLife.update(dt);
   }
 
   /** El cielo y la luz del sol acompañan al jugador. */

@@ -18,7 +18,7 @@ function puffTexture(): THREE.Texture {
   return new THREE.CanvasTexture(c);
 }
 
-function glowTexture(): THREE.Texture {
+export function glowTexture(): THREE.Texture {
   const s = 64;
   const c = document.createElement('canvas');
   c.width = c.height = s;
