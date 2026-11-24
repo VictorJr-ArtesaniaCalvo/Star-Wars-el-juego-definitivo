@@ -4,11 +4,14 @@ import { synthesizeAll, type SoundId, type SynthSet } from './Synth';
 export type Sfx = 'b1' | 'b2' | 'droideka';
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+/** La música ya está igualada de volumen; esto la deja por debajo de los efectos con el control a la mitad. */
+const MUSIC_BASE = 0.7;
 
 /**
  * Sonido del juego: ambiente (viento y cañonazos lejanos), disparos y granadas.
  * Los disparos enemigos y las explosiones suenan «con dirección» (si te disparan por la espalda, suena por detrás).
- * La música no está incluida: se añadirá aparte.
+ * La música (public/audio/musica.mp3) va aparte de los efectos, con su propio volumen: se lee como un archivo en streaming (no se decodifica entera en memoria,
+ * que en el iPhone pesaría más de 100 MB) y se pasa por un control de volumen de Web Audio, porque el volumen del propio <audio> no funciona en iOS.
  */
 export class AudioEngine {
   private howls = {} as Record<SoundId, Howl[]>;
@@ -26,10 +29,13 @@ export class AudioEngine {
   private wind: Howl | null = null;
   private windId: number | undefined;
   private started = false;
-  private suspended = false;
   private recentEnemyShots: number[] = [];
   private lastBoom = 0;
-  private volume = 0.8;
+  private volume = 0.8; // general
+  private sfxVol = 1;
+  private musicVol = 0.5;
+  private paused = false; // en pausa/menú: los efectos callan y la música baja
+  private music: { el: HTMLAudioElement; gain: GainNode | null; graph: boolean; wanted: boolean } | null = null;
   /** Solo para pruebas */
   stats: SynthSet['stats'] = {};
   played: Record<string, number> = {};
@@ -62,12 +68,81 @@ export class AudioEngine {
       this.b1Clips.push(clip);
     }
     Howler.autoSuspend = false;
-    this.setVolume(this.volume);
+    // Música: archivo en streaming, en bucle; sin cargar hasta que se necesite
+    const el = new Audio(`${base}audio/musica.mp3`);
+    el.loop = true;
+    el.preload = 'none';
+    this.music = { el, gain: null, graph: false, wanted: false };
+    // Al salir de la app (o cambiar de pestaña) la música se detiene; al volver, sigue
+    document.addEventListener('visibilitychange', () => {
+      const m = this.music;
+      if (!m) return;
+      if (document.hidden) m.el.pause();
+      else if (m.wanted) void m.el.play().catch(() => undefined);
+    });
+    this.applyVolumes();
   }
 
+  private applyVolumes() {
+    Howler.volume(this.paused ? 0 : this.volume * this.sfxVol);
+    const m = this.music;
+    if (m) {
+      const g = Math.min(1, this.volume * this.musicVol * MUSIC_BASE * (this.paused ? 0.6 : 1));
+      if (m.gain) m.gain.gain.value = g;
+      else m.el.volume = g; // si no hay Web Audio (en iOS esto no tendría efecto, pero allí sí hay)
+    }
+  }
+
+  /** Volumen general. */
   setVolume(v: number) {
     this.volume = Math.max(0, Math.min(1, v));
-    Howler.volume(this.volume);
+    this.applyVolumes();
+  }
+
+  /** Volumen de los efectos (disparos, explosiones, viento…). */
+  setSfxVolume(v: number) {
+    this.sfxVol = Math.max(0, Math.min(1, v));
+    this.applyVolumes();
+  }
+
+  /** Volumen de la música. */
+  setMusicVolume(v: number) {
+    this.musicVol = Math.max(0, Math.min(1, v));
+    this.applyVolumes();
+  }
+
+  /** Arranca la música (en bucle). Debe llamarse tras un toque del jugador: iOS no deja sonar antes. */
+  startMusic() {
+    const m = this.music;
+    if (!m) return;
+    const ctx = Howler.ctx;
+    if (!m.graph) {
+      m.graph = true;
+      try {
+        if (ctx) {
+          const src = ctx.createMediaElementSource(m.el);
+          const gain = ctx.createGain();
+          src.connect(gain);
+          gain.connect(ctx.destination);
+          m.gain = gain;
+          m.el.volume = 1; // el volumen lo manda ahora el control de Web Audio (si no, se multiplicaría dos veces)
+        }
+      } catch {
+        m.gain = null; // sin Web Audio: se usa el volumen del propio <audio>
+      }
+    }
+    m.wanted = true;
+    this.applyVolumes();
+    if (ctx && ctx.state !== 'running') void ctx.resume();
+    if (m.el.paused && !document.hidden) void m.el.play().catch(() => undefined);
+  }
+
+  /** Suena un disparo con el volumen de efectos actual (para oírlo al mover el control del menú, aunque esté en pausa). */
+  previewSfx() {
+    this.start();
+    Howler.volume(this.volume * this.sfxVol);
+    this.play('blaster', 0.62, 1);
+    window.setTimeout(() => this.applyVolumes(), 650);
   }
 
   /** El viento suena más fuerte durante las ráfagas de tormenta de arena (`k` de 0 a 1). */
@@ -78,7 +153,7 @@ export class AudioEngine {
   /** Arranca el ambiente. Debe llamarse tras un toque del jugador (iOS no deja sonar antes). */
   start() {
     if (!this.wind) return;
-    if (this.suspended) this.resume();
+    if (this.paused) this.resume();
     if (!this.started) {
       this.started = true;
       this.wind.volume(0.2);
@@ -88,16 +163,17 @@ export class AudioEngine {
     }
   }
 
-  /** Pausa todo el sonido (al pausar la partida o salir de la app). */
+  /** En pausa: los efectos callan y la música baja un poco (así se oye al ajustar el volumen en el menú). */
   suspend() {
-    const ctx = Howler.ctx;
-    if (ctx && ctx.state === 'running') { ctx.suspend(); this.suspended = true; }
+    this.paused = true;
+    this.applyVolumes();
   }
 
   resume() {
     const ctx = Howler.ctx;
-    if (ctx && ctx.state !== 'running') ctx.resume();
-    this.suspended = false;
+    if (ctx && ctx.state !== 'running') void ctx.resume();
+    this.paused = false;
+    this.applyVolumes();
   }
 
   /** Coloca al oyente donde está la cámara y mirando hacia donde mira. */

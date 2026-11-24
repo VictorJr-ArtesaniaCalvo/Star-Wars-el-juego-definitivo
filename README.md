@@ -68,6 +68,10 @@ Abrir el enlace del juego en Safari → Compartir → «Añadir a pantalla de in
 `npm install` · `npm run dev` (probar en local) · `npm run build` (generar la versión publicable).
 Cada subida a GitHub publica el juego automáticamente en GitHub Pages.
 
+## Música y volumen
+
+La música de fondo (`public/audio/musica.mp3`) suena en bucle desde que se toca JUGAR o se mueve el control de Música. En el menú hay tres controles: **Volumen general**, **Música** y **Efectos**. Al soltar el control de Efectos suena un disparo de muestra. En pausa la música baja un poco y los efectos callan; al salir de la app se detiene.
+
 ## Efectos
 
 Destello azul en la boca del bláster y naranja en la de los droides, auras de color en los rayos, impactos (chispas y polvo en el suelo, destello azul en los escudos, chispas y humo en los droides), explosión de granada en capas (llamas, onda de polvo, columna de humo, marca quemada y fogonazo en pantalla si estalla cerca) y ráfagas periódicas de viento y arena. Todo con reservas fijas de partículas, ligeras para el móvil (`src/weapons/Effects.ts`, `src/world/crashFx.ts`).

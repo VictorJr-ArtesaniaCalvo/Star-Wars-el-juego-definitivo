@@ -4,7 +4,9 @@ export type Quality = 'low' | 'medium' | 'high' | 'ultra';
 export interface SettingsData {
   sensitivity: number;
   quality: Quality;
-  volume: number; // 0–1
+  volume: number; // 0–1 (general)
+  musicVolume: number; // 0–1
+  sfxVolume: number; // 0–1 (efectos de sonido y ambiente)
   aimAssist: boolean; // ayuda al apuntar con controles táctiles
   best: number; // mejor ronda alcanzada (solo en partidas normales)
   // Modo de pruebas (menú oculto)
@@ -18,6 +20,8 @@ const DEFAULTS: SettingsData = {
   sensitivity: 1,
   quality: 'medium',
   volume: 0.8,
+  musicVolume: 0.5,
+  sfxVolume: 1,
   aimAssist: true,
   best: 0,
   testRound: 1,

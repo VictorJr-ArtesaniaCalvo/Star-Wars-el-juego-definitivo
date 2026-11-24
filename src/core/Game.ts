@@ -99,6 +99,8 @@ export class Game {
       onPlay: () => (this.mode === 'paused' ? this.resume() : this.startRun()),
       onQuit: () => this.quitToMenu(),
       onGoRound: (round) => this.jumpToRound(round),
+      onMusicTouch: () => this.audio.startMusic(), // un toque del jugador: ya puede sonar (iOS)
+      onSfxPreview: () => this.audio.previewSfx(),
     });
     this.hud = new Hud(() => this.pause());
     this.gameOver = new GameOver(() => this.startRun(), () => this.quitToMenu());
@@ -168,6 +170,8 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pixelRatio));
     this.world?.setQuality(this.settings.data.quality);
     this.audio.setVolume(this.settings.data.volume);
+    this.audio.setSfxVolume(this.settings.data.sfxVolume);
+    this.audio.setMusicVolume(this.settings.data.musicVolume);
     // Ultra: se dibuja con resplandor (bloom) en las luces fuertes
     if (q.bloom && !this.composer) {
       const w = window.innerWidth, h = window.innerHeight;
@@ -392,6 +396,7 @@ export class Game {
     if (this.mode === 'playing') return;
     this.mode = 'playing';
     this.audio.start(); // tras un toque del jugador: iOS no deja sonar antes
+    this.audio.startMusic();
     this.menu.hide();
     this.hud.setVisible(true, this.input.hasTouch);
     this.acc = 0;

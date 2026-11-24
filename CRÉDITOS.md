@@ -38,6 +38,10 @@ en una sola imagen (atlas) de menor tamaño. No se usan los mapas de relieve. El
   Se usan aquí en un proyecto personal y sin ánimo de lucro. **Si el proyecto se hiciera público de forma más amplia o comercial,
   hay que sustituirlos** por sonidos con licencia libre (por ejemplo, los sintetizados que ya trae el juego como respaldo).
 
+- **Música** (`public/audio/musica.mp3`): «Separatist March», aportada por el autor del proyecto (el archivo original era el audio de un vídeo, `Separatist_March.mp4`;
+  se ha igualado de volumen y recortado a MP3 de 96 kbps). **Autoría y derechos por confirmar.** Si el proyecto se hiciera público de forma más amplia o comercial,
+  conviene confirmar que se puede usar o sustituirla. En el juego se puede bajar o quitar desde el menú (Música).
+
 ## Star Wars
 Star Wars, Geonosis y los personajes y vehículos que aparecen son marcas y propiedad de Lucasfilm Ltd. / Disney.
 Este juego es un proyecto de aficionado, personal y experimental, sin relación con Lucasfilm ni Disney.

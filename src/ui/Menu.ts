@@ -6,6 +6,10 @@ export interface MenuActions {
   onPlay: () => void;
   onQuit: () => void;
   onGoRound: (round: number) => void;
+  /** Se toca el control de música (arranca la música para oírla) */
+  onMusicTouch?: () => void;
+  /** Se suelta el control de efectos (suena un disparo de muestra) */
+  onSfxPreview?: () => void;
 }
 
 // Menú de inicio y de pausa, con los ajustes y el panel oculto de pruebas.
@@ -39,6 +43,21 @@ export class Menu {
     vol.value = String(settings.data.volume);
     showVol();
     vol.addEventListener('input', () => { showVol(); settings.set({ volume: Number(vol.value) }); });
+
+    const mus = $<HTMLInputElement>('musicVol');
+    const musVal = $('musicVal');
+    const showMus = () => (musVal.textContent = Math.round(Number(mus.value) * 100) + ' %');
+    mus.value = String(settings.data.musicVolume);
+    showMus();
+    mus.addEventListener('input', () => { showMus(); settings.set({ musicVolume: Number(mus.value) }); actions.onMusicTouch?.(); });
+
+    const sfx = $<HTMLInputElement>('sfxVol');
+    const sfxVal = $('sfxVal');
+    const showSfx = () => (sfxVal.textContent = Math.round(Number(sfx.value) * 100) + ' %');
+    sfx.value = String(settings.data.sfxVolume);
+    showSfx();
+    sfx.addEventListener('input', () => { showSfx(); settings.set({ sfxVolume: Number(sfx.value) }); });
+    sfx.addEventListener('change', () => actions.onSfxPreview?.());
 
     const qButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('#quality button'));
     const showQ = () => qButtons.forEach((b) => b.classList.toggle('on', b.dataset.q === settings.data.quality));
