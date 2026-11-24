@@ -38,6 +38,7 @@ export class GrenadeSystem {
     private physics: RAPIER.World,
     private ignoreBody: RAPIER.RigidBody,
     private onExplode: (at: THREE.Vector3) => void,
+    private onBounce?: (at: THREE.Vector3) => void,
   ) {
     const geo = new THREE.SphereGeometry(BALL, 8, 6);
     this.mat = new THREE.MeshLambertMaterial({ color: 0x4d5a3c, emissive: 0x000000 });
@@ -95,6 +96,7 @@ export class GrenadeSystem {
             const n = hit.normal;
             const vn = g.vel.x * n.x + g.vel.y * n.y + g.vel.z * n.z;
             if (vn < 0) {
+              if (vn < -2.5) this.onBounce?.(g.pos);
               g.vel.x -= (1 + BOUNCE) * vn * n.x;
               g.vel.y -= (1 + BOUNCE) * vn * n.y;
               g.vel.z -= (1 + BOUNCE) * vn * n.z;

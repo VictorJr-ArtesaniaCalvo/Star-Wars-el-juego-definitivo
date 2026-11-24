@@ -15,6 +15,7 @@ export interface EnemyHooks {
   player: BrainContext['player'];
   playerCollider: () => number;
   damagePlayer: BrainContext['damagePlayer'];
+  audio?: BrainContext['audio'];
 }
 
 // Lleva la cuenta de todos los droides y los crea desde una reserva.
@@ -42,6 +43,7 @@ export class EnemyManager {
       damagePlayer: hooks.damagePlayer,
       claimed: new Set<Obstacle>(),
       rush: false,
+      audio: hooks.audio,
     };
     const controller = physics.createCharacterController(0.02);
     controller.enableAutostep(0.3, 0.1, false);

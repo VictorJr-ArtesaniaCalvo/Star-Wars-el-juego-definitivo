@@ -31,6 +31,13 @@ export class Menu {
       settings.set({ sensitivity: Number(sens.value) });
     });
 
+    const vol = $<HTMLInputElement>('vol');
+    const volVal = $('volVal');
+    const showVol = () => (volVal.textContent = Math.round(Number(vol.value) * 100) + ' %');
+    vol.value = String(settings.data.volume);
+    showVol();
+    vol.addEventListener('input', () => { showVol(); settings.set({ volume: Number(vol.value) }); });
+
     const qButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('#quality button'));
     const showQ = () => qButtons.forEach((b) => b.classList.toggle('on', b.dataset.q === settings.data.quality));
     showQ();

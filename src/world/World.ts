@@ -23,6 +23,7 @@ export class World {
     private scene: THREE.Scene,
     rapier: typeof RAPIER,
     physics: RAPIER.World,
+    hooks: { skyFire?: (x: number, y: number, z: number) => void } = {},
   ) {
     buildTerrain(scene, rapier, physics);
     const { sky, sun, material } = buildSky(scene);
@@ -35,12 +36,17 @@ export class World {
     buildDroidWreck(b);
     b.finish(scene);
     this.atmosphere = new Atmosphere(scene, WRECK_FIRES);
-    this.skyLife = new SkyLife(scene);
+    this.skyLife = new SkyLife(scene, hooks.skyFire);
   }
 
   setQuality(q: Quality) {
     const cfg = QUALITY[q];
     this.sun.castShadow = cfg.shadows;
+    if (this.sun.shadow.mapSize.x !== cfg.shadowSize) {
+      this.sun.shadow.mapSize.set(cfg.shadowSize, cfg.shadowSize);
+      this.sun.shadow.map?.dispose();
+      (this.sun.shadow as unknown as { map: unknown }).map = null;
+    }
     (this.scene.fog as THREE.Fog).far = cfg.viewDistance;
   }
 

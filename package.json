@@ -10,11 +10,13 @@
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",
+    "howler": "^2.2.4",
     "nipplejs": "^1.0.4",
     "three": "^0.187.0",
     "yuka": "^0.7.8"
   },
   "devDependencies": {
+    "@types/howler": "^2.2.13",
     "@types/three": "^0.187.0",
     "typescript": "^5.9.0",
     "vite": "^8.3.8",

@@ -119,7 +119,10 @@ class SkyBattle {
   private nextVolley = [1.5, 3.2];
   private pos = [new THREE.Vector3(), new THREE.Vector3()];
 
-  constructor(scene: THREE.Scene) {
+  constructor(
+    scene: THREE.Scene,
+    private onFire?: (x: number, y: number, z: number) => void,
+  ) {
     const glow = glowTexture();
 
     // Destructor de la República: detrás de ti, alto, con el morro hacia la derecha.
@@ -192,6 +195,7 @@ class SkyBattle {
     const dst = side === 0 ? this.sep : this.republic;
     this.hullPoint(src, b.from, 0);
     this.hullPoint(dst, b.to, 0);
+    this.onFire?.(b.from.x, b.from.y, b.from.z);
     const dist = b.from.distanceTo(b.to);
     b.dur = dist / BOLT_SPEED;
     b.t = 0;
@@ -369,8 +373,8 @@ export class SkyLife {
   private battle: SkyBattle;
   private geonosians: Geonosians;
 
-  constructor(scene: THREE.Scene) {
-    this.battle = new SkyBattle(scene);
+  constructor(scene: THREE.Scene, onFire?: (x: number, y: number, z: number) => void) {
+    this.battle = new SkyBattle(scene, onFire);
     this.geonosians = new Geonosians(scene);
   }
 

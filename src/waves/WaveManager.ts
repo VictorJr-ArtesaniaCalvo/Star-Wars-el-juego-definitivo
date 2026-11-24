@@ -45,6 +45,7 @@ export function b2Params(round: number): BrainParams {
     burst: [1, 2],
     interval: 0.34,
     coverTime: [1.0, 2.0],
+    sfx: 'b2' as const,
     muzzleY: 1.34, // el cañón va en el antebrazo derecho
     muzzleFwd: 0.95,
   };
@@ -62,6 +63,7 @@ export function droidekaParams(round: number): BrainParams {
     interval: 0.1,
     coverTime: [3, 5],
     deployTime: 0.8,
+    sfx: 'droideka' as const,
     muzzleY: 1.15,
     muzzleFwd: 1.0,
   };
@@ -76,6 +78,7 @@ export function b1Params(round: number): BrainParams {
     spread: ((4.2 - Math.min(2, 0.1 * r)) * Math.PI) / 180,
     cooldown: [Math.max(0.8, 2.1 - 0.06 * r), Math.max(1.4, 3.4 - 0.1 * r)],
     burst: [2, 3],
+    sfx: 'b1' as const,
   };
 }
 

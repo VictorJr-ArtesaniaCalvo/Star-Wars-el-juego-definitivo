@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { EnemyManager } from '../enemies/EnemyManager';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { AudioEngine } from '../audio/AudioEngine';
 import { InputManager } from '../input/InputManager';
 import { EYE_CROUCH, EYE_STAND, PlayerController } from '../player/PlayerController';
 import { TICK, type GameState, type InputCommand } from '../sim/types';
@@ -54,6 +59,9 @@ export class Game {
   private adsToggled = false;
   private ads = false;
   private adsZoom = 0;
+  private audio = new AudioEngine();
+  private composer: EffectComposer | null = null;
+  private prevLocked = false;
   private grenadeSys!: GrenadeSystem;
   private grenadeCd = 0;
   private weapon: 'blaster' | 'grenade' = 'blaster';
@@ -81,6 +89,7 @@ export class Game {
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
     this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // bordes suaves en las sombras (Alta y Ultra)
     this.camera.rotation.order = 'YXZ';
 
     this.input = new InputManager(canvas, document.getElementById('touch')!);
@@ -110,18 +119,20 @@ export class Game {
     await RAPIER.init();
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = TICK;
-    this.world = new World(this.scene, RAPIER, this.physics);
+    this.audio.init();
+    this.world = new World(this.scene, RAPIER, this.physics, { skyFire: (x, y, z) => this.audio.distantBoom(x, y, z) });
 
     this.state.players.push({ id: 0, x: SPAWN.x, y: 0, z: SPAWN.z, yaw: 0, pitch: 0, crouching: false, health: 100, grenades: GRENADE.perGame });
     this.localPlayer = new PlayerController(RAPIER, this.physics, this.state.players[0]);
     this.effects = new Effects(this.scene);
     const pl = this.localPlayer;
-    this.grenadeSys = new GrenadeSystem(this.scene, this.physics, pl.body, (at) => this.explodeGrenade(at));
+    this.grenadeSys = new GrenadeSystem(this.scene, this.physics, pl.body, (at) => this.explodeGrenade(at), (at) => this.audio.grenadeBounce(at.x, at.y, at.z));
     this.enemies = new EnemyManager(this.scene, RAPIER, this.physics, this.state, {
       effects: this.effects,
       player: () => pl.state,
       playerCollider: () => pl.collider.handle,
       damagePlayer: (amount, fx, fz) => this.damagePlayer(amount, fx, fz),
+      audio: (kind, x, y, z, dist) => this.audio.enemyShot(kind, x, y, z, dist),
     });
     this.waves = new WaveManager(this.enemies, {
       onBanner: (title, sub, sec) => this.hud.showBanner(title, sub, sec),
@@ -150,6 +161,21 @@ export class Game {
     const q = QUALITY[this.settings.data.quality];
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pixelRatio));
     this.world?.setQuality(this.settings.data.quality);
+    this.audio.setVolume(this.settings.data.volume);
+    // Ultra: se dibuja con resplandor (bloom) en las luces fuertes
+    if (q.bloom && !this.composer) {
+      const w = window.innerWidth, h = window.innerHeight;
+      const c = new EffectComposer(this.renderer);
+      c.addPass(new RenderPass(this.scene, this.camera));
+      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.55, 0.6, 0.86));
+      c.addPass(new OutputPass());
+      this.composer = c;
+    } else if (!q.bloom && this.composer) {
+      this.composer.dispose();
+      this.composer = null;
+    }
+    this.composer?.setPixelRatio(this.renderer.getPixelRatio());
+    this.composer?.setSize(window.innerWidth, window.innerHeight);
     this.hud?.setFpsVisible(this.settings.data.showFps);
     this.dirty = true;
   }
@@ -157,6 +183,7 @@ export class Game {
   private resize() {
     const w = window.innerWidth, h = window.innerHeight;
     this.renderer.setSize(w, h, false);
+    this.composer?.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.dirty = true;
@@ -287,6 +314,7 @@ export class Game {
     const cp = Math.cos(this.pitch);
     const dir = this.v2.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
     this.grenadeSys.throwFrom(eye, dir);
+    this.audio.grenadeThrow();
     this.viewModel.throwAnim();
     this.setWeapon('blaster');
     this.swapT = 0.45; // el bláster tarda un poco en volver a estar listo
@@ -327,6 +355,7 @@ export class Game {
     }
     this.shake = Math.max(this.shake, Math.min(1, 1.2 - dp / 28));
     this.effects.explosion(at.x, at.y, at.z, R);
+    this.audio.explosion(at.x, at.y, at.z);
   }
 
   /** Una baja más. Cada 3 bajas te curas 10 puntos de vida. */
@@ -359,6 +388,7 @@ export class Game {
   private resume() {
     if (this.mode === 'playing') return;
     this.mode = 'playing';
+    this.audio.start(); // tras un toque del jugador: iOS no deja sonar antes
     this.menu.hide();
     this.hud.setVisible(true, this.input.hasTouch);
     this.acc = 0;
@@ -368,6 +398,7 @@ export class Game {
   private pause() {
     if (this.mode !== 'playing') return;
     this.mode = 'paused';
+    this.audio.suspend();
     this.input.touch?.reset();
     if (document.pointerLockElement) document.exitPointerLock();
     this.hud.setVisible(false, false);
@@ -426,6 +457,10 @@ export class Game {
         this.grenadeSys.update(TICK);
         this.physics.step();
         if (this.blaster.update(TICK, cmd.fire)) this.shoot();
+        if (this.blaster.locked !== this.prevLocked) {
+          this.prevLocked = this.blaster.locked;
+          if (this.blaster.locked) this.audio.overheat(); else this.audio.ready();
+        }
         this.waves.update(TICK);
         if (this.mode !== 'playing') break; // la partida acaba en mitad del paso
         this.acc -= TICK;
@@ -444,6 +479,7 @@ export class Game {
       this.state.round = this.waves.round;
       this.hud.update(dt);
       this.syncCamera(dt);
+      this.audio.listener(this.camera.position.x, this.camera.position.y, this.camera.position.z, this.yaw, this.pitch);
       this.effects.update(dt);
       this.world.tick(dt);
       this.viewModel.update(dt, this.blaster.heat, this.adsZoom, this.weapon);
@@ -451,7 +487,7 @@ export class Game {
     }
 
     if (this.dirty) {
-      this.renderer.render(this.scene, this.camera);
+      if (this.composer) this.composer.render(); else this.renderer.render(this.scene, this.camera);
       this.dirty = false;
     }
   }
@@ -498,6 +534,7 @@ export class Game {
     this.camera.updateMatrixWorld();
     this.effects.bolt(this.viewModel.muzzle.getWorldPosition(this.v1), end);
     this.viewModel.shot();
+    this.audio.playerShot();
   }
 
   /** Hacia dónde sale el disparo: donde miras, con un pequeño desvío al azar si disparas desde la cadera. */
@@ -632,6 +669,6 @@ export class Game {
 
   /** Solo para pruebas automáticas. */
   debug() {
-    return { arma: this.weapon, grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
+    return { audio: { jugados: this.audio.played, estadisticas: this.audio.stats }, arma: this.weapon, grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
   }
 }

@@ -18,6 +18,8 @@ export interface BrainContext {
   claimed: Set<Obstacle>;
   /** Cuando una ronda se alarga, los últimos droides atacan sin esperar. */
   rush: boolean;
+  /** Aviso de que un droide ha disparado (para el sonido). */
+  audio?: (sfx: 'b1' | 'b2' | 'droideka', x: number, y: number, z: number, dist: number) => void;
 }
 
 /** Dificultad de un droide (cambia con la ronda). */
@@ -30,6 +32,7 @@ export interface BrainParams {
   interval?: number; // segundos entre disparos de una ráfaga (por defecto 0,22)
   coverTime?: [number, number]; // cuánto se queda parado en cada parada (por defecto 0,7–1,5 s)
   deployTime?: number; // solo droidekas: tiempo que tardan en desplegarse tras rodar
+  sfx?: 'b1' | 'b2' | 'droideka'; // qué sonido tiene su disparo
   muzzleY?: number; // altura de la que salen los disparos (por defecto 1,2 m)
   muzzleFwd?: number; // cuánto por delante del cuerpo (por defecto 0,35 m)
 }
@@ -377,6 +380,7 @@ export class DroidBrain {
     const d = h ? h.timeOfImpact : 80;
     this.end.copy(this.org).addScaledVector(this.dir, d);
     ctx.effects.enemyBolt(this.org, this.end);
+    ctx.audio?.(this.params.sfx ?? 'b1', this.org.x, this.org.y, this.org.z, dT);
     if (h) {
       if (h.collider.handle === ctx.playerCollider()) ctx.damagePlayer(this.params.damage, this.org.x, this.org.z);
       else ctx.effects.flash(this.end, 0xffa060);

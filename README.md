@@ -41,6 +41,12 @@ En el menú de inicio, toca 5 veces seguidas el título «GEONOSIS». Permite el
 En plena partida, en la pausa, el botón «IR A LA RONDA N AHORA» salta a esa ronda sin reiniciar (vida y granadas al máximo).
 Las partidas con estas opciones no cuentan para el récord.
 
+## Sonido y calidad gráfica
+
+- **Sonido:** viento del desierto, cañonazos lejanos de las naves, disparos del bláster, disparos de los droides (con dirección: si te disparan por la espalda, suena por detrás), aviso de sobrecalentamiento y granadas. Todo se genera por código (originales, sin derechos de autor). Volumen ajustable en el menú. La música no está incluida.
+  En iPhone el sonido empieza al pulsar JUGAR, y **el interruptor lateral de silencio lo apaga** (desactívalo).
+- **Calidad gráfica:** Baja, Media, Alta y **Ultra** (sombras más nítidas, resplandor en las luces fuertes y resolución máxima; la que más calienta el móvil).
+
 ## Instalar en el iPhone
 
 Abrir el enlace del juego en Safari → Compartir → «Añadir a pantalla de inicio». Así se ve a pantalla completa.
