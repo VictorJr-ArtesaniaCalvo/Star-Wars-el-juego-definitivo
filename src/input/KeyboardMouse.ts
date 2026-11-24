@@ -10,6 +10,8 @@ export class KeyboardMouse implements InputSource {
   private pause = false;
   private lockedAt = 0;
   private mouseDown = false;
+  private rightDown = false;
+  private aimToggle = false;
 
   constructor(private canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
@@ -17,12 +19,21 @@ export class KeyboardMouse implements InputSource {
       this.keys.add(e.code);
       if (e.code === 'KeyC' || e.code === 'ShiftLeft') this.crouch = true;
       if (e.code === 'Space') { this.jump = true; e.preventDefault(); }
+      if (e.code === 'KeyQ') this.aimToggle = true;
       if (e.code === 'KeyP' || e.code === 'Escape') this.pause = true;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => { this.keys.clear(); this.mouseDown = false; });
-    canvas.addEventListener('mousedown', (e) => { if (e.button === 0 && document.pointerLockElement === canvas) this.mouseDown = true; });
-    window.addEventListener('mouseup', (e) => { if (e.button === 0) this.mouseDown = false; });
+    window.addEventListener('blur', () => { this.keys.clear(); this.mouseDown = false; this.rightDown = false; });
+    canvas.addEventListener('mousedown', (e) => {
+      if (document.pointerLockElement !== canvas) return;
+      if (e.button === 0) this.mouseDown = true;
+      if (e.button === 2) this.rightDown = true;
+    });
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 0) this.mouseDown = false;
+      if (e.button === 2) this.rightDown = false;
+    });
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockchange', () => (this.lockedAt = performance.now()));
     document.addEventListener('mousemove', (e) => {
       // Se ignora el primer instante tras capturar el ratón (suele llegar un salto brusco).
@@ -53,7 +64,11 @@ export class KeyboardMouse implements InputSource {
     return out;
   }
 
-  fire() { return this.mouseDown || this.keys.has('KeyF'); }
+  // Clic izquierdo: disparo desde la cadera · F: disparo apuntado · clic derecho: mantener para apuntar · Q: alternar apuntar
+  fire() { return this.keys.has('KeyF'); }
+  fireHip() { return this.mouseDown; }
+  aimHeld() { return this.rightDown; }
+  consumeAimToggle() { const v = this.aimToggle; this.aimToggle = false; return v; }
   consumeCrouch() { const v = this.crouch; this.crouch = false; return v; }
   consumeJump() { const v = this.jump; this.jump = false; return v; }
   consumePause() { const v = this.pause; this.pause = false; return v; }

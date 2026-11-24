@@ -7,6 +7,12 @@ export interface InputSource {
   /** Pulsaciones puntuales desde la última consulta. */
   /** ¿Se está manteniendo pulsado el disparo? */
   fire(): boolean;
+  /** Disparo desde la cadera (sin apuntar, salvo que ya estés apuntando). */
+  fireHip(): boolean;
+  /** ¿Se mantiene pulsado «apuntar»? (mando: gatillo izquierdo; ratón: botón derecho) */
+  aimHeld(): boolean;
+  /** Pulsación de «apuntar» que activa/desactiva el modo apuntado (botón táctil). */
+  consumeAimToggle(): boolean;
   consumeCrouch(): boolean;
   consumeJump(): boolean;
   consumePause(): boolean;

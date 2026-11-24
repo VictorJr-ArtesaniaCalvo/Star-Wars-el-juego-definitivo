@@ -30,9 +30,12 @@ export class ViewModel {
 
   shot() { this.kick = 1; }
 
-  update(dt: number, heat: number) {
+  /** `zoom` va de 0 (desde la cadera) a 1 (apuntando): el arma se centra y baja un poco. */
+  update(dt: number, heat: number, zoom = 0) {
     this.kick = Math.max(0, this.kick - dt * 9);
-    this.group.position.z = -0.5 + this.kick * 0.05;
+    this.group.position.x = 0.2 * (1 - zoom * 0.9);
+    this.group.position.y = -0.19 + zoom * 0.045;
+    this.group.position.z = -0.5 + this.kick * 0.05 * (1 - zoom * 0.5);
     this.group.rotation.x = this.kick * 0.07;
     // El arma se pone al rojo con el calor.
     this.body.emissive.copy(this.cold).lerp(this.hot, Math.max(0, heat - 0.35) / 0.65);

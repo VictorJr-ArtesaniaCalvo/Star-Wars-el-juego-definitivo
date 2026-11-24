@@ -14,11 +14,14 @@ Proyecto personal y experimental.
 
 ## Controles
 
-| | Moverse | Mirar | Disparar | Saltar | Agacharse | Pausa |
-|---|---|---|---|---|---|---|
-| Táctil | Joystick (mitad izquierda) | Deslizar (mitad derecha) | Botón (se puede apuntar sin soltarlo) | Botón | Botón | Botón II |
-| Mando | Stick izquierdo | Stick derecho | RT / R2 | A / Cruz | B / Círculo | Options / Menu |
-| Teclado | WASD | Ratón o flechas | Clic o F | Espacio | C | P |
+| | Moverse | Mirar | Disparar apuntando | Disparar desde la cadera | Apuntar | Saltar | Agacharse | Pausa |
+|---|---|---|---|---|---|---|---|---|
+| Táctil | Joystick | Deslizar (también con el dedo sobre un botón de disparo) | Botón DISPARAR | Botón CADERA | Botón APUNTAR (alterna) | Botón | Botón | Botón II |
+| Mando | Stick izquierdo | Stick derecho | RT / R2 | RB / R1 | LT / L2 (mantener) | A / Cruz | B / Círculo | Options / Menu |
+| Teclado | WASD | Ratón o flechas | F | Clic izquierdo | Clic derecho (mantener) o Q (alterna) | Espacio | C | P |
+
+**Apuntar:** acerca la vista, afina la puntería y baja la velocidad. El disparo principal apunta mientras se mantiene pulsado;
+el de cadera dispara sin acercar la vista (con el disparo más abierto), salvo que ya estés apuntando.
 
 ## Menú oculto de pruebas
 
@@ -40,3 +43,8 @@ Abrir el enlace del juego en Safari → Compartir → «Añadir a pantalla de in
 
 `npm install` · `npm run dev` (probar en local) · `npm run build` (generar la versión publicable).
 Cada subida a GitHub publica el juego automáticamente en GitHub Pages.
+
+## Pendiente (acordado)
+
+- **Células de vida:** algunos droides las soltarán al morir para recogerlas. Cuando se hagan, se quita la curación de +10 de vida cada 3 bajas.
+- Ideas propuestas, aún sin decidir: editor de controles (arrastrar, tamaño, opacidad), apuntar con el giroscopio del iPhone, agacharse manteniendo pulsado.

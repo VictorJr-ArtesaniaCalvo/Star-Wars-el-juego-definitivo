@@ -17,6 +17,13 @@ import { World } from '../world/World';
 import { QUALITY, Settings } from './Settings';
 
 type Mode = 'menu' | 'playing' | 'paused' | 'gameover';
+// Apuntar: acerca la vista y afina la puntería; desde la cadera se mueve más rápido pero el disparo se abre.
+const FOV_HIP = 72;
+const FOV_ADS = 42;
+const ADS_SENSITIVITY = 0.55; // sensibilidad de la mira al apuntar (multiplicador)
+const ADS_MOVE = 0.7; // velocidad al apuntar (multiplicador)
+const SPREAD_HIP = (1.6 * Math.PI) / 180; // desvío máximo de un disparo desde la cadera
+const SPREAD_ADS = (0.12 * Math.PI) / 180;
 const HEAL_BETWEEN_ROUNDS = 30;
 const KILLS_PER_HEAL = 3;
 const HEAL_PER_STREAK = 10;
@@ -43,6 +50,9 @@ export class Game {
   private blaster = new Blaster();
   private effects!: Effects;
   private viewModel!: ViewModel;
+  private adsToggled = false;
+  private ads = false;
+  private adsZoom = 0;
   private killsSinceHeal = 0;
   private jumpBuffer = 0;
   private shots = 0;
@@ -120,7 +130,7 @@ export class Game {
     this.menu.setHelp(
       this.input.hasTouch
         ? 'Izquierda: moverse · Derecha: deslizar para mirar · Puedes apuntar sin soltar DISPARAR\nCon mando Bluetooth los botones táctiles se ocultan solos.\nPara pantalla completa: Compartir → «Añadir a pantalla de inicio».'
-        : 'WASD moverse · Ratón mirar · Clic disparar · Espacio saltar · C agacharse · P pausa\nMando: sticks moverse y mirar · RT/R2 disparar · A/Cruz saltar · B/Círculo agacharse · Options pausa',
+        : 'WASD moverse · Ratón mirar · Clic izq. disparar (cadera) · F disparar apuntando · Clic der./Q apuntar\nEspacio saltar · C agacharse · P pausa · Mando: RT disparar apuntando · RB cadera · LT apuntar · A saltar · B agacharse',
     );
     this.menu.ready();
     this.syncCamera(1);
@@ -157,6 +167,11 @@ export class Game {
     this.wantCrouch = false;
     this.blaster = new Blaster();
     this.state.kills = 0;
+    this.adsToggled = false;
+    this.ads = false;
+    this.adsZoom = 0;
+    this.camera.fov = FOV_HIP;
+    this.camera.updateProjectionMatrix();
     this.killsSinceHeal = 0;
     this.jumpBuffer = 0;
     this.hud.setKillPips(0);
@@ -250,6 +265,18 @@ export class Game {
     }
 
     if (this.mode === 'playing') {
+      // Apuntar: el botón alterna; el disparo principal apunta mientras se mantiene; mando/ratón: mantener.
+      if (inp.aimToggled) this.adsToggled = !this.adsToggled;
+      this.ads = this.adsToggled || inp.aimHeld || inp.fire;
+      this.adsZoom += ((this.ads ? 1 : 0) - this.adsZoom) * Math.min(1, dt * 14);
+      if (Math.abs(this.adsZoom - (this.ads ? 1 : 0)) < 0.002) this.adsZoom = this.ads ? 1 : 0;
+      const fov = FOV_HIP + (FOV_ADS - FOV_HIP) * this.adsZoom;
+      if (Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
+      const lookK = 1 + (ADS_SENSITIVITY - 1) * this.adsZoom;
+      inp.yaw *= lookK;
+      inp.pitch *= lookK;
+      const moveK = 1 + (ADS_MOVE - 1) * this.adsZoom;
+
       if (inp.touchAim && this.settings.data.aimAssist) this.aimAssist(inp, dt);
       this.yaw -= inp.yaw;
       this.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.pitch - inp.pitch));
@@ -258,7 +285,7 @@ export class Game {
       if (inp.jumpPressed) { if (this.wantCrouch) this.wantCrouch = false; else this.jumpBuffer = 0.14; }
       this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
 
-      const cmd: InputCommand = { moveX: inp.moveX, moveZ: inp.moveZ, yaw: this.yaw, pitch: this.pitch, crouch: this.wantCrouch, jump: this.jumpBuffer > 0, fire: inp.fire };
+      const cmd: InputCommand = { moveX: inp.moveX * moveK, moveZ: inp.moveZ * moveK, yaw: this.yaw, pitch: this.pitch, crouch: this.wantCrouch, jump: this.jumpBuffer > 0, fire: inp.fire || inp.fireHip };
       this.acc += dt;
       let steps = 0;
       while (this.acc >= TICK && steps < 5) {
@@ -276,6 +303,7 @@ export class Game {
       // Si no había sitio para levantarse, el botón refleja la postura real.
       if (steps > 0) this.wantCrouch = this.localPlayer.state.crouching;
 
+      this.hud.setAds(this.adsToggled, this.ads);
       this.hud.setCrouching(this.localPlayer.state.crouching);
       this.hud.setHeat(this.blaster.heat, this.blaster.locked);
       this.hud.setHealth(this.state.players[0].health);
@@ -286,7 +314,7 @@ export class Game {
       this.syncCamera(dt);
       this.effects.update(dt);
       this.world.tick(dt);
-      this.viewModel.update(dt, this.blaster.heat);
+      this.viewModel.update(dt, this.blaster.heat, this.adsZoom);
       this.dirty = true;
     }
 
@@ -313,8 +341,7 @@ export class Game {
   /** Dispara un rayo en línea recta desde los ojos hacia donde se mira. */
   private shoot() {
     const eye = this.eyePos(this.v1);
-    const cp = Math.cos(this.pitch);
-    const dir = this.v2.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
+    const dir = this.aimDirection(this.v2);
     const hit = this.physics.castRay(new RAPIER.Ray(eye, dir), BLASTER.range, true, undefined, undefined, undefined, this.localPlayer.body);
     const dist = hit ? hit.timeOfImpact : BLASTER.range;
     const end = this.v3.copy(eye).addScaledVector(dir, dist);
@@ -333,6 +360,23 @@ export class Game {
     this.camera.updateMatrixWorld();
     this.effects.bolt(this.viewModel.muzzle.getWorldPosition(this.v1), end);
     this.viewModel.shot();
+  }
+
+  /** Hacia dónde sale el disparo: donde miras, con un pequeño desvío al azar si disparas desde la cadera. */
+  private aimDirection(out: THREE.Vector3) {
+    const cp = Math.cos(this.pitch);
+    out.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
+    const spread = this.ads ? SPREAD_ADS : SPREAD_HIP;
+    const r = spread * Math.sqrt(Math.random());
+    const a = Math.random() * Math.PI * 2;
+    // vectores "derecha" y "arriba" respecto a la mirada
+    const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
+    const ux = -Math.sin(this.pitch) * -Math.sin(this.yaw), uy = cp, uz = -Math.sin(this.pitch) * -Math.cos(this.yaw);
+    const k1 = Math.tan(r) * Math.cos(a), k2 = Math.tan(r) * Math.sin(a);
+    out.x += rx * k1 + ux * k2;
+    out.y += uy * k2;
+    out.z += rz * k1 + uz * k2;
+    return out.normalize();
   }
 
   /**
@@ -443,6 +487,6 @@ export class Game {
 
   /** Solo para pruebas automáticas. */
   debug() {
-    return { round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
+    return { ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
   }
 }

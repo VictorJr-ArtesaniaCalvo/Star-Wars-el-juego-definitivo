@@ -10,6 +10,7 @@ html, body {
 
 /* ---------- Indicadores ---------- */
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+#hud.ads #crosshair { width: 4px; height: 4px; margin: -2px 0 0 -2px; background: rgba(255,255,255,.95); }
 #crosshair {
   position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px;
   border-radius: 50%; background: rgba(255,255,255,.85); box-shadow: 0 0 0 1px rgba(0,0,0,.5);
@@ -47,13 +48,25 @@ html, body {
 }
 #btnFire.on { background: rgba(102,184,255,.34); color: rgba(255,255,255,.95); }
 #btnJump {
-  right: calc(42px + env(safe-area-inset-right));
+  right: calc(40px + env(safe-area-inset-right));
   bottom: calc(176px + env(safe-area-inset-bottom));
 }
+#btnAim {
+  width: 60px; height: 60px; font-size: 9px;
+  right: calc(118px + env(safe-area-inset-right));
+  bottom: calc(178px + env(safe-area-inset-bottom));
+}
+#btnAim.on { background: rgba(102,184,255,.34); border-color: rgba(150,210,255,.6); color: rgba(255,255,255,.95); }
+#btnHip {
+  width: 76px; height: 76px; font-size: 9px;
+  right: calc(196px + env(safe-area-inset-right));
+  bottom: calc(112px + env(safe-area-inset-bottom));
+}
+#btnHip.on { background: rgba(255,170,90,.34); color: rgba(255,255,255,.95); }
 #btnCrouch {
   font-size: 9px;
-  right: calc(174px + env(safe-area-inset-right));
-  bottom: calc(44px + env(safe-area-inset-bottom));
+  right: calc(160px + env(safe-area-inset-right));
+  bottom: calc(40px + env(safe-area-inset-bottom));
 }
 #hitmark {
   position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px;

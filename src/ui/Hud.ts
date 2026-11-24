@@ -35,6 +35,8 @@ export class Hud {
   private compass = new Compass();
   private pips = Array.from(document.querySelectorAll<HTMLElement>('#pips i'));
   private healPopEl = $('healPop');
+  private btnAim = $('btnAim');
+  private adsKey = -1;
   private fps = $('fps');
   private frames = 0;
   private fpsTime = 0;
@@ -46,6 +48,15 @@ export class Hud {
   setVisible(v: boolean, touch: boolean) {
     this.root.hidden = !v;
     this.touch.hidden = !(v && touch);
+  }
+
+  /** `toggled`: el botón de apuntar está activado; `active`: se está apuntando ahora (también al disparar con el principal). */
+  setAds(toggled: boolean, active: boolean) {
+    const key = (toggled ? 1 : 0) + (active ? 2 : 0);
+    if (key === this.adsKey) return;
+    this.adsKey = key;
+    this.btnAim.classList.toggle('on', toggled);
+    this.root.classList.toggle('ads', active);
   }
 
   setHeading(yaw: number) {

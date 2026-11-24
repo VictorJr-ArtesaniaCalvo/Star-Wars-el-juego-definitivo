@@ -8,7 +8,8 @@ const axis = (v: number) => {
 };
 
 // Mando Bluetooth (PlayStation / Xbox). Distribución estándar:
-// stick izquierdo mover, stick derecho mirar, gatillo derecho (RT/R2) disparar, A/Cruz saltar,
+// stick izquierdo mover, stick derecho mirar, gatillo derecho (RT/R2) disparar apuntando, RB/R1 disparar desde la cadera,
+// gatillo izquierdo (LT/L2) apuntar, A/Cruz saltar,
 // B/Círculo o pulsar stick derecho agacharse, Options/Menu pausa.
 export class GamepadInput implements InputSource {
   private prev: boolean[] = [];
@@ -44,10 +45,20 @@ export class GamepadInput implements InputSource {
     return { yaw: x * Math.abs(x) * 3.0 * dt * sens, pitch: y * Math.abs(y) * 2.0 * dt * sens };
   }
 
+  // RT/R2: disparo apuntado · RB/R1: disparo desde la cadera · LT/L2: mantener para apuntar
   fire() {
     const b = this.pad?.buttons;
-    return !!b && (!!b[7]?.pressed || (b[7]?.value ?? 0) > 0.3 || !!b[5]?.pressed);
+    return !!b && (!!b[7]?.pressed || (b[7]?.value ?? 0) > 0.3);
   }
+  fireHip() {
+    const b = this.pad?.buttons;
+    return !!b && !!b[5]?.pressed;
+  }
+  aimHeld() {
+    const b = this.pad?.buttons;
+    return !!b && (!!b[6]?.pressed || (b[6]?.value ?? 0) > 0.3);
+  }
+  consumeAimToggle() { return false; }
   consumeCrouch() { const v = this.crouch; this.crouch = false; return v; }
   consumeJump() { const v = this.jump; this.jump = false; return v; }
   consumePause() { const v = this.pause; this.pause = false; return v; }
