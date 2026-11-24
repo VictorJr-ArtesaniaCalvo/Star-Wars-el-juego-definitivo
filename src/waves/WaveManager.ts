@@ -62,8 +62,8 @@ export function droidekaParams(round: number): BrainParams {
     interval: 0.1,
     coverTime: [3, 5],
     deployTime: 0.8,
-    muzzleY: 0.86,
-    muzzleFwd: 0.9,
+    muzzleY: 1.15,
+    muzzleFwd: 1.0,
   };
 }
 
