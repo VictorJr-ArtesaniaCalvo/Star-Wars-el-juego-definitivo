@@ -12,6 +12,9 @@ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
  */
 export class AudioEngine {
   private howls = {} as Record<SoundId, Howl[]>;
+  // Disparos reales de los B1 (4 clips). Si alguno no carga, se usa el sonido sintético de respaldo.
+  private b1Clips: Array<{ howl: Howl; ok: boolean }> = [];
+  private lastB1 = -1;
   private wind: Howl | null = null;
   private windId: number | undefined;
   private started = false;
@@ -31,6 +34,12 @@ export class AudioEngine {
       this.howls[id] = set.urls[id].map((url) => new Howl({ src: [url], format: ['wav'], preload: true, loop: id === 'wind' }));
     }
     this.wind = this.howls.wind[0];
+    const base = import.meta.env.BASE_URL;
+    for (let i = 1; i <= 4; i++) {
+      const clip = { howl: null as unknown as Howl, ok: false };
+      clip.howl = new Howl({ src: [`${base}audio/b1-${i}.mp3`], preload: true, onload: () => { clip.ok = true; }, onloaderror: () => { clip.ok = false; } });
+      this.b1Clips.push(clip);
+    }
     Howler.autoSuspend = false;
     this.setVolume(this.volume);
   }
@@ -106,9 +115,27 @@ export class AudioEngine {
     if (this.recentEnemyShots.length >= 6) return; // demasiados a la vez
     if (dist > 140) return; // demasiado lejos para oírse
     this.recentEnemyShots.push(now);
+    if (kind === 'b1' && this.playB1Clip(x, y, z)) return;
     const id: SoundId = kind === 'b2' ? 'b2' : kind === 'droideka' ? 'deka' : 'b1';
     const vol = kind === 'b2' ? 0.7 : kind === 'droideka' ? 0.45 : 0.5;
     this.play(id, vol, rnd(0.93, 1.08), [x, y, z], kind === 'b2' ? 9 : 7);
+  }
+
+  /** Disparo del B1 con uno de los cuatro clips reales (nunca el mismo dos veces seguidas). Devuelve false si no hay ninguno cargado. */
+  private playB1Clip(x: number, y: number, z: number): boolean {
+    const ready = this.b1Clips.map((c, i) => (c.ok ? i : -1)).filter((i) => i >= 0 && i !== this.lastB1);
+    const pool = ready.length ? ready : this.b1Clips.map((c, i) => (c.ok ? i : -1)).filter((i) => i >= 0);
+    if (!pool.length) return false;
+    const i = pool[Math.floor(Math.random() * pool.length)];
+    this.lastB1 = i;
+    const h = this.b1Clips[i].howl;
+    const sid = h.play();
+    h.volume(0.5, sid);
+    h.rate(rnd(0.96, 1.05), sid);
+    h.pos(x, y, z, sid);
+    h.pannerAttr({ panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 7, rolloffFactor: 1.15, maxDistance: 400 }, sid);
+    this.played[`b1-clip${i + 1}`] = (this.played[`b1-clip${i + 1}`] ?? 0) + 1;
+    return true;
   }
 
   /** Cañonazo de las naves del cielo (como mucho uno cada pocos segundos, para que sea ambiente y no ruido). */
