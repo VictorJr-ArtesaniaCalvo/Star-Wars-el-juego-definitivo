@@ -25,9 +25,13 @@ html, body {
 #btnPause {
   pointer-events: auto; position: absolute;
   top: calc(10px + env(safe-area-inset-top)); right: calc(14px + env(safe-area-inset-right));
-  width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.22);
-  background: rgba(0,0,0,.18); color: rgba(255,255,255,.7); font-weight: 700; font-size: 14px;
+  width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0;
+  display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.85);
+  background: radial-gradient(circle at 50% 35%, rgba(70,82,98,.5), rgba(10,14,20,.55) 75%);
+  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.3), 0 2px 8px rgba(0,0,0,.4);
 }
+#btnPause svg { width: 52%; height: 52%; fill: currentColor; }
+#btnPause:active { transform: scale(.92); }
 
 /* ---------- Táctil ---------- */
 #touch { position: fixed; inset: 0; z-index: 4; }
@@ -35,51 +39,95 @@ html, body {
 #lookZone { position: absolute; right: 0; top: 0; width: 55%; height: 100%; }
 /* Los botones se colocan por su CENTRO (right/bottom marcan el centro), como en los juegos de móvil:
    disparo grande abajo a la derecha, saltar arriba a su derecha, agacharse abajo a su izquierda. */
+/* Cada botón es un disco de cristal oscuro con un aro del color de su función y un icono (sin textos).
+   --accent = color de la función (rojo,verde,azul): al pulsar se enciende y brilla. */
 .tbtn {
+  --accent: 255,255,255;
   position: absolute; width: 64px; height: 64px; border-radius: 50%; transform: translate(50%, 50%);
-  border: 2px solid rgba(255,255,255,.26); background: rgba(255,255,255,.05); color: rgba(255,255,255,.62);
-  font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 0;
+  border: 0; padding: 0; color: rgba(255,255,255,.93);
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 30%, rgba(86,100,118,.55), rgba(10,14,20,.62) 74%);
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.3), inset 0 3px 7px rgba(255,255,255,.14),
+              inset 0 -7px 12px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.45);
+  transition: transform .06s, background .1s, box-shadow .1s;
 }
-.tbtn.on { background: rgba(255,170,90,.38); color: rgba(255,255,255,.9); }
+.tbtn::after { /* aro interior de color */
+  content: ''; position: absolute; inset: 5px; border-radius: 50%; pointer-events: none;
+  border: 1.5px solid rgba(var(--accent), .6); box-shadow: 0 0 8px rgba(var(--accent), .25);
+}
+.tbtn .ic {
+  width: 52%; height: 52%; overflow: visible; pointer-events: none;
+  fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.65));
+}
+.tbtn .ic .fill { fill: currentColor; stroke: none; }
+.tbtn .ic .soft { fill: rgba(255,255,255,.16); }
+.tbtn .ic .cut { stroke: rgba(8,12,18,.55); stroke-width: 1.5; }
+.tbtn .ic-throw, #touch.grenadeMode .ic-fire { display: none; }
+#touch.grenadeMode .ic-throw { display: block; }
+.tbtn.on {
+  background: radial-gradient(circle at 50% 35%, rgba(var(--accent), .62), rgba(var(--accent), .2) 78%);
+  box-shadow: inset 0 0 0 2px rgba(var(--accent), .95), 0 0 20px rgba(var(--accent), .65), 0 4px 12px rgba(0,0,0,.4);
+  color: #fff;
+}
+.tbtn:active:not(.on) { transform: translate(50%, 50%) scale(.93); }
+.tbtn.on { transform: translate(50%, 50%) scale(.95); }
+
 #btnFire {
-  width: 94px; height: 94px; font-size: 11px;
+  --accent: 96,184,255;
+  width: 94px; height: 94px;
   right: calc(80px + env(safe-area-inset-right));
   bottom: calc(86px + env(safe-area-inset-bottom));
 }
-#btnFire.on { background: rgba(102,184,255,.34); color: rgba(255,255,255,.95); }
+#btnFire .ic { width: 48%; height: 48%; }
+#btnCrouch .ic { width: 58%; height: 58%; }
+#btnFire::before { /* marcas de mira alrededor: el botón principal dispara apuntando */
+  content: ''; position: absolute; inset: -8px; border-radius: 50%; pointer-events: none; opacity: .75;
+  background: repeating-conic-gradient(rgba(var(--accent), .9) 0 6deg, transparent 6deg 15deg);
+  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(circle closest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+}
+#btnFire.on::before { opacity: 1; filter: drop-shadow(0 0 4px rgba(var(--accent), .9)); }
 #btnJump {
+  --accent: 255,214,110;
   right: calc(40px + env(safe-area-inset-right));
   bottom: calc(176px + env(safe-area-inset-bottom));
 }
 #btnAim {
-  width: 60px; height: 60px; font-size: 9px;
+  --accent: 120,226,255;
+  width: 60px; height: 60px;
   right: calc(118px + env(safe-area-inset-right));
   bottom: calc(178px + env(safe-area-inset-bottom));
 }
-#btnAim.on { background: rgba(102,184,255,.34); border-color: rgba(150,210,255,.6); color: rgba(255,255,255,.95); }
 /* Disparo desde la cadera: a la IZQUIERDA, encima de la zona del joystick (el pulgar izquierdo dispara,
    el derecho apunta). El botón se coloca por su centro: left/bottom marcan el centro. */
 #btnHip {
-  width: 76px; height: 76px; font-size: 9px;
+  --accent: 255,150,70;
+  width: 76px; height: 76px;
   left: calc(74px + env(safe-area-inset-left)); right: auto;
   bottom: 46vh;
   transform: translate(-50%, 50%);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
 }
-#btnHip svg { width: 22px; height: 22px; fill: rgba(255,255,255,.65); }
-#btnHip.on { background: rgba(255,170,90,.34); color: rgba(255,255,255,.95); }
+#btnHip:active:not(.on) { transform: translate(-50%, 50%) scale(.93); }
+#btnHip.on { transform: translate(-50%, 50%) scale(.95); }
 #btnGrenade {
-  width: 62px; height: 62px; font-size: 8px;
+  --accent: 160,220,110;
+  width: 62px; height: 62px;
   right: calc(42px + env(safe-area-inset-right));
   bottom: calc(248px + env(safe-area-inset-bottom));
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
 }
-#btnGrenade svg { width: 22px; height: 22px; fill: rgba(190,225,150,.7); }
-#btnGrenade.empty { opacity: .35; }
-#btnGrenade.on { background: rgba(150,200,110,.34); border-color: rgba(190,230,150,.7); color: rgba(255,255,255,.95); }
+#btnGrenade .badge {
+  position: absolute; right: -3px; top: -3px; min-width: 21px; height: 21px; padding: 0 4px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center; font-style: normal;
+  font-size: 12px; font-weight: 800; line-height: 1; color: #e4f9c8;
+  background: #16240f; border: 1.5px solid rgba(180,230,130,.85); box-shadow: 0 1px 4px rgba(0,0,0,.5);
+}
+#btnGrenade.empty { opacity: .4; }
+#btnGrenade.empty .badge { color: #ff9a8a; border-color: rgba(255,120,100,.8); }
+#touch.grenadeMode #btnFire, #touch.grenadeMode #btnHip { --accent: 160,220,110; }
 #hud.grenadeMode #crosshair { background: rgba(190,230,150,.95); }
 #btnCrouch {
-  font-size: 9px;
+  --accent: 200,210,230;
   right: calc(160px + env(safe-area-inset-right));
   bottom: calc(40px + env(safe-area-inset-bottom));
 }

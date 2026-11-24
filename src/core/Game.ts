@@ -153,7 +153,7 @@ export class Game {
     this.resize();
     this.menu.setHelp(
       this.input.hasTouch
-        ? 'Izquierda: moverse · Derecha: deslizar para mirar · Puedes apuntar sin soltar DISPARAR\nCon mando Bluetooth los botones táctiles se ocultan solos.\nPara pantalla completa: Compartir → «Añadir a pantalla de inicio».'
+        ? 'Izquierda: moverse · Derecha: deslizar para mirar · Puedes apuntar sin soltar el botón grande de disparo\nCon mando Bluetooth los botones táctiles se ocultan solos.\nPara pantalla completa: Compartir → «Añadir a pantalla de inicio».'
         : 'WASD moverse · Ratón mirar · Clic izq. disparar (cadera) · F disparar apuntando · Clic der./Q apuntar\nEspacio saltar · C agacharse · P pausa · Mando: RT disparar apuntando · RB cadera · LT apuntar · A saltar · B agacharse',
     );
     this.menu.ready();

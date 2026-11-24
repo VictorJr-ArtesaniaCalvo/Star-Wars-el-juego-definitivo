@@ -60,13 +60,11 @@ export class Hud {
     this.root.classList.toggle('ads', active);
   }
 
-  /** Qué llevas en la mano: el botón de granada se enciende y los de disparo pasan a decir LANZAR. */
+  /** Qué llevas en la mano: el botón de granada se enciende y los de disparo pasan al icono de lanzar. */
   setWeapon(w: 'blaster' | 'grenade') {
     const g = w === 'grenade';
     this.btnGrenade.classList.toggle('on', g);
-    $('btnFire').textContent = g ? 'LANZAR' : 'DISPARAR';
-    const span = document.querySelector<HTMLElement>('#btnHip span');
-    if (span) span.textContent = g ? 'LANZAR' : 'CADERA';
+    $('touch').classList.toggle('grenadeMode', g); // los botones de disparo cambian su icono por el de lanzar
     this.root.classList.toggle('grenadeMode', g);
   }
 
@@ -74,6 +72,7 @@ export class Hud {
   setGrenades(n: number) {
     this.grenadeDots.forEach((d, i) => d.classList.toggle('spent', i >= n));
     this.btnGrenade.classList.toggle('empty', n <= 0);
+    $('grenadeCount').textContent = String(n);
   }
 
   setHeading(yaw: number, markers: CompassMarker[] = []) {

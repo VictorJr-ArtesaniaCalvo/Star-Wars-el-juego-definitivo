@@ -33,19 +33,35 @@
     <div id="hitmark"></div>
     <div id="stance">DE PIE</div>
     <div id="heat"><div id="heatFill"></div><span id="heatLabel">BLÁSTER</span></div>
-    <button id="btnPause" aria-label="Pausa">II</button>
+    <button id="btnPause" aria-label="Pausa"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="7" width="5" height="18" rx="1.6"/><rect x="18" y="7" width="5" height="18" rx="1.6"/></svg></button>
   </div>
 
   <!-- Controles táctiles -->
   <div id="touch" hidden>
     <div id="joyZone"></div>
     <div id="lookZone"></div>
-    <button id="btnFire" class="tbtn">DISPARAR</button>
-    <button id="btnHip" class="tbtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 21V11c0-3 2-6 4-8 2 2 4 5 4 8v10z"/><rect x="8" y="17.5" width="8" height="1.6" fill="rgba(0,0,0,.35)"/></svg><span>CADERA</span></button>
-    <button id="btnAim" class="tbtn">APUNTAR</button>
-    <button id="btnJump" class="tbtn">SALTAR</button>
-    <button id="btnGrenade" class="tbtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="14" r="7"/><rect x="10" y="3" width="4" height="4" rx="1"/><rect x="14.5" y="3.5" width="5" height="1.6" rx=".8"/></svg><span>GRANADA</span></button>
-    <button id="btnCrouch" class="tbtn">AGACHAR</button>
+    <!-- Sin textos: cada botón lleva un icono (bala = disparar, mira = apuntar, flechas = saltar/agacharse, granada). -->
+    <button id="btnFire" class="tbtn" aria-label="Disparar apuntando">
+      <svg class="ic ic-fire" viewBox="0 0 32 32" aria-hidden="true"><path class="fill" d="M12.6 28V14.5c0-3.4 1.4-6.4 3.4-9 2 2.6 3.4 5.6 3.4 9V28z"/><path class="fill" d="M3.6 28V19c0-2.5 1-4.8 2.4-6.6 1.4 1.8 2.4 4.1 2.4 6.6v9z"/><path class="fill" d="M23.6 28V19c0-2.5 1-4.8 2.4-6.6 1.4 1.8 2.4 4.1 2.4 6.6v9z"/><path class="cut" d="M12.6 23h6.8M3.6 24h4.8M23.6 24h4.8"/></svg>
+      <svg class="ic ic-throw" viewBox="0 0 32 32" aria-hidden="true"><circle class="fill" cx="8.5" cy="23.5" r="5"/><path d="M12.5 18.5C15.5 9.5 21 6.5 26.5 8.5"/><path d="M21.5 3.5l5.5 5-5.5 4.5"/></svg>
+    </button>
+    <button id="btnHip" class="tbtn" aria-label="Disparar desde la cadera">
+      <svg class="ic ic-fire" viewBox="0 0 32 32" aria-hidden="true"><path class="fill" d="M10.5 29V15.5c0-4.3 2.3-8.4 5.5-11.5 3.2 3.1 5.5 7.2 5.5 11.5V29z"/><path class="cut" d="M10.5 24h11"/></svg>
+      <svg class="ic ic-throw" viewBox="0 0 32 32" aria-hidden="true"><circle class="fill" cx="8.5" cy="23.5" r="5"/><path d="M12.5 18.5C15.5 9.5 21 6.5 26.5 8.5"/><path d="M21.5 3.5l5.5 5-5.5 4.5"/></svg>
+    </button>
+    <button id="btnAim" class="tbtn" aria-label="Apuntar">
+      <svg class="ic" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="8.5"/><path d="M16 2.5v8M16 21.5v8M2.5 16h8M21.5 16h8"/><circle class="fill" cx="16" cy="16" r="2"/></svg>
+    </button>
+    <button id="btnJump" class="tbtn" aria-label="Saltar">
+      <svg class="ic" viewBox="0 0 32 32" aria-hidden="true"><path d="M6.5 15.5L16 6l9.5 9.5"/><path d="M6.5 26L16 16.5 25.5 26"/></svg>
+    </button>
+    <button id="btnGrenade" class="tbtn" aria-label="Granada">
+      <svg class="ic" viewBox="0 0 32 32" aria-hidden="true"><ellipse class="fill" cx="14.5" cy="19.5" rx="9.2" ry="10"/><path class="cut" d="M6 16.3h17M5.6 22.6h17.8M14.5 10v19.5"/><path class="fill" d="M11 4.6h7v5.6h-7z"/><path d="M18.5 6.3l6.8 3.2v7.5" stroke-width="2.2"/><circle cx="25" cy="4.2" r="2.5" stroke-width="2"/></svg>
+      <em id="grenadeCount" class="badge">4</em>
+    </button>
+    <button id="btnCrouch" class="tbtn" aria-label="Agacharse">
+      <svg class="ic" viewBox="0 0 32 32" aria-hidden="true"><circle class="fill" cx="17" cy="6.5" r="3"/><path d="M15.5 11.5l-4 6.5 8 1.5 1 6.5"/><path d="M19.5 26h4"/><path d="M15 13.5l6.5 1.5"/></svg>
+    </button>
   </div>
 
   <!-- Menú de inicio / pausa -->
