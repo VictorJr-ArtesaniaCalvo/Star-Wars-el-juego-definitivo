@@ -15,6 +15,8 @@ export class AudioEngine {
   // Disparos reales de los B1 (4 clips). Si alguno no carga, se usa el sonido sintético de respaldo.
   private b1Clips: Array<{ howl: Howl; ok: boolean }> = [];
   private lastB1 = -1;
+  private loadSound: { howl: Howl; ok: boolean } | null = null;
+  private lastAppear = 0;
   private wind: Howl | null = null;
   private windId: number | undefined;
   private started = false;
@@ -35,6 +37,9 @@ export class AudioEngine {
     }
     this.wind = this.howls.wind[0];
     const base = import.meta.env.BASE_URL;
+    const ld = { howl: null as unknown as Howl, ok: false };
+    ld.howl = new Howl({ src: [`${base}audio/b1-load.mp3`], preload: true, onload: () => { ld.ok = true; }, onloaderror: () => { ld.ok = false; } });
+    this.loadSound = ld;
     for (let i = 1; i <= 4; i++) {
       const clip = { howl: null as unknown as Howl, ok: false };
       clip.howl = new Howl({ src: [`${base}audio/b1-${i}.mp3`], preload: true, onload: () => { clip.ok = true; }, onloaderror: () => { clip.ok = false; } });
@@ -119,6 +124,21 @@ export class AudioEngine {
     const id: SoundId = kind === 'b2' ? 'b2' : kind === 'droideka' ? 'deka' : 'b1';
     const vol = kind === 'b2' ? 0.7 : kind === 'droideka' ? 0.45 : 0.5;
     this.play(id, vol, rnd(0.93, 1.08), [x, y, z], kind === 'b2' ? 9 : 7);
+  }
+
+  /** Un droide aparece: suena el «cargar el arma» (con dirección, y se oye desde lejos porque aparecen a 35–90 m). */
+  droidAppear(x: number, y: number, z: number) {
+    const l = this.loadSound;
+    if (!l || !l.ok || !this.started) return;
+    const now = performance.now();
+    if (now - this.lastAppear < 180) return; // si aparecen varios a la vez, no se amontonan
+    this.lastAppear = now;
+    const sid = l.howl.play();
+    l.howl.volume(0.55, sid);
+    l.howl.rate(rnd(0.96, 1.05), sid);
+    l.howl.pos(x, y, z, sid);
+    l.howl.pannerAttr({ panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 22, rolloffFactor: 1.0, maxDistance: 400 }, sid);
+    this.played['b1-carga'] = (this.played['b1-carga'] ?? 0) + 1;
   }
 
   /** Disparo del B1 con uno de los cuatro clips reales (nunca el mismo dos veces seguidas). Devuelve false si no hay ninguno cargado. */

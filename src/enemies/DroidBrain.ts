@@ -20,6 +20,8 @@ export interface BrainContext {
   rush: boolean;
   /** Aviso de que un droide ha disparado (para el sonido). */
   audio?: (sfx: 'b1' | 'b2' | 'droideka', x: number, y: number, z: number, dist: number) => void;
+  /** Aviso de que ha aparecido un droide (para el sonido de «cargar el arma» de los B1). */
+  appear?: (kind: 'b1' | 'b2' | 'droideka', x: number, y: number, z: number) => void;
 }
 
 /** Dificultad de un droide (cambia con la ronda). */

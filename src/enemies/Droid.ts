@@ -138,6 +138,7 @@ export class Droid {
       this.brain.yaw = want;
       s.yaw = want;
       ctx.effects.smokePuff(x, s.y + 0.4, z);
+      ctx.appear?.('b1', x, s.y + 1, z); // suena el «cargar el arma» al empezar a desplegarse
     }
     s.alive = true;
     s.active = true;

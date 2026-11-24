@@ -133,6 +133,7 @@ export class Game {
       playerCollider: () => pl.collider.handle,
       damagePlayer: (amount, fx, fz) => this.damagePlayer(amount, fx, fz),
       audio: (kind, x, y, z, dist) => this.audio.enemyShot(kind, x, y, z, dist),
+      appear: (kind, x, y, z) => { if (kind === 'b1') this.audio.droidAppear(x, y, z); },
     });
     this.waves = new WaveManager(this.enemies, {
       onBanner: (title, sub, sec) => this.hud.showBanner(title, sub, sec),
