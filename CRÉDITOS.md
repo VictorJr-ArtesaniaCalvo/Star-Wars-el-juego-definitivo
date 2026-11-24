@@ -7,8 +7,9 @@ Three.js, Rapier, Yuka, Howler.js, nipplejs, Vite (todas con licencias libres).
 Texturas, terreno, rocas, modelos y efectos: generados por código en este proyecto (originales).
 
 ## Sonido
-- **Ambiente, bláster del jugador, disparos de B2 y droideka, granadas:** sintetizados por código (originales).
-- **Disparos de los droides B1** (`public/audio/b1-1.mp3` a `b1-4.mp3`, y `b1-load.mp3` para el «cargar el arma» cuando aparecen): recortes de un audio aportado por el autor del proyecto
+- **Ambiente, disparos de B2 y droideka, granadas:** sintetizados por código (originales).
+- **Disparos de los droides B1** (`public/audio/b1-1.mp3` a `b1-4.mp3`, y `b1-load.mp3` para el «cargar el arma» cuando aparecen) y
+  **bláster del jugador** (`public/audio/clon-1.mp3` a `clon-6.mp3`): recortes de un audio aportado por el autor del proyecto
   con sonidos de bláster de Star Wars. Los efectos de sonido de Star Wars son propiedad de Lucasfilm Ltd. / Disney.
   Se usan aquí en un proyecto personal y sin ánimo de lucro. **Si el proyecto se hiciera público de forma más amplia o comercial,
   hay que sustituirlos** por sonidos con licencia libre (por ejemplo, los sintetizados que ya trae el juego como respaldo).

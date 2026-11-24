@@ -15,6 +15,9 @@ export class AudioEngine {
   // Disparos reales de los B1 (4 clips). Si alguno no carga, se usa el sonido sintético de respaldo.
   private b1Clips: Array<{ howl: Howl; ok: boolean }> = [];
   private lastB1 = -1;
+  // Disparos reales del bláster del jugador (6 clips). Si alguno no carga, se usa el sonido sintético de respaldo.
+  private clonClips: Array<{ howl: Howl; ok: boolean }> = [];
+  private lastClon = -1;
   private loadSound: { howl: Howl; ok: boolean } | null = null;
   private lastAppear = 0;
   private wind: Howl | null = null;
@@ -37,6 +40,11 @@ export class AudioEngine {
     }
     this.wind = this.howls.wind[0];
     const base = import.meta.env.BASE_URL;
+    for (let i = 1; i <= 6; i++) {
+      const clip = { howl: null as unknown as Howl, ok: false };
+      clip.howl = new Howl({ src: [`${base}audio/clon-${i}.mp3`], preload: true, onload: () => { clip.ok = true; }, onloaderror: () => { clip.ok = false; } });
+      this.clonClips.push(clip);
+    }
     const ld = { howl: null as unknown as Howl, ok: false };
     ld.howl = new Howl({ src: [`${base}audio/b1-load.mp3`], preload: true, onload: () => { ld.ok = true; }, onloaderror: () => { ld.ok = false; } });
     this.loadSound = ld;
@@ -106,7 +114,20 @@ export class AudioEngine {
   }
 
   /** Tu bláster. */
-  playerShot() { this.play('blaster', 0.62, rnd(0.95, 1.06)); }
+  playerShot() {
+    const ok = this.clonClips.map((c, i) => (c.ok ? i : -1)).filter((i) => i >= 0);
+    const pool = ok.filter((i) => i !== this.lastClon);
+    const list = pool.length ? pool : ok;
+    if (!list.length) { this.play('blaster', 0.62, rnd(0.95, 1.06)); return; } // respaldo
+    if (!this.started) return;
+    const i = list[Math.floor(Math.random() * list.length)];
+    this.lastClon = i;
+    const h = this.clonClips[i].howl;
+    const sid = h.play();
+    h.volume(0.55, sid);
+    h.rate(rnd(0.97, 1.04), sid);
+    this.played[`clon-clip${i + 1}`] = (this.played[`clon-clip${i + 1}`] ?? 0) + 1;
+  }
   overheat() { this.play('overheat', 0.55); }
   ready() { this.play('ready', 0.35); }
   grenadeThrow() { this.play('whoosh', 0.5, rnd(0.95, 1.05)); }
