@@ -19,7 +19,7 @@ de [Mind Mulch for The Masses](https://sketchfab.com/mindmulchforthemasses), con
 Cambios hechos para el juego (herramienta `tools/convert-laat.mjs`): el modelo se coloca inclinado y hundido en la arena, el casco se corta junto al fuselaje
 para separar un ala (que queda tirada como cobertura), se simplifica (de ~19.000 a ~11.000 triángulos) y se reducen las texturas a la mitad.
 Los daños (hollín, humo, chispas y fuego) se simulan encima, sin modificar el modelo. Hay una versión de formas sencillas de respaldo si el archivo falta.
-Se muestra también en la pantalla de créditos del juego (menú → CRÉDITOS).
+Se muestra también en la pantalla de créditos del juego (menú → «Créditos y agradecimientos»).
 
 **Droide B2** (`public/models/b2.bin` y `public/models/b2-atlas.jpg`): este trabajo se basa en
 «[B2 Super battle droid](https://sketchfab.com/3d-models/b2-super-battle-droid-927b3ec911cc45c3ad15c458b3de4d50)»
