@@ -3,6 +3,7 @@ import type RAPIER from '@dimforge/rapier3d-compat';
 import { Builder } from './builder';
 import { Atmosphere } from './atmosphere';
 import { buildDroidWreck, WRECK_FIRES } from './wreck';
+import { GUNSHIP_FIRES } from './gunship';
 import { buildDefenseZone } from './defenseZone';
 import { buildRocks } from './rocks';
 import { buildSky, SUN_DIR } from './sky';
@@ -35,7 +36,7 @@ export class World {
     buildDefenseZone(b);
     buildDroidWreck(b);
     b.finish(scene);
-    this.atmosphere = new Atmosphere(scene, WRECK_FIRES);
+    this.atmosphere = new Atmosphere(scene, [...WRECK_FIRES, ...GUNSHIP_FIRES]);
     this.skyLife = new SkyLife(scene, hooks.skyFire);
   }
 

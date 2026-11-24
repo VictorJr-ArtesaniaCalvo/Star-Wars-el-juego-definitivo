@@ -1,5 +1,5 @@
-import * as THREE from 'three';
 import { Builder, place } from './builder';
+import { buildGunship } from './gunship';
 import { CRASH, crashField, makeRng, terrainHeight } from './terrain';
 
 // Zona a defender: centrada en (0,0). La nave se estrelló en el centro y dejó un cráter.
@@ -9,34 +9,10 @@ export const SPAWN = { x: -2.5, z: 3.2 };
 export const COVER_HEIGHT = 1.15;
 
 const WHITE = 0xd9d6cc;
-const RED = 0xa32b20;
 const GREY = 0x6d6b68;
 const DARK = 0x2b2b2e;
-const GLASS = 0x2f5548;
 const CRATE = 0x5d6b5a;
 const BARRICADE = 0x8a8f96;
-
-/** Cañonera de la República derribada (modelo provisional hecho con cajas). */
-function gunship(b: Builder) {
-  // Colocación general: de costado, ladeada y hundida en el fondo del cráter.
-  const root = place(CRASH.x, gy(CRASH.x, CRASH.z) + 0.15, CRASH.z, CRASH.yaw, -0.17, 0.03, new THREE.Vector3(1.15, 1.15, 1.15));
-  const part = (size: [number, number, number], x: number, y: number, z: number, color: number, rz = 0, ry = 0, solid = true, rx = 0) =>
-    b.addBox(size, root.clone().multiply(place(x, y, z, ry, rx, rz)), color, solid);
-
-  part([7.4, 2.3, 2.6], 0, 1.25, 0, WHITE); // cuerpo
-  part([3.2, 0.5, 2.68], 1.2, 2.05, 0, RED, 0, 0, false); // franja roja
-  part([3.4, 1.5, 2.66], -0.3, 1.1, 0, DARK, 0, 0, false); // hueco de la bodega
-  part([2.2, 1.5, 1.7], 4.7, 1.2, 0, WHITE); // morro
-  part([1.0, 0.5, 1.72], 5.0, 0.7, 0, RED, 0, 0, false);
-  part([1.3, 0.8, 1.1], 4.5, 2.25, 0, GLASS); // cabina
-  part([1.0, 0.7, 0.9], 3.2, 2.75, 0, GLASS); // cabina trasera
-  part([4.6, 0.8, 1.5], -1.3, 2.75, 0, GREY); // motores superiores
-  part([3.8, 0.7, 0.8], -5.4, 2.15, 0, WHITE, -0.14); // cola
-  part([1.3, 1.7, 0.2], -7.0, 3.0, 0, RED, -0.3); // deriva
-  part([2.3, 0.25, 5.4], -0.4, 1.35, -4.0, WHITE, 0, 0, true, -0.34); // ala entera: arrancada, apoyada en el suelo
-  part([2.3, 0.25, 1.3], -0.4, 2.55, 1.95, WHITE); // ala rota (muñón)
-  part([0.9, 0.9, 0.9], -0.4, 2.2, -6.2, GREY); // torreta del ala
-}
 
 /** Altura del suelo en un punto (el cráter y el relieve hacen que no sea plano). */
 const gy = (x: number, z: number) => terrainHeight(x, z);
@@ -86,7 +62,7 @@ function crashDebris(b: Builder) {
 }
 
 export function buildDefenseZone(b: Builder) {
-  gunship(b);
+  buildGunship(b);
   crashDebris(b);
   const H = COVER_HEIGHT;
 
@@ -94,9 +70,9 @@ export function buildDefenseZone(b: Builder) {
   b.addBox([3.2, 0.25, 1.8], place(10.4, gy(10.4, 1.6) + 0.55, 1.6, 0.5, 0.55, 0), WHITE);
 
   // Barricadas en los flancos (mirando al enemigo)
-  b.addBox([2.6, H, 0.45], place(-7.4, gy(-7.4, -2.4) + H / 2 - 0.1, -2.4, 0.28), BARRICADE);
-  b.addBox([2.6, H, 0.45], place(8.9, gy(8.9, -1.9) + H / 2 - 0.1, -1.9, -0.3), BARRICADE);
-  b.addBox([2.2, H, 0.45], place(-9.4, gy(-9.4, 0.6) + H / 2 - 0.1, 0.6, 1.15), BARRICADE);
+  b.addBox([2.6, H, 0.45], place(-8.8, gy(-8.8, -2.9) + H / 2 - 0.1, -2.9, 0.28), BARRICADE);
+  b.addBox([2.6, H, 0.45], place(9.8, gy(9.8, -2.2) + H / 2 - 0.1, -2.2, -0.3), BARRICADE);
+  b.addBox([2.2, H, 0.45], place(-10.2, gy(-10.2, 0.8) + H / 2 - 0.1, 0.8, 1.15), BARRICADE);
 
   // Cajas de suministros
   b.addBox([1.1, H, 1.1], place(-4.6, gy(-4.6, 0.7) + H / 2 - 0.1, 0.7, 0.2), CRATE);
