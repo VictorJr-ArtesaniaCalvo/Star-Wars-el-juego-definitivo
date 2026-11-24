@@ -19,6 +19,7 @@ export class Touch implements InputSource {
   private lastY = 0;
   private crouch = false;
   private jump = false;
+  private grenade = false;
   private firing = false;
   private firingHip = false;
   /** true cuando se ha tocado la pantalla hace poco (para saber qué control se está usando) */
@@ -32,6 +33,7 @@ export class Touch implements InputSource {
     const btnJump = root.querySelector<HTMLElement>('#btnJump')!;
     const btnHip = root.querySelector<HTMLElement>('#btnHip')!;
     const btnAim = root.querySelector<HTMLElement>('#btnAim')!;
+    const btnGrenade = root.querySelector<HTMLElement>('#btnGrenade')!;
 
     const joy = nipplejs.create({
       zone: joyZone,
@@ -111,6 +113,13 @@ export class Touch implements InputSource {
       this.used = true;
     }, opts);
 
+    btnGrenade.addEventListener('touchstart', (e) => {
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+      this.grenade = true;
+      this.used = true;
+    }, opts);
+
     // Evita zoom y menús del navegador mientras se juega.
     document.addEventListener('gesturestart', (e) => e.preventDefault());
     document.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -138,5 +147,6 @@ export class Touch implements InputSource {
   consumeAimToggle() { const v = this.aimToggle; this.aimToggle = false; return v; }
   consumeCrouch() { const v = this.crouch; this.crouch = false; return v; }
   consumeJump() { const v = this.jump; this.jump = false; return v; }
+  consumeGrenade() { const v = this.grenade; this.grenade = false; return v; }
   consumePause() { return false; }
 }

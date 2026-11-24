@@ -107,11 +107,23 @@ export class Effects {
   private enemyBolts: Bolt[] = [];
   private sparks: ParticlePool;
   private smoke: ParticlePool;
+  private blasts: Array<{ ball: THREE.Mesh; ring: THREE.Mesh; life: number; size: number }> = [];
 
   constructor(scene: THREE.Scene) {
     const dot = dotTexture();
     this.sparks = new ParticlePool(scene, 120, 0.22, [1, 0.62, 0.2], 9, 0.6, true, dot);
-    this.smoke = new ParticlePool(scene, 40, 2.4, [0.2, 0.17, 0.15], 0, 0.9, false, dot);
+    this.smoke = new ParticlePool(scene, 80, 2.8, [0.2, 0.17, 0.15], 0, 0.9, false, dot);
+    // Explosiones de granada: bola de fuego y onda expansiva (se reutilizan)
+    const ballGeo = new THREE.IcosahedronGeometry(1, 2);
+    const ringGeo = new THREE.RingGeometry(0.82, 1, 40);
+    ringGeo.rotateX(-Math.PI / 2);
+    for (let i = 0; i < 3; i++) {
+      const ball = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffd090, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
+      ball.visible = ring.visible = false;
+      scene.add(ball, ring);
+      this.blasts.push({ ball, ring, life: 0, size: 1 });
+    }
     const boltGeo = new THREE.BoxGeometry(0.045, 0.045, BOLT_LENGTH);
     boltGeo.translate(0, 0, BOLT_LENGTH / 2);
     const boltMat = new THREE.MeshBasicMaterial({ color: 0x66b8ff, fog: false });
@@ -183,6 +195,24 @@ export class Effects {
     this.flash(new THREE.Vector3(x, y, z), 0xffb060);
   }
 
+  /** Explosión de granada: bola de fuego, onda expansiva, chispas y mucho humo. `radius` = alcance real de la explosión. */
+  explosion(x: number, y: number, z: number, radius: number) {
+    const b = this.blasts.find((q) => q.life <= 0) ?? this.blasts[0];
+    b.life = 1;
+    b.size = radius;
+    b.ball.position.set(x, y + 0.3, z);
+    b.ring.position.set(x, y + 0.12, z);
+    b.ball.visible = b.ring.visible = true;
+    for (let i = 0; i < 46; i++) {
+      const a = Math.random() * Math.PI * 2, s = 3 + Math.random() * 9;
+      this.sparks.emit(x, y + 0.3, z, Math.cos(a) * s, 2 + Math.random() * 8, Math.sin(a) * s, 0.5 + Math.random() * 0.7);
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = Math.random() * Math.PI * 2, s = Math.random() * 2.2;
+      this.smoke.emit(x + (Math.random() - 0.5), y + 0.2 + Math.random() * 0.6, z + (Math.random() - 0.5), Math.cos(a) * s, 0.8 + Math.random() * 1.6, Math.sin(a) * s, 1.8 + Math.random() * 1.4);
+    }
+  }
+
   /** Una bocanada de humo oscuro que sube despacio. */
   smokePuff(x: number, y: number, z: number) {
     this.smoke.emit(x, y, z, (Math.random() - 0.5) * 0.7, 0.9 + Math.random() * 0.9, (Math.random() - 0.5) * 0.7, 1.5 + Math.random() * 0.8);
@@ -192,11 +222,23 @@ export class Effects {
   clear() {
     this.sparks.clear();
     this.smoke.clear();
+    for (const b of this.blasts) { b.life = 0; b.ball.visible = b.ring.visible = false; }
     for (const b of [...this.bolts, ...this.enemyBolts]) { b.active = false; b.mesh.visible = false; }
     for (const f of this.flashes) { f.active = false; f.mesh.visible = false; }
   }
 
   update(dt: number) {
+    for (const b of this.blasts) {
+      if (b.life <= 0) continue;
+      b.life -= dt * 3.4;
+      if (b.life <= 0) { b.ball.visible = b.ring.visible = false; continue; }
+      const k = 1 - b.life; // 0 → 1
+      b.ball.scale.setScalar(b.size * 0.12 + b.size * 0.3 * Math.sqrt(k));
+      b.ball.scale.y *= 0.85;
+      (b.ball.material as THREE.MeshBasicMaterial).opacity = Math.min(1, b.life * 1.3) * 0.5;
+      b.ring.scale.setScalar(Math.max(0.2, b.size * Math.sqrt(k)));
+      (b.ring.material as THREE.MeshBasicMaterial).opacity = b.life * 0.7;
+    }
     this.sparks.update(dt);
     this.smoke.update(dt);
     for (const b of this.enemyBolts) {

@@ -36,6 +36,8 @@ export class Hud {
   private pips = Array.from(document.querySelectorAll<HTMLElement>('#pips i'));
   private healPopEl = $('healPop');
   private btnAim = $('btnAim');
+  private btnGrenade = $('btnGrenade');
+  private grenadeDots = Array.from(document.querySelectorAll<HTMLElement>('#grenades i'));
   private adsKey = -1;
   private fps = $('fps');
   private frames = 0;
@@ -57,6 +59,12 @@ export class Hud {
     this.adsKey = key;
     this.btnAim.classList.toggle('on', toggled);
     this.root.classList.toggle('ads', active);
+  }
+
+  /** Granadas que te quedan. */
+  setGrenades(n: number) {
+    this.grenadeDots.forEach((d, i) => d.classList.toggle('spent', i >= n));
+    this.btnGrenade.classList.toggle('empty', n <= 0);
   }
 
   setHeading(yaw: number, markers: CompassMarker[] = []) {

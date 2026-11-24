@@ -11,6 +11,7 @@ import { WaveManager } from '../waves/WaveManager';
 import { SPAWN } from '../world/defenseZone';
 import { terrainHeight } from '../world/terrain';
 import { Blaster, BLASTER } from '../weapons/Blaster';
+import { GRENADE, GrenadeSystem } from '../weapons/Grenade';
 import { Effects } from '../weapons/Effects';
 import { ViewModel } from '../weapons/ViewModel';
 import { World } from '../world/World';
@@ -53,6 +54,9 @@ export class Game {
   private adsToggled = false;
   private ads = false;
   private adsZoom = 0;
+  private grenadeSys!: GrenadeSystem;
+  private grenadeCd = 0;
+  private shake = 0;
   private killsSinceHeal = 0;
   private jumpBuffer = 0;
   private shots = 0;
@@ -104,10 +108,11 @@ export class Game {
     this.physics.timestep = TICK;
     this.world = new World(this.scene, RAPIER, this.physics);
 
-    this.state.players.push({ id: 0, x: SPAWN.x, y: 0, z: SPAWN.z, yaw: 0, pitch: 0, crouching: false, health: 100 });
+    this.state.players.push({ id: 0, x: SPAWN.x, y: 0, z: SPAWN.z, yaw: 0, pitch: 0, crouching: false, health: 100, grenades: GRENADE.perGame });
     this.localPlayer = new PlayerController(RAPIER, this.physics, this.state.players[0]);
     this.effects = new Effects(this.scene);
     const pl = this.localPlayer;
+    this.grenadeSys = new GrenadeSystem(this.scene, this.physics, pl.body, (at) => this.explodeGrenade(at));
     this.enemies = new EnemyManager(this.scene, RAPIER, this.physics, this.state, {
       effects: this.effects,
       player: () => pl.state,
@@ -167,6 +172,11 @@ export class Game {
     this.wantCrouch = false;
     this.blaster = new Blaster();
     this.state.kills = 0;
+    p.grenades = GRENADE.perGame;
+    this.grenadeSys.clear();
+    this.grenadeCd = 0;
+    this.shake = 0;
+    this.hud.setGrenades(p.grenades);
     this.adsToggled = false;
     this.ads = false;
     this.adsZoom = 0;
@@ -188,6 +198,7 @@ export class Game {
     this.waves.stop();
     this.enemies.clear();
     this.effects.clear();
+    this.grenadeSys.clear();
     this.hud.hideBanner();
     this.hud.setVisible(false, false);
     this.gameOver.hide();
@@ -221,6 +232,56 @@ export class Game {
       out.push({ bearing, dist });
     }
     return out;
+  }
+
+  /** Lanza una granada hacia donde miras (si te quedan y no acabas de lanzar otra). */
+  private throwGrenade() {
+    const p = this.state.players[0];
+    if (this.mode !== 'playing' || p.grenades <= 0 || this.grenadeCd > 0) return;
+    p.grenades--;
+    this.grenadeCd = GRENADE.cooldown;
+    this.hud.setGrenades(p.grenades);
+    const eye = this.eyePos(this.v1);
+    const cp = Math.cos(this.pitch);
+    const dir = this.v2.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
+    this.grenadeSys.throwFrom(eye, dir);
+  }
+
+  /** Explosión de área: daño a los droides (y a ti si estás cerca), menos si hay rocas o muros por medio. */
+  private explodeGrenade(at: THREE.Vector3) {
+    const R = GRENADE.radius;
+    const origin = new THREE.Vector3(at.x, at.y + 0.25, at.z);
+    // Solo cuentan las rocas y el terreno como pantalla (los droides no tapan la onda).
+    const covered = (to: THREE.Vector3, dist: number) => {
+      const dir = to.clone().sub(origin).normalize();
+      const hit = this.physics.castRay(new RAPIER.Ray(origin, dir), dist, true, undefined, undefined, undefined, this.localPlayer.body, (c) => !this.enemies.find(c.handle));
+      return !!hit && hit.timeOfImpact < dist - 0.35;
+    };
+    const falloff = (d: number) => Math.max(0, 1 - d / R);
+
+    for (const d of this.enemies.droids) {
+      if (!d.state.alive) continue;
+      const chest = d.aimPoint(new THREE.Vector3());
+      const dist = chest.distanceTo(origin);
+      if (dist >= R) continue;
+      let dmg = GRENADE.maxDamage * falloff(dist);
+      if (dist > 1 && covered(chest, dist)) dmg *= 0.4;
+      if (dmg < 1) continue;
+      const killed = d.hit(dmg, this.enemies.context);
+      this.hud.hit(killed);
+      if (killed) this.registerKill();
+    }
+
+    const p = this.localPlayer.state;
+    const body = new THREE.Vector3(p.x, p.y + (p.crouching ? 0.6 : 1.2), p.z);
+    const dp = body.distanceTo(origin);
+    if (dp < R) {
+      let dmg = GRENADE.selfDamage * falloff(dp);
+      if (dp > 1 && covered(body, dp)) dmg *= 0.4;
+      if (dmg >= 1) this.damagePlayer(dmg, at.x, at.z);
+    }
+    this.shake = Math.max(this.shake, Math.min(1, 1.2 - dp / 28));
+    this.effects.explosion(at.x, at.y, at.z, R);
   }
 
   /** Una baja más. Cada 3 bajas te curas 10 puntos de vida. */
@@ -296,6 +357,9 @@ export class Game {
       this.yaw -= inp.yaw;
       this.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.pitch - inp.pitch));
       if (inp.crouchPressed) this.wantCrouch = !this.wantCrouch;
+      if (inp.grenadePressed) this.throwGrenade();
+      this.grenadeCd = Math.max(0, this.grenadeCd - dt);
+      this.shake = Math.max(0, this.shake - dt * 2.6);
       // Saltar: si estás agachado, primero te levantas.
       if (inp.jumpPressed) { if (this.wantCrouch) this.wantCrouch = false; else this.jumpBuffer = 0.14; }
       this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
@@ -307,6 +371,7 @@ export class Game {
         this.localPlayer.step(cmd, TICK);
         if (this.localPlayer.didJump) { this.localPlayer.didJump = false; this.jumpBuffer = 0; cmd.jump = false; }
         this.enemies.update(TICK);
+        this.grenadeSys.update(TICK);
         this.physics.step();
         if (this.blaster.update(TICK, cmd.fire)) this.shoot();
         this.waves.update(TICK);
@@ -344,6 +409,12 @@ export class Game {
     const target = p.crouching ? EYE_CROUCH : EYE_STAND;
     this.eye += (target - this.eye) * Math.min(1, dt * 12);
     this.camera.position.set(p.x, p.y + this.eye, p.z);
+    if (this.shake > 0.001) {
+      const k = this.shake * this.shake * 0.35;
+      this.camera.position.x += (Math.random() - 0.5) * k;
+      this.camera.position.y += (Math.random() - 0.5) * k;
+      this.camera.position.z += (Math.random() - 0.5) * k;
+    }
     this.camera.rotation.set(this.pitch, this.yaw, 0);
     this.world.follow(this.camera.position);
   }
@@ -489,6 +560,7 @@ export class Game {
       this.localPlayer.step(cmd, TICK);
       this.enemies.update(TICK);
       this.physics.step();
+      this.grenadeSys.update(TICK);
       this.waves.update(TICK);
       this.effects.update(TICK);
     }
@@ -502,6 +574,6 @@ export class Game {
 
   /** Solo para pruebas automáticas. */
   debug() {
-    return { ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
+    return { grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
   }
 }

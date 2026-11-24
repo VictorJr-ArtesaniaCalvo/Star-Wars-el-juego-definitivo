@@ -15,5 +15,6 @@ export interface InputSource {
   consumeAimToggle(): boolean;
   consumeCrouch(): boolean;
   consumeJump(): boolean;
+  consumeGrenade(): boolean;
   consumePause(): boolean;
 }

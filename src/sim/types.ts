@@ -10,6 +10,7 @@ export interface PlayerState {
   pitch: number; // hacia dónde mira (arriba/abajo)
   crouching: boolean;
   health: number;
+  grenades: number;
 }
 
 // Lo que un jugador "pide" hacer en cada instante, venga de táctil, mando o teclado.

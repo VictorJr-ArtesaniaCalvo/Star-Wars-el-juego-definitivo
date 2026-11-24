@@ -68,6 +68,14 @@ html, body {
 }
 #btnHip svg { width: 22px; height: 22px; fill: rgba(255,255,255,.65); }
 #btnHip.on { background: rgba(255,170,90,.34); color: rgba(255,255,255,.95); }
+#btnGrenade {
+  width: 62px; height: 62px; font-size: 8px;
+  right: calc(102px + env(safe-area-inset-right));
+  bottom: calc(256px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+#btnGrenade svg { width: 22px; height: 22px; fill: rgba(190,225,150,.7); }
+#btnGrenade.empty { opacity: .35; }
 #btnCrouch {
   font-size: 9px;
   right: calc(160px + env(safe-area-inset-right));
@@ -165,6 +173,10 @@ button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 #pips { display: flex; gap: 6px; margin-top: 7px; }
 #pips i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(140,210,255,.65); background: transparent; transition: background .15s; }
 #pips i.on { background: rgba(110,200,255,.85); }
+#grenades { display: flex; align-items: center; gap: 5px; margin-top: 7px; }
+#grenades b { font-size: 9px; letter-spacing: 2px; font-weight: 700; margin-right: 3px; color: rgba(210,235,200,.85); text-shadow: 0 0 2px #000; }
+#grenades i { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(190,225,150,.7); background: rgba(150,200,110,.9); transition: background .15s; }
+#grenades i.spent { background: transparent; }
 #healPop { position: absolute; left: 4px; top: 40px; font-size: 14px; font-weight: 800; letter-spacing: 1px; color: #8fffa6; text-shadow: 0 0 3px #000; opacity: 0; }
 #healPop.go { animation: healUp 1.3s ease-out; }
 @keyframes healUp { 0% { opacity: 0; transform: translateY(8px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }

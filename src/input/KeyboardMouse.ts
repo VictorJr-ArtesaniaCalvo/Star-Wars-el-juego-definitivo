@@ -7,6 +7,7 @@ export class KeyboardMouse implements InputSource {
   private dy = 0;
   private crouch = false;
   private jump = false;
+  private grenade = false;
   private pause = false;
   private lockedAt = 0;
   private mouseDown = false;
@@ -20,6 +21,7 @@ export class KeyboardMouse implements InputSource {
       if (e.code === 'KeyC' || e.code === 'ShiftLeft') this.crouch = true;
       if (e.code === 'Space') { this.jump = true; e.preventDefault(); }
       if (e.code === 'KeyQ') this.aimToggle = true;
+      if (e.code === 'KeyG') this.grenade = true;
       if (e.code === 'KeyP' || e.code === 'Escape') this.pause = true;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -71,5 +73,6 @@ export class KeyboardMouse implements InputSource {
   consumeAimToggle() { const v = this.aimToggle; this.aimToggle = false; return v; }
   consumeCrouch() { const v = this.crouch; this.crouch = false; return v; }
   consumeJump() { const v = this.jump; this.jump = false; return v; }
+  consumeGrenade() { const v = this.grenade; this.grenade = false; return v; }
   consumePause() { const v = this.pause; this.pause = false; return v; }
 }

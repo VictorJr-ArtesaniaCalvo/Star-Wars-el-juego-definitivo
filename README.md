@@ -10,7 +10,7 @@ Proyecto personal y experimental.
 - **Fase 3 (hecha):** oleadas de droides B1 que avanzan usando las rocas como cobertura y disparan; vida, ronda, fin de partida y menú oculto de pruebas.
 - Escenario: cañón de 80 m de ancho con paredes en terrazas, nave estrellada en un cráter y droides que llegan por los dos extremos.
 - Extras: salto, brújula azul, indicador de daño direccional, chispas y humo al destruir droides, y curación (+10 de vida cada 3 bajas, +30 al superar una ronda).
-- Fase 4: granadas. · Fase 5: más enemigos. · Fase 6: mejoras visuales y sonido.
+- **Fase 4 (hecha):** 4 granadas por partida, con explosión de área. · Fase 5: más enemigos. · Fase 6: mejoras visuales y sonido.
 
 ## Controles
 
@@ -19,6 +19,8 @@ Proyecto personal y experimental.
 | Táctil | Joystick | Deslizar (también con el dedo sobre DISPARAR) | Botón DISPARAR (derecha) | Botón CADERA (izquierda, sobre el joystick) | Botón APUNTAR (alterna) | Botón | Botón | Botón II |
 | Mando | Stick izquierdo | Stick derecho | RT / R2 | RB / R1 | LT / L2 (mantener) | A / Cruz | B / Círculo | Options / Menu |
 | Teclado | WASD | Ratón o flechas | F | Clic izquierdo | Clic derecho (mantener) o Q (alterna) | Espacio | C | P |
+
+**Granada:** botón GRANADA (táctil, arriba a la derecha), LB / L1 (mando) o G (teclado). Se lanza hacia donde miras (mira más arriba para llegar más lejos), rebota y explota a los 2,4 s. Radio de 7 m: destruye a un B1 a menos de unos 3,5 m y lo daña hasta los 7 m; las rocas y muros por medio reducen el daño. Si estás cerca, también te hiere.
 
 **Apuntar:** acerca la vista, afina la puntería y baja la velocidad. El disparo principal apunta mientras se mantiene pulsado;
 el de cadera dispara sin acercar la vista (con el disparo más abierto), salvo que ya estés apuntando.
