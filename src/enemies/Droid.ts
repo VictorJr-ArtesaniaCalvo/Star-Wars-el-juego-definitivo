@@ -3,7 +3,8 @@ import type RAPIER from '@dimforge/rapier3d-compat';
 import type { EnemyKind, EnemyState } from '../sim/types';
 import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from '../world/terrain';
 import { createB1, poseB1, type B1Bones } from './B1Rig';
-import { b2Geometry, droidekaBallGeometry, droidekaDeployedGeometry } from './Models';
+import { b2Geometry } from './Models';
+import { createDroideka, poseDroideka, type DekaBones } from './DroidekaRig';
 import { DroidBrain, type BrainContext, type BrainParams } from './DroidBrain';
 
 const CORPSE_TIME = 2.2;
@@ -12,8 +13,9 @@ const CORPSE_TIME = 2.2;
 export const KINDS: Record<EnemyKind, { height: number; radius: number; chest: number; health: number; shield: number }> = {
   b1: { height: 1.9, radius: 0.28, chest: 1.25, health: 60, shield: 0 },
   b2: { height: 2.35, radius: 0.42, chest: 1.8, health: 180, shield: 0 },
-  droideka: { height: 1.4, radius: 0.45, chest: 0.85, health: 100, shield: 150 },
+  droideka: { height: 1.4, radius: 0.45, chest: 1.0, health: 100, shield: 150 },
 };
+const DEKA_ANIM = 0.8; // segundos que tarda el droideka en desplegarse (y en plegarse)
 const UNFOLD_TIME = 2.4; // segundos que tarda un B1 en desplegarse al aparecer
 const SHIELD_REGEN_DELAY = 4; // segundos sin recibir disparos antes de que el escudo se regenere
 const SHIELD_REGEN_RATE = 45; // puntos de escudo por segundo
@@ -33,10 +35,11 @@ export class Droid {
   private shieldMesh: THREE.Mesh | null = null;
   private shieldFlash = 0;
   private shieldDelay = 0;
-  private ball = false;
   private roll = 0;
   private height: number;
   private rig: B1Bones | null = null;
+  private dekaRig: DekaBones | null = null;
+  private deploy = 0; // 0 = rueda, 1 = desplegado
   private unfold = 1;
   private walkBlend = 0;
   private flash = 0;
@@ -59,8 +62,12 @@ export class Droid {
       const rig = createB1(this.mat);
       this.group = rig.mesh;
       this.rig = rig.bones;
+    } else if (this.kind === 'droideka') {
+      const r = createDroideka(this.mat);
+      this.group = r.mesh;
+      this.dekaRig = r.bones;
     } else {
-      this.group = new THREE.Mesh(this.kind === 'b2' ? b2Geometry() : droidekaDeployedGeometry(), this.mat);
+      this.group = new THREE.Mesh(b2Geometry(), this.mat);
     }
     this.group.rotation.order = 'YXZ'; // primero el giro hacia donde mira y luego el balanceo o la rodadura
     this.group.castShadow = true;
@@ -75,10 +82,15 @@ export class Droid {
         new THREE.SphereGeometry(1.0, 14, 10),
         new THREE.MeshBasicMaterial({ color: 0x3aa8ff, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide, fog: false }),
       );
-      this.shieldMesh.position.y = 0.72;
+      this.shieldMesh.position.y = 0.95;
       this.shieldMesh.visible = false;
       this.group.add(this.shieldMesh);
     }
+  }
+
+  /** Solo para pruebas: aplica la postura actual del droideka. */
+  poseNow() {
+    if (this.dekaRig) poseDroideka(this.dekaRig, this.deploy, this.roll, this.t);
   }
 
   /** Solo para pruebas: coloca al B1 en un punto del despliegue (0 = plegado, 1 = en combate). */
@@ -105,8 +117,9 @@ export class Droid {
     this.shieldFlash = 0;
     this.shieldDelay = 0;
     this.roll = 0;
-    this.ball = this.kind === 'droideka';
-    if (this.kind === 'droideka') this.group.geometry = droidekaBallGeometry();
+    this.deploy = 0;
+    this.roll = 0;
+    if (this.dekaRig) poseDroideka(this.dekaRig, 0, 0);
     if (this.rig) {
       // Los B1 aparecen agachados y plegados y se van desplegando (se ve desde lejos)
       this.unfold = 0;
@@ -211,6 +224,12 @@ export class Droid {
       return;
     }
     this.brain.think(dt, s.x, s.y, s.z, ctx, this.out);
+    if (this.dekaRig) {
+      // Se despliega al pararse y se pliega (la misma animación al revés) antes de volver a rodar.
+      const open = !this.brain.moving;
+      this.deploy = Math.min(1, Math.max(0, this.deploy + (open ? 1 : -1) * dt / DEKA_ANIM));
+      if (this.brain.moving && this.deploy > 0.02) { this.out.dx = 0; this.out.dz = 0; } // plegando: aún no rueda
+    }
 
     if (this.out.dx !== 0 || this.out.dz !== 0) {
       // El cuerpo sólido ajusta el movimiento para no atravesar rocas, muros ni a otros droides.
@@ -223,7 +242,7 @@ export class Droid {
       s.y = terrainHeight(s.x, s.z);
       this.syncBody();
       this.t += dt * (Math.hypot(m.x, m.z) / Math.max(dt, 1e-4)) * 2.2;
-      this.roll += Math.hypot(m.x, m.z) / 0.5; // la bola gira al rodar
+      if (this.dekaRig) this.roll += Math.hypot(m.x, m.z) / 0.5; // la rueda gira al rodar
     }
 
     s.yaw = this.brain.yaw;
@@ -233,17 +252,9 @@ export class Droid {
       this.walkBlend += ((this.brain.moving ? 1 : 0) - this.walkBlend) * Math.min(1, dt * 8);
       poseB1(this.rig, 1, this.walkBlend, this.t);
       this.group.rotation.z = 0;
-    } else if (this.kind === 'droideka') {
-      // Rodando es una bola que gira; al pararse se despliega.
-      const wantBall = !this.brain.deployed;
-      if (wantBall !== this.ball) {
-        this.ball = wantBall;
-        this.group.geometry = wantBall ? droidekaBallGeometry() : droidekaDeployedGeometry();
-      }
-      // La bola gira sobre su centro (a 0,5 m del suelo) hacia donde avanza
-      this.group.rotation.x = wantBall ? -this.roll : 0;
+    } else if (this.dekaRig) {
+      poseDroideka(this.dekaRig, this.deploy, this.roll, this.t);
       this.group.rotation.z = 0;
-      if (wantBall) this.group.position.y = s.y + 0.5;
     } else {
       // Balanceo al andar.
       this.group.rotation.z = this.brain.moving ? Math.sin(this.t) * 0.045 : 0;
