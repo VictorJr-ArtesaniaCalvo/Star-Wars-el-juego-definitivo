@@ -3,11 +3,12 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { parseModelFile, type ModelBone } from './ModelFile';
 
 // El modelo 3D real (public/models/droideka.bin) viene del glTF de PokCat (CC-BY 4.0, ver CRÉDITOS.md) y se genera con tools/convert-droideka.mjs:
-// una sola pieza dibujable con los mismos 12 huesos de siempre, en postura desplegada. La postura de rueda (patas plegadas en aro) se calcula
-// al cargar a partir de las medidas de las patas. Si el archivo no se pudiera cargar, se usa el droideka de formas sencillas de abajo.
+// una sola pieza dibujable con los mismos 12 huesos de siempre, en postura desplegada. La postura de rueda (capucha detrás y arriba, patas en arco
+// por delante, columna y brazos recogidos dentro, según las fotos de referencia) se calcula al cargar (más abajo, `ROLL`).
+// Si el archivo no se pudiera cargar, se usa el droideka de formas sencillas de abajo.
 
 // Droideka con esqueleto, según las referencias:
-//  - Rodando es una esfera de coraza bronce con las tres patas plegadas formando un aro alrededor.
+//  - Rodando es una esfera de coraza bronce con las tres patas plegadas formando un aro alrededor (este es el droideka de respaldo, sin modelo).
 //  - Al desplegarse: la mitad inferior de la esfera queda como «cuenco» pélvico (más pequeño), de él sube una columna
 //    con costillas, la mitad superior se levanta y se coloca detrás como una capucha curvada, salen tres patas largas
 //    (rodilla alta y hacia fuera, luego bajan en vertical hasta una garra) y dos brazos con cañones dobles.
@@ -28,7 +29,7 @@ export interface DekaBones {
 }
 
 interface Xform { p: THREE.Vector3; q: THREE.Quaternion; s: THREE.Vector3 }
-interface RealData { list: THREE.Bone[]; rest: Xform[]; folded: Xform[]; restRollY: number; ringR: number; center: THREE.Vector3 }
+interface RealData { list: THREE.Bone[]; rest: Xform[]; folded: Xform[]; restRollY: number; ringR: number; center: THREE.Vector3; lift?: number[] }
 interface RealModel { bones: ModelBone[]; lods: THREE.BufferGeometry[]; legs: Array<{ hip: number[]; knee: number[]; foot: number[] }> }
 let real: RealModel | null = null;
 const DEKA_BRIGHT = 1.0;
@@ -205,49 +206,71 @@ const basisQ = (t: THREE.Vector3, o: THREE.Vector3) => {
   return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
 };
 
-// Postura de la bola (rueda). Cada hueso va respecto a su padre; el centro de la bola es el hueso `roll`.
-//  · Las tres patas se pliegan formando un aro alrededor de la bola (muslo y pierna son lados del aro).
-//  · El cuenco central crece hasta ser la bola; la columna se aplasta dentro; la capucha se cierra sobre la bola; los brazos se esconden.
-const BALL = { pelvisScale: 2.1, hoodScale: 0.7, hoodTilt: -Math.PI / 4 }; // la capucha (arco de 190° con el centro hacia arriba y atrás) se gira para cubrir la parte de arriba
+// Postura de la bola (rueda), según las fotos de referencia (figura de Hot Toys): el centro de la rueda es el hueso `roll`.
+//  · La capucha queda como está (un arco de unos 200° abierto hacia delante): es el borde de la rueda por detrás y por arriba.
+//  · La bola de abajo (cuenco) queda en el fondo, con su tamaño real. La columna y los brazos se encogen y se recogen dentro, apuntando los cañones al frente.
+//  · Las patas se pliegan en arco por el borde: las dos delanteras suben por el frente a cada lado y la trasera se esconde por detrás, dentro de la capucha.
+// Medidas en metros respecto al centro de la rueda (−Z = delante, +Y = arriba). Se pueden cambiar en caliente con `refoldDeka` (solo para pruebas).
+export const ROLL = {
+  ring: 0.62, // radio de la rueda = altura del centro sobre el suelo
+  legR: 0.48, // radio del arco que forman las patas
+  legX: [0, -0.3, 0.3], // a qué lado va cada pata (0 = trasera, 1 = delantera izquierda, 2 = delantera derecha)
+  legStart: [188, 172, 172], // dónde empieza cada pata, en grados desde arriba (0 = arriba, 180 = abajo, 270 = delante)
+  pelvis: [0, -0.4, 0.0],
+  hood: [0, 0, 0],
+  hoodRx: 0.4, // giro de la capucha hacia atrás (rad)
+  hoodS: 0.9,
+  column: { p: [0, -0.36, 0.14], rx: 0.2, s: [0.9, 0.85, 0.55] }, // s: ancho, alto, fondo
+  arm: { p: [0.14, 0.28, 0.02], rx: 0, ry: 0.05, s: [0.45, 0.6, 0.42] }, // s: ancho, alto, largo
+};
+type RollTuning = typeof ROLL;
 
-function buildFolded(m: RealModel, rest: Xform[]): { folded: Xform[]; ringR: number } {
-  const piv = m.bones.map((b) => V(b.pivot));
-  const C = piv[0];
+function buildFolded(m: RealModel, rest: Xform[], T: RollTuning = ROLL): { folded: Xform[]; ringR: number } {
   const folded: Xform[] = rest.map((r) => ({ p: r.p.clone(), q: r.q.clone(), s: r.s.clone() }));
-  // lados del aro: muslo (cadera→rodilla) y pierna (rodilla→pie); el aro se cierra con 3 patas de 120° cada una
+  // lados del arco: muslo (cadera→rodilla) y pierna (rodilla→pie), medidos en el modelo
   const a = (m.legs.reduce((n, l) => n + V(l.hip).distanceTo(V(l.knee)), 0)) / 3;
   const bl = (m.legs.reduce((n, l) => n + V(l.knee).distanceTo(V(l.foot)), 0)) / 3;
-  const span = (R: number) => 2 * Math.asin(Math.min(1, a / (2 * R))) + 2 * Math.asin(Math.min(1, bl / (2 * R)));
-  let lo = Math.max(a, bl) / 2 + 1e-4, hi = 5;
-  for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2; if (span(mid) > (2 * Math.PI) / 3) lo = mid; else hi = mid; }
-  const R = (lo + hi) / 2;
+  const R = T.legR;
   const dA = 2 * Math.asin(Math.min(1, a / (2 * R))), dB = 2 * Math.asin(Math.min(1, bl / (2 * R)));
-  const k = (2 * Math.PI) / 3 / (dA + dB);
-  const P = (th: number) => new THREE.Vector3(0, R * Math.cos(th), R * Math.sin(th));
+  const P = (th: number, x: number) => new THREE.Vector3(x, R * Math.cos(th), R * Math.sin(th));
+  const radial = (th: number) => new THREE.Vector3(0, Math.cos(th), Math.sin(th));
   for (let i = 0; i < 3; i++) {
     const hip = V(m.legs[i].hip), knee = V(m.legs[i].knee), foot = V(m.legs[i].foot);
-    const th0 = (i * 2 * Math.PI) / 3 + Math.PI / 6;
-    const p0 = P(th0), p1 = P(th0 + dA * k), p2 = P(th0 + (dA + dB) * k);
+    const dir = i === 0 ? -1 : 1; // la pata trasera se curva hacia atrás, las delanteras hacia delante
+    const th0 = (T.legStart[i] * Math.PI) / 180, th1 = th0 + dir * dA, th2 = th1 + dir * dB;
+    const x = T.legX[i];
+    const p0 = P(th0, x), p1 = P(th1, x), p2 = P(th2, x);
     // posición de reposo respecto al centro (para orientar «hacia fuera» en reposo)
     const out = new THREE.Vector3(knee.x, 0, knee.z).normalize();
     const tRest = knee.clone().sub(hip), sRest = foot.clone().sub(knee);
     const qThighRest = basisQ(tRest, out), qShinRest = basisQ(sRest, out);
-    const rad = (u: THREE.Vector3, v: THREE.Vector3) => u.clone().add(v).multiplyScalar(0.5).normalize();
-    const qThigh = basisQ(p1.clone().sub(p0), rad(p0, p1)).multiply(qThighRest.clone().invert());
-    const qShinW = basisQ(p2.clone().sub(p1), rad(p1, p2)).multiply(qShinRest.clone().invert());
+    const qThigh = basisQ(p1.clone().sub(p0), radial((th0 + th1) / 2)).multiply(qThighRest.clone().invert());
+    const qShinW = basisQ(p2.clone().sub(p1), radial((th1 + th2) / 2)).multiply(qShinRest.clone().invert());
     const hipI = 6 + 2 * i, kneeI = 7 + 2 * i;
     folded[hipI] = { p: p0, q: qThigh, s: ONE() };
     const qInv = qThigh.clone().invert();
     folded[kneeI] = { p: p1.clone().sub(p0).applyQuaternion(qInv), q: qInv.clone().multiply(qShinW), s: ONE() };
   }
-  const o = new THREE.Vector3();
-  folded[1] = { p: o.clone(), q: new THREE.Quaternion(), s: new THREE.Vector3().setScalar(BALL.pelvisScale) }; // cuenco = bola
-  folded[3] = { p: o.clone(), q: new THREE.Quaternion(), s: new THREE.Vector3().setScalar(0.03) }; // columna recogida dentro de la bola
-  folded[2] = { p: o.clone(), q: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), BALL.hoodTilt), s: new THREE.Vector3().setScalar(BALL.hoodScale) }; // capucha
-  folded[4] = { p: o.clone(), q: new THREE.Quaternion(), s: new THREE.Vector3().setScalar(0.03) }; // brazos escondidos
-  folded[5] = { p: o.clone(), q: new THREE.Quaternion(), s: new THREE.Vector3().setScalar(0.03) };
-  void C;
-  return { folded, ringR: R };
+  const v3 = (u: number[]) => new THREE.Vector3(u[0], u[1], u[2]);
+  const rot = (rx: number, ry: number) => new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, 0, 'YXZ'));
+  folded[1] = { p: v3(T.pelvis), q: new THREE.Quaternion(), s: ONE() }; // cuenco: la bola del fondo
+  folded[2] = { p: v3(T.hood), q: rot(T.hoodRx, 0), s: new THREE.Vector3().setScalar(T.hoodS) }; // capucha: el borde de la rueda por detrás y por arriba
+  folded[3] = { p: v3(T.column.p), q: rot(T.column.rx, 0), s: v3(T.column.s) }; // columna encogida
+  for (const [i, sx] of [[4, -1], [5, 1]] as const) {
+    folded[i] = { p: new THREE.Vector3(T.arm.p[0] * sx, T.arm.p[1], T.arm.p[2]), q: rot(T.arm.rx, -T.arm.ry * sx), s: v3(T.arm.s) };
+  }
+  return { folded, ringR: T.ring };
+}
+
+/** Solo para pruebas: cambia las medidas de la postura de bola y la vuelve a calcular. */
+export function refoldDeka(b: DekaBones, patch: Partial<RollTuning>) {
+  if (!b.real || !real) return;
+  Object.assign(ROLL, patch);
+  const { folded, ringR } = buildFolded(real, b.real.rest);
+  b.real.folded = folded; b.real.ringR = ringR;
+  b.real.lift = undefined; liftCache = null;
+  const mesh = b.roll.parent as THREE.SkinnedMesh;
+  b.real.lift = liftCache = computeLift(mesh, b, b.lods![1]);
 }
 
 function createReal(material: THREE.Material): { mesh: THREE.SkinnedMesh; bones: DekaBones } {
@@ -270,7 +293,29 @@ function createReal(material: THREE.Material): { mesh: THREE.SkinnedMesh; bones:
     hips: [list[6], list[8], list[10]], knees: [list[7], list[9], list[11]], real: data, lods: m.lods,
   };
   void DEKA_BRIGHT;
+  data.lift = liftCache ?? (liftCache = computeLift(mesh, bones, m.lods[1]));
   return { mesh, bones };
+}
+
+// Mientras se pliega o se despliega, las patas pasan por posturas intermedias que podrían hundirse en el suelo.
+// Al cargar se mide, para cada punto del despliegue, cuánto hay que subir al droide para que nada atraviese el suelo.
+const LIFT_STEPS = 20;
+let liftCache: number[] | null = null;
+function computeLift(mesh: THREE.SkinnedMesh, b: DekaBones, geo: THREE.BufferGeometry): number[] {
+  const keep = mesh.geometry;
+  mesh.geometry = geo; // el nivel de detalle lejano basta para medir
+  const v = new THREE.Vector3(), out: number[] = [];
+  b.real!.lift = undefined;
+  for (let k = 0; k <= LIFT_STEPS; k++) {
+    poseReal(b, k / LIFT_STEPS, 0);
+    mesh.updateMatrixWorld(true);
+    mesh.skeleton.update();
+    let minY = Infinity;
+    for (let i = 0, n = geo.attributes.position.count; i < n; i++) { mesh.getVertexPosition(i, v); v.applyMatrix4(mesh.matrixWorld); if (v.y < minY) minY = v.y; }
+    out.push(Math.max(0, -minY));
+  }
+  mesh.geometry = keep;
+  return out;
 }
 
 function poseReal(b: DekaBones, deploy: number, roll: number) {
@@ -285,6 +330,8 @@ function poseReal(b: DekaBones, deploy: number, roll: number) {
     bone.scale.lerpVectors(f.s, t.s, u[i]);
   }
   // el centro de la bola baja o sube hasta apoyar el aro en el suelo; la rueda gira y se detiene al desplegarse
-  r.list[0].position.set(r.center.x, lerp(r.ringR, r.restRollY, legs), r.center.z);
+  let lift = 0;
+  if (r.lift) { const f = Math.min(1, Math.max(0, deploy)) * LIFT_STEPS, i = Math.min(LIFT_STEPS - 1, Math.floor(f)); lift = lerp(r.lift[i], r.lift[i + 1], f - i); }
+  r.list[0].position.set(r.center.x, lerp(r.ringR, r.restRollY, legs) + lift, r.center.z);
   r.list[0].rotation.x = -wrapPi(roll) * (1 - settle);
 }

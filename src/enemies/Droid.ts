@@ -4,7 +4,7 @@ import type { EnemyKind, EnemyState } from '../sim/types';
 import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from '../world/terrain';
 import { createB1, poseB1, type B1Bones } from './B1Rig';
 import { createB2, poseB2, type B2Bones } from './B2Rig';
-import { createDroideka, poseDroideka, type DekaBones } from './DroidekaRig';
+import { createDroideka, poseDroideka, refoldDeka, type DekaBones } from './DroidekaRig';
 import { DroidBrain, type BrainContext, type BrainParams } from './DroidBrain';
 
 const CORPSE_TIME = 2.2;
@@ -95,6 +95,9 @@ export class Droid {
   poseB2Now(phase: number, walk: number) {
     if (this.b2Rig) poseB2(this.b2Rig, walk, phase);
   }
+
+  /** Solo para pruebas: cambia las medidas de la postura de bola del droideka. */
+  debugRoll(patch: Parameters<typeof refoldDeka>[1]) { if (this.dekaRig) refoldDeka(this.dekaRig, patch); }
 
   /** Solo para pruebas: aplica la postura actual del droideka. */
   poseNow() {
