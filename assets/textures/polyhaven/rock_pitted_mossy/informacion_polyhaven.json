@@ -1,0 +1,59 @@
+{
+ "type": 1,
+ "tags": [
+  "cracked",
+  "weathered",
+  "rock face",
+  "rock",
+  "boulder",
+  "red",
+  "discolored",
+  "eroded",
+  "moss",
+  "stone",
+  "uneven",
+  "rough",
+  "orange"
+ ],
+ "name": "Rock Pitted Mossy",
+ "categories": [
+  "outdoor",
+  "rock",
+  "terrain",
+  "natural",
+  "sandstone"
+ ],
+ "authors": {
+  "Dimitrios Savva": "Photography",
+  "Rico Cilliers": "Processing"
+ },
+ "date_published": 1637798400,
+ "staging": null,
+ "sponsors": [
+  "9910225"
+ ],
+ "dimensions": [
+  1000,
+  1000
+ ],
+ "max_resolution": [
+  8192,
+  8192
+ ],
+ "files_hash": "831788b7bbeb28eb4fdc5a410c6a42a449bb7c45",
+ "description": "Free 8K rock texture showing weathered, pitted sandstone with orange-red tones, a rough uneven surface, deep erosion lines and subtle moss discoloration.",
+ "category_id": "78e4c120-24c3-5f41-b48a-01617c52bc26",
+ "category": "Stone/Rock & Cliffs/Boulder Surfaces",
+ "attributes": {
+  "surface_use": "wall",
+  "condition": [
+   "weathered",
+   "mossy"
+  ],
+  "origin": "natural",
+  "setting": "outdoor"
+ },
+ "img_version": "5ba3c161",
+ "download_count": 78614,
+ "thumbnail_url": "https://cdn.polyhaven.com/asset_img/thumbs/rock_pitted_mossy.png?width=256&height=256&format=webp&v=5ba3c161"
+}

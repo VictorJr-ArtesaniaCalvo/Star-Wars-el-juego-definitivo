@@ -201,8 +201,9 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
     colors.set([tmp.r, tmp.g, tmp.b], i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setAttribute('aRock', new THREE.BufferAttribute(new Float32Array(pos.count), 1)); // roca cerca de las coberturas (se rellena al colocarlas)
 
-  const mesh = new THREE.Mesh(geo, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true }), { ground: groundTexture(), groundX: groundExtraTexture(), slabs: slabsTexture(), strata: strataTexture(), strataScale: 0.07 }));
+  const mesh = new THREE.Mesh(geo, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true }), { ground: groundTexture(), groundX: groundExtraTexture(), slabs: slabsTexture(), strata: strataTexture(), strataScale: 0.07, terrainRock: true }));
   mesh.receiveShadow = true;
   scene.add(mesh);
 
@@ -211,4 +212,22 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
   const idx = new Uint32Array(geo.index!.array);
   physics.createCollider(rapier.ColliderDesc.trimesh(verts, idx));
   return mesh;
+}
+
+/** Marca en el terreno cuánta roca hay junto a cada cobertura (rocas, muros, cajas): el suelo pasa de arena a piedra a su alrededor. */
+export function paintRock(mesh: THREE.Mesh, spots: Array<{ x: number; z: number; r: number }>) {
+  const pos = mesh.geometry.attributes.position as THREE.BufferAttribute;
+  const attr = mesh.geometry.attributes.aRock as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    let m = 0;
+    for (const s of spots) {
+      const dx = x - s.x, dz = z - s.z;
+      const reach = s.r * 1.6 + 2.5;
+      if (dx > reach || dx < -reach || dz > reach || dz < -reach) continue;
+      m = Math.max(m, 1 - smoothstep(s.r * 0.7, reach, Math.hypot(dx, dz)));
+    }
+    attr.setX(i, m);
+  }
+  attr.needsUpdate = true;
 }

@@ -8,10 +8,11 @@ import { laatReady } from './laat';
 import { buildDefenseZone } from './defenseZone';
 import { buildRocks } from './rocks';
 import { buildSky, SUN_DIR } from './sky';
-import { setWorldBump } from './materials';
+import { setWorldBump, setWorldRich } from './materials';
 import { SkyLife } from './skyLife';
-import { buildTerrain, CRASH, terrainHeight } from './terrain';
+import { buildTerrain, CRASH, paintRock, terrainHeight } from './terrain';
 import { buildScorch } from './scorch';
+import { Ledges, Scatter } from './scatter';
 import { QUALITY, type Quality } from '../core/Settings';
 
 // Monta todo el escenario: terreno, cielo, rocas y zona de defensa.
@@ -22,6 +23,8 @@ export class World {
   private atmosphere: Atmosphere;
   private skyLife: SkyLife;
   private crashFx: CrashFx | null = null;
+  private scatter: Scatter;
+  private ledges: Ledges;
   private time = 0;
   private baseFar = 0;
 
@@ -31,7 +34,7 @@ export class World {
     physics: RAPIER.World,
     hooks: { skyFire?: (x: number, y: number, z: number) => void } = {},
   ) {
-    buildTerrain(scene, rapier, physics);
+    const terrain = buildTerrain(scene, rapier, physics);
     buildScorch(scene); // marcas de quemado del accidente sobre el suelo
     const { sky, sun, material } = buildSky(scene);
     this.sky = sky;
@@ -42,6 +45,9 @@ export class World {
     buildDefenseZone(b);
     buildDroidWreck(b);
     b.finish(scene);
+    paintRock(terrain, b.spots); // el suelo se vuelve rocoso alrededor de las coberturas
+    this.scatter = new Scatter(scene, b.spots); // lajas de piedra y piedrecitas (calidad media y alta)
+    this.ledges = new Ledges(scene, rapier, physics); // repisas de roca en capas (calidad media y alta)
     this.atmosphere = new Atmosphere(scene, [...WRECK_FIRES, ...GUNSHIP_FIRES]);
     this.skyLife = new SkyLife(scene, hooks.skyFire);
     // humo, columna de humo alta, brasas, chispas y llamas de la cañonera derribada (si falta el modelo, solo la columna desde el casco sencillo)
@@ -62,7 +68,10 @@ export class World {
     (this.scene.fog as THREE.Fog).far = this.baseFar = cfg.viewDistance;
     this.atmosphere.gustDustOn = q !== 'low';
     this.crashFx?.setQuality(q);
-    setWorldBump(q !== 'low'); // el relieve de las texturas se apaga en calidad baja
+    this.scatter.setQuality(q);
+    this.ledges.setQuality(q);
+    setWorldBump(q !== 'low');
+    setWorldRich(q !== 'low'); // suelo de arena roja y roca en lajas (en baja se queda el de siempre) // el relieve de las texturas se apaga en calidad baja
   }
 
   /** Las nubes avanzan y los voladores giran. */
@@ -80,6 +89,7 @@ export class World {
   follow(p: THREE.Vector3) {
     this.sky.position.copy(p);
     this.atmosphere.follow(p);
+    this.scatter.follow(p);
     this.sun.target.position.copy(p);
     this.sun.position.copy(p).addScaledVector(SUN_DIR, 80);
   }

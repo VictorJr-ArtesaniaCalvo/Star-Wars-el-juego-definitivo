@@ -39,6 +39,9 @@ function toTexture(data: Uint8ClampedArray, size: number): THREE.DataTexture {
 
 interface Real { ground: THREE.Texture; groundX: THREE.Texture; wall: THREE.Texture; cracks: THREE.Texture; slabs: THREE.Texture; strata: THREE.Texture; pits: THREE.Texture }
 let real: Real | null = null;
+/** Texturas del suelo «rico» (calidad media y alta): arena roja, roca en lajas, roca con agujeros y la roca de las lajas en 3D. */
+interface Rich { sand: THREE.Texture; rocky: THREE.Texture; pitted: THREE.Texture; slab: THREE.Texture }
+let rich: Rich | null = null;
 
 /** Descarga las texturas reales (1024 px). Si alguna falla, el juego sigue con las generadas por código. */
 export async function loadWorldTextures(base: string): Promise<boolean> {
@@ -53,10 +56,19 @@ export async function loadWorldTextures(base: string): Promise<boolean> {
     };
     const [ground, groundX, wall, cracks, slabs, strata, pits] = await Promise.all([get('ground-red'), get('ground-extra'), get('rock-wall'), get('rock-cracks'), get('ground-slabs'), get('rock-strata'), get('rock-pits')]);
     real = { ground, groundX, wall, cracks, slabs, strata, pits };
+    // las nuevas se cargan aparte: si faltan, el suelo se queda como antes
+    try {
+      const [sand, rocky, pitted, slab] = await Promise.all([get('ground-sand'), get('ground-rocky'), get('rock-pitted'), get('rock-slab')]);
+      rich = { sand, rocky, pitted, slab };
+    } catch (e) {
+      console.warn('No se pudieron cargar las texturas nuevas del suelo; se queda el suelo de siempre.', e);
+      rich = null;
+    }
+    applyRich();
     return true;
   } catch (e) {
     console.warn('No se pudieron cargar las texturas del escenario; se usan las generadas por código.', e);
-    real = null;
+    real = null; rich = null;
     return false;
   }
 }
@@ -170,11 +182,29 @@ interface Options {
   /** Solo en el material de las rocas sueltas: las agujas (torres) llevan estas dos imágenes de siempre en vez de las nuevas. */
   spire?: { rock: THREE.Texture; joints: THREE.Texture | null };
   rockOnly?: boolean; groundScale?: number; strataScale?: number;
+  /** Solo el terreno: cuánta roca hay cerca de cada vértice (coberturas), de 0 a 1. */
+  terrainRock?: boolean;
 }
 
 // Fuerza del relieve de las texturas (se baja a 0 en calidad «baja» para ahorrar batería). Se comparte entre todos los materiales.
 const bumpUniform = { value: 1 };
 export const setWorldBump = (on: boolean) => { bumpUniform.value = on ? 1 : 0; };
+
+// Suelo «rico» (calidad media y alta): arena roja + roca en lajas + roca con agujeros. En calidad baja se queda el de siempre.
+const richUniform = { value: 0 };
+const pitMapUniform: { value: THREE.Texture | null } = { value: null };
+const pitScaleUniform = { value: 0.13 };
+let richWanted = false;
+function applyRich() {
+  const on = richWanted && !!rich;
+  richUniform.value = on ? 1 : 0;
+  pitMapUniform.value = on ? rich!.pitted : (real?.pits ?? neutral());
+  pitScaleUniform.value = on ? 0.2 : 0.13;
+}
+export const setWorldRich = (on: boolean) => { richWanted = on; applyRich(); };
+/** Textura de la roca de las lajas en 3D (solo si se cargaron las texturas nuevas). */
+export const slabRockTexture = (): THREE.Texture | null => rich?.slab ?? null;
+export const richGroundReady = () => !!rich;
 
 /**
  * Añade al material las texturas en el espacio del mundo: sobre superficies casi horizontales la tierra (con parches de lajas de arenisca,
@@ -189,23 +219,30 @@ export function applyWorldTextures(mat: THREE.MeshLambertMaterial, o: Options) {
     shader.uniforms.groundXMap = { value: o.groundX };
     shader.uniforms.slabMap = { value: o.slabs };
     shader.uniforms.strataMap = { value: o.strata };
-    if (pits) shader.uniforms.pitMap = { value: o.pits };
+    if (pits) { shader.uniforms.pitMap = pitMapUniform; shader.uniforms.uPitScale = pitScaleUniform; }
+    shader.uniforms.sandMap = { value: rich?.sand ?? neutral() };
+    shader.uniforms.rockyMap = { value: rich?.rocky ?? neutral() };
+    shader.uniforms.uRich = richUniform;
     if (sp) { shader.uniforms.spireMap = { value: sp.rock }; if (sp.joints) shader.uniforms.jointMap = { value: sp.joints }; }
     shader.uniforms.uBump = bumpUniform;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vTexAmt;\nvarying float vKind;' + (o.rockOnly ? '\nattribute float texAmt;\nattribute float texKind;' : ''))
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(position, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvTexAmt = ' + (o.rockOnly ? 'texAmt' : '1.0') + ';\nvKind = ' + (o.rockOnly ? 'texKind' : '0.0') + ';');
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vTexAmt;\nvarying float vKind;\nvarying float vRock;' + (o.rockOnly ? '\nattribute float texAmt;\nattribute float texKind;' : '') + (o.terrainRock ? '\nattribute float aRock;' : ''))
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(position, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvTexAmt = ' + (o.rockOnly ? 'texAmt' : '1.0') + ';\nvKind = ' + (o.rockOnly ? 'texKind' : '0.0') + ';\nvRock = ' + (o.terrainRock ? 'aRock' : '0.0') + ';');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
 varying vec3 vWPos;
 varying vec3 vWNor;
 varying float vTexAmt;
 varying float vKind;
+varying float vRock;
 uniform sampler2D groundMap;
+uniform sampler2D sandMap;
+uniform sampler2D rockyMap;
+uniform float uRich;
 uniform sampler2D groundXMap;
 uniform sampler2D slabMap;
 uniform sampler2D strataMap;
-${pits ? 'uniform sampler2D pitMap;' : ''}
+${pits ? 'uniform sampler2D pitMap;\nuniform float uPitScale;' : ''}
 ${sp ? 'uniform sampler2D spireMap;' + (sp.joints ? '\nuniform sampler2D jointMap;' : '') : ''}
 uniform float uBump;
 float hash21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
@@ -222,6 +259,15 @@ void tri(sampler2D t, vec3 p, float s, vec3 w, out float l, out vec3 b) {
   float k = max(w.x + w.y + w.z, 0.0001);
   l = (x.b * w.x + z.b * w.z + y.b * w.y) / k;
   b = (vec3(0.0, nx.y, nx.x) * w.x + vec3(nz.x, nz.y, 0.0) * w.z + vec3(ny.x, 0.0, ny.y) * w.y) / k;
+}
+// Imagen del suelo sin repetición visible: dos pasadas (una girada y a otra escala) mezcladas por manchas de ruido. Devuelve el brillo (b) y la inclinación de la luz (n)
+vec4 aperiodic(sampler2D t, vec2 p, float s, out vec2 n) {
+  vec4 a = texture2D(t, p * s);
+  mat2 R = mat2(0.8, -0.6, 0.6, 0.8);
+  vec4 c = texture2D(t, R * p * (s * 0.71) + vec2(0.37, 0.61));
+  float m = smoothstep(0.3, 0.7, vnoise(p * 0.05));
+  n = mix(a.rg * 2.0 - 1.0, (c.rg * 2.0 - 1.0) * R, m);
+  return mix(a, c, m);
 }`)
       .replace('#include <map_fragment>', `
   vec3 wn = normalize(vWNor);
@@ -232,17 +278,48 @@ void tri(sampler2D t, vec3 p, float s, vec3 w, out float l, out vec3 b) {
   vec4 g1 = texture2D(groundMap, vWPos.xz * ${gs.toFixed(4)});
   vec4 g2 = texture2D(groundMap, vWPos.xz * ${(gs * 0.09).toFixed(4)} + vec2(0.37, 0.61));
   vec2 gx = texture2D(groundXMap, vWPos.xz * ${(gs * 0.45).toFixed(4)}).rg;
-  vec4 sl = texture2D(slabMap, vWPos.xz * ${(gs * 0.5).toFixed(4)});
-  float slabM = smoothstep(0.36, 0.5, vnoise(vWPos.xz * 0.026 + vec2(3.7, 9.1)));
-  float mudM = smoothstep(0.5, 0.62, vnoise(vWPos.xz * 0.017)) * (1.0 - slabM);
-  float sandM = smoothstep(0.52, 0.66, vnoise(vWPos.xz * 0.011 + vec2(7.3, 2.1))) * (1.0 - mudM) * (1.0 - slabM);
-  // las lajas, el barro y la arena solo en suelo casi llano (en las cuestas se estirarían)
   float flatG = smoothstep(0.9, 0.97, an.y);
-  slabM *= flatG; mudM *= flatG; sandM *= flatG;
-  float gl = mix(mix(g1.b, gx.r, mudM), gx.g, sandM);
-  gl = mix(gl, sl.b, slabM);
-  vec3 groundTex = vec3(gl * (0.55 + 0.6 * g2.b)) * mix(vec3(1.0), vec3(1.2, 1.04, 0.8), sandM);
-  vec2 gnv = mix(g1.rg * 2.0 - 1.0, (sl.rg * 2.0 - 1.0) * 1.7, slabM) * (1.0 - 0.6 * mudM);
+  float gl; vec3 groundTex; vec2 gnv;
+  if (uRich > 0.5) {
+    // --- suelo rico: arena roja de base, que pasa a roca en lajas cerca de las paredes, en pendientes y junto a las coberturas ---
+    vec2 P = vWPos.xz;
+    float wallM = smoothstep(20.0, 38.0, abs(vWPos.x));
+    float patchM = smoothstep(0.44, 0.56, vnoise(P * 0.028 + vec2(3.7, 9.1)));
+    float pathM = 1.0 - smoothstep(0.0, 0.05, abs(vnoise(P * 0.014 + vec2(5.0, 1.0)) - 0.5)); // caminos de arena
+    float steepG = 1.0 - smoothstep(0.88, 0.97, an.y);
+    float rockM = clamp(wallM * 0.85 + patchM * 0.65 + vRock * 0.9 + steepG, 0.0, 1.0);
+    rockM *= 1.0 - 0.85 * pathM * (1.0 - vRock);
+    rockM = smoothstep(0.25, 0.75, rockM + (vnoise(P * 0.35) - 0.5) * 0.35); // borde irregular
+    float mudM = smoothstep(0.55, 0.66, vnoise(P * 0.017)) * (1.0 - rockM) * flatG;
+    float earthM = smoothstep(0.35, 0.65, vnoise(P * 0.021 + vec2(8.0, 3.0)));
+    vec2 sn, rn;
+    vec4 sa = aperiodic(sandMap, P, 0.3, sn);
+    vec4 ro = aperiodic(rockyMap, P, 0.2, rn);
+    float baseL = mix(sa.b, g1.b, earthM);
+    vec2 baseN = mix(sn * 1.0, g1.rg * 2.0 - 1.0, earthM);
+    vec3 sandTint = vec3(1.18, 1.04, 0.82);
+    vec3 baseCol = vec3(baseL) * mix(sandTint, vec3(1.0), earthM);
+    float rl2 = clamp(0.78 + (ro.b - 0.78) * 2.0, 0.25, 1.25); // más contraste: lajas claras y juntas oscuras
+    vec3 rockCol = vec3(rl2) * vec3(1.0, 0.96, 0.9);
+    float dust = smoothstep(0.7, 0.3, rl2) * 0.6 * rockM; // polvo claro acumulado en los huecos de la piedra
+    vec3 col = mix(baseCol, rockCol, rockM);
+    col = mix(col, vec3(baseL) * sandTint * 1.08, dust);
+    col = mix(col, vec3(gx.r), mudM * 0.8);
+    groundTex = col * (0.55 + 0.6 * g2.b);
+    gnv = mix(baseN, rn * 1.9, rockM) * (1.0 - 0.6 * mudM);
+  } else {
+    // --- suelo de siempre: tierra con grava, con parches de lajas dibujadas, barro y arena ---
+    vec4 sl = texture2D(slabMap, vWPos.xz * ${(gs * 0.5).toFixed(4)});
+    float slabM = smoothstep(0.36, 0.5, vnoise(vWPos.xz * 0.026 + vec2(3.7, 9.1)));
+    float mudM = smoothstep(0.5, 0.62, vnoise(vWPos.xz * 0.017)) * (1.0 - slabM);
+    float sandM = smoothstep(0.52, 0.66, vnoise(vWPos.xz * 0.011 + vec2(7.3, 2.1))) * (1.0 - mudM) * (1.0 - slabM);
+    // las lajas, el barro y la arena solo en suelo casi llano (en las cuestas se estirarían)
+    slabM *= flatG; mudM *= flatG; sandM *= flatG;
+    gl = mix(mix(g1.b, gx.r, mudM), gx.g, sandM);
+    gl = mix(gl, sl.b, slabM);
+    groundTex = vec3(gl * (0.55 + 0.6 * g2.b)) * mix(vec3(1.0), vec3(1.2, 1.04, 0.8), sandM);
+    gnv = mix(g1.rg * 2.0 - 1.0, (sl.rg * 2.0 - 1.0) * 1.7, slabM) * (1.0 - 0.6 * mudM);
+  }
   // rocas y paredes
   vec3 rockTex = vec3(1.0);
   vec3 rockBump = vec3(0.0);
@@ -264,17 +341,19 @@ ${sp.joints ? `    float jl; vec3 jb;
   rockBump = rb;
 ${pits ? `  // huecos de erosión en parches de las caras verticales
   float pl; vec3 pb;
-  tri(pitMap, vWPos, 0.13, tw, pl, pb);
+  tri(pitMap, vWPos, uPitScale, tw, pl, pb);
   float pitM = smoothstep(0.45, 0.62, vnoise(vWPos.xz * 0.06 + vWPos.y * 0.05)) * smoothstep(0.3, 0.7, 1.0 - an.y);
   rockTex *= mix(1.0, pl / 0.78, pitM);
   rockBump = mix(rockBump, pb * 1.3, pitM);` : ''}
 ${sp ? '  }' : ''}
   diffuseColor.rgb *= mix(vec3(1.0), mix(groundTex * 1.46, rockTex * 1.34, steep), vTexAmt);
   // relieve: se inclina la luz según la pendiente de cada imagen (en el mundo)
-  vec3 gBump = mix(vec3(gnv.x, 0.0, gnv.y) * 0.35, rockBump * 0.8, steep) * vTexAmt * uBump;`)
+  vec3 gBump = mix(vec3(gnv.x, 0.0, gnv.y) * 0.35, rockBump * 0.8, steep) * vTexAmt * uBump;
+  // en el suelo rico el relieve fino se apaga con la distancia (a ras de suelo se vería como hebras)
+  gBump *= mix(1.0, 1.0 - smoothstep(18.0, 70.0, length(vViewPosition)), uRich * (1.0 - steep));`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   normal = normalize(normal + (viewMatrix * vec4(gBump, 0.0)).xyz);`);
   };
-  mat.customProgramCacheKey = () => 'worldtex4-' + (o.rockOnly ? 'rock' : 'terrain') + (pits ? 'p' : '') + (sp ? 's' : '');
+  mat.customProgramCacheKey = () => 'worldtex5-' + (o.rockOnly ? 'rock' : 'terrain') + (pits ? 'p' : '') + (o.terrainRock ? 'r' : '') + (sp ? 's' : '');
   return mat;
 }

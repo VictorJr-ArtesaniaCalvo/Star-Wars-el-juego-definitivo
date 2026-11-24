@@ -7,8 +7,9 @@ se prepara y se copia a `public/` (ya reducido y listo para el móvil) con `tool
 assets/
 ├── CREDITOS.md              ← autores, webs y licencias
 ├── textures/                ← texturas (imágenes que se repiten, para suelo y rocas)
-│   ├── polyhaven/           ← de Poly Haven: red_sandstone_wall, sandstone_cracks, mud_cracked_dry_03, sand_03, cliff_side
+│   ├── polyhaven/           ← de Poly Haven: red_sandstone_wall, sandstone_cracks, mud_cracked_dry_03, sand_03, cliff_side, red_sand, rock_pitted_mossy
 │   │   └── <nombre>/2k  y  <nombre>/1k   ← cada una en 2048 px y en 1024 px: _diff (color), _nor_gl (relieve), _rough (rugosidad)
+│   ├── ambientcg/           ← de ambientCG: Rocks011 y Rock029 (2k y 1k): _Color, _NormalGL y _Roughness
 │   └── opengameart/
 │       └── arid_ground/     ← tierra roja y arena de pansapiens (2k y 1k): _diff (color) y _nor (relieve)
 └── particles/               ← partículas (humo, fuego, chispas, polvo)

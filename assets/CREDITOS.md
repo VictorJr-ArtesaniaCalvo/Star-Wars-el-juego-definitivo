@@ -18,6 +18,8 @@ Cada textura trae tres mapas en JPG, en 2k (2048 px) y en 1k (1024 px): color (`
 | `mud_cracked_dry_03` — Mud Cracked Dry 03 | suelo agrietado (para teñir de rojo) — **en uso** | Dario Barresi (procesado) y Dimitrios Savva (fotografía) | https://polyhaven.com/a/mud_cracked_dry_03 |
 | `sand_03` — Sand 03 | arena — **en uso** | Charlotte Baglioni | https://polyhaven.com/a/sand_03 |
 | `cliff_side` — Cliff Side | capas de roca erosionada de rocas y paredes del cañón (no de las agujas) — **en uso** | James Ray Cock y Dario Barresi (fotografía), Jenelle van Heerden (procesado) | https://polyhaven.com/a/cliff_side |
+| `red_sand` — Red Sand | arena roja, base del suelo y de los caminos — **en uso** | Rohit Seervi | https://polyhaven.com/a/red_sand |
+| `rock_pitted_mossy` — Rock Pitted Mossy | roca con agujeros de las rocas (el verde del musgo se quita) — **en uso** | Dimitrios Savva (fotografía), Rico Cilliers (procesado) | https://polyhaven.com/a/rock_pitted_mossy |
 
 En cada carpeta hay también `informacion_polyhaven.json`, los datos oficiales de la textura (autores, etiquetas, tamaño real que cubre…).
 
@@ -44,3 +46,13 @@ Autor: **Kenney Vleugels** (https://kenney.nl) · Licencia: CC0 1.0 · «Crédit
 - **Partículas:** `public/particles/atlas.png`: 16 imágenes de Kenney (humo, polvo, fuego, chispas, rayo) en una sola; se usan en la cañonera derribada y en las explosiones, impactos y fogonazos. Se genera con `python tools/build-particles.py`.
 - Siguen sin usarse: `sand_01` a `04` y el resto de `red_earth` de pansapiens, y la mayoría de las partículas de Kenney.
 
+
+## Texturas de ambientCG — `textures/ambientcg/` (licencia CC0)
+Autor: ambientCG (https://ambientcg.com). Cada carpeta lleva `2k/` y `1k/` con color (`_Color`), relieve (`_NormalGL`, formato OpenGL) y rugosidad (`_Roughness`).
+
+| Recurso | Para qué | Página |
+|---|---|---|
+| `Rocks011` — Rocks 011 | zonas rocosas del suelo (lajas de piedra planas apiladas; el gris se tiñe de rojo) — **en uso** | https://ambientcg.com/view?id=Rocks011 |
+| `Rock029` — Rock 029 | lajas y piedras planas en 3D esparcidas por el suelo — **en uso** | https://ambientcg.com/view?id=Rock029 |
+
+**Cómo se usan las nuevas del suelo** (`tools/build-textures.py`, en 1K): `ground-sand.jpg` (Red Sand), `ground-rocky.jpg` (Rocks 011), `rock-pitted.jpg` (Rock Pitted Mossy) y `rock-slab.jpg` (Rock 029), cada una con el relieve en rojo y verde y el detalle de brillo en azul. Solo se usan en calidad media y alta; en baja se queda el suelo de antes.

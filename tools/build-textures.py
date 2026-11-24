@@ -6,6 +6,7 @@
 Cada textura del juego es UNA imagen JPG de 1024x1024 que lleva dentro varias cosas (para que el móvil lea una sola imagen por capa):
   - rock-wall.jpg, rock-cracks.jpg, ground-red.jpg:  R,G = relieve (normal map, componentes x e y)   B = detalle de brillo
   - ground-extra.jpg:                                  R = detalle del barro agrietado             G = detalle de la arena
+  - (tercera tanda) ground-sand.jpg, ground-rocky.jpg, rock-pitted.jpg, rock-slab.jpg:  R,G = relieve   B = detalle de brillo
 
 El «detalle de brillo» es la foto en blanco y negro sin las manchas grandes de luz (así no se nota que se repite) y con el brillo medio
 ajustado: el juego lo multiplica por el color de cada trozo de roca o de suelo, que es el que le da el tono rojo de Geonosis.
@@ -34,9 +35,9 @@ def periodic_blur(a, sigma):
     return np.real(np.fft.ifft2(np.fft.fft2(a) * g))
 
 
-def detail(path, keep_large=0.2, contrast=1.15, blur=90):
+def detail(path, keep_large=0.2, contrast=1.15, blur=90, weights=(0.2126, 0.7152, 0.0722)):
     rgb = load(path)
-    lum = rgb @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    lum = rgb @ np.array(weights, dtype=np.float32)
     low = np.maximum(periodic_blur(lum, blur), 0.02)
     rel = np.clip(lum / low, 0.2, 3.0) ** contrast
     out = rel * (low / low.mean()) ** keep_large
@@ -177,3 +178,22 @@ nxn, nyn = normal_from_height(h, 5.5)
 luma = (0.9 + 0.2 * bump) * (1 - 0.62 * depth * (0.5 + 0.5 * smooth(radius, 0, d))) + 0.18 * rim
 luma = luma * (0.85 + 0.22 * periodic_noise(70, 35))
 save('rock-pits.jpg', *finish(nxn, nyn, luma))
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Tercera tanda (suelo de Geonosis): arena roja, roca plana en lajas, roca con agujeros y la roca de las lajas en 3D
+# ---------------------------------------------------------------------------------------------------------------------------------
+ag = lambda n, kind: os.path.join(A, 'ambientcg', n, '1k', f'{n}_1K-JPG_{kind}.jpg')
+
+# Arena roja, base del suelo y de los caminos (Poly Haven, Red Sand): casi lisa, con rizos finos de viento
+nx, ny = normal_xy(ph('red_sand', 'nor_gl'))
+save('ground-sand.jpg', nx, ny, detail(ph('red_sand', 'diff'), keep_large=0.1, contrast=2.2, blur=60))
+# Zonas rocosas (ambientCG, Rocks 011): lajas planas de piedra apiladas. El tono gris lo sustituye el rojo del juego
+nx, ny = normal_xy(ag('Rocks011', 'NormalGL'))
+save('ground-rocky.jpg', nx, ny, detail(ag('Rocks011', 'Color'), keep_large=0.2, contrast=1.5, blur=100))
+# Roca con agujeros (Poly Haven, Rock Pitted Mossy): el verde del musgo se quita dejando solo el canal rojo, que apenas lo recoge
+nx, ny = normal_xy(ph('rock_pitted_mossy', 'nor_gl'))
+save('rock-pitted.jpg', nx, ny, detail(ph('rock_pitted_mossy', 'diff'), keep_large=0.2, contrast=1.1, blur=110, weights=(0.85, 0.15, 0.0)))
+# Lajas y rocas sueltas (ambientCG, Rock 029): se usa en las piedras planas en 3D
+nx, ny = normal_xy(ag('Rock029', 'NormalGL'))
+save('rock-slab.jpg', nx, ny, detail(ag('Rock029', 'Color'), keep_large=0.25, contrast=1.3, blur=100))

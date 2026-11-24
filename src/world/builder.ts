@@ -9,6 +9,8 @@ export class Builder {
   private geos: THREE.BufferGeometry[] = [];
   private tmpColor = new THREE.Color();
   private extras: THREE.Object3D[] = [];
+  /** Dónde hay coberturas (x, z, radio): el suelo se vuelve rocoso a su alrededor. */
+  readonly spots: Array<{ x: number; z: number; r: number }> = [];
 
   constructor(
     private rapier: typeof RAPIER,
@@ -20,6 +22,12 @@ export class Builder {
     const n = geo.attributes.position.count;
     geo.setAttribute('texAmt', new THREE.BufferAttribute(new Float32Array(n).fill(amt), 1));
     geo.setAttribute('texKind', new THREE.BufferAttribute(new Float32Array(n).fill(kind), 1));
+  }
+
+  private spot(g: THREE.BufferGeometry) {
+    g.computeBoundingSphere();
+    const bs = g.boundingSphere!;
+    this.spots.push({ x: bs.center.x, z: bs.center.z, r: Math.min(bs.radius, 14) });
   }
 
   private paint(geo: THREE.BufferGeometry, color: number, shade = 1) {
@@ -39,6 +47,7 @@ export class Builder {
     this.paint(g, color, shade);
     this.texAmt(g, 1, spire ? 1 : 0);
     this.geos.push(g);
+    this.spot(g);
     if (!solid) return; // piezas inalcanzables (el borde del cañón) no necesitan cuerpo sólido
     const desc = this.rapier.ColliderDesc.convexHull(new Float32Array(g.attributes.position.array));
     if (desc) this.physics.createCollider(desc);
@@ -63,6 +72,7 @@ export class Builder {
     g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
     this.texAmt(g, 1);
     this.geos.push(g);
+    this.spot(g);
     if (!solid) return;
     const desc = this.rapier.ColliderDesc.convexHull(new Float32Array(g.attributes.position.array));
     if (desc) this.physics.createCollider(desc);
@@ -88,6 +98,7 @@ export class Builder {
     this.paint(g, color);
     this.texAmt(g, tex);
     this.geos.push(g);
+    if (solid) this.spot(g);
     if (!solid) return;
     const p = new THREE.Vector3();
     const q = new THREE.Quaternion();

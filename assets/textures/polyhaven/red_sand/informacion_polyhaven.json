@@ -1,0 +1,51 @@
+{
+ "name": "Red Sand",
+ "categories": [
+  "floor",
+  "sand",
+  "outdoor"
+ ],
+ "type": 1,
+ "tags": [
+  "red",
+  "sand",
+  "outdoor",
+  "footprints",
+  "dusty",
+  "ground",
+  "tracks",
+  "tyre tracks",
+  "tire tracks",
+  "trampled"
+ ],
+ "authors": {
+  "Rohit Seervi": "All"
+ },
+ "info": null,
+ "dimensions": [
+  2999.999523162842,
+  2999.999523162842
+ ],
+ "date_published": 1698278400,
+ "staging": null,
+ "donated": true,
+ "max_resolution": [
+  8192,
+  8192
+ ],
+ "files_hash": "c78965feee79ff1b01357624ea61d9058a43892e",
+ "description": "Free 8K texture of dusty red sand with compacted, trampled surface showing shallow footprints and tyre tracks; gritty, matte finish with fine granular detail.",
+ "category_id": "2262e1f2-20db-5ba4-9915-764041ba9c4c",
+ "category": "Ground & Terrain/Sand/Compacted & Trampled Sand",
+ "attributes": {
+  "surface_use": "ground",
+  "condition": [
+   "worn"
+  ],
+  "origin": "natural",
+  "setting": "outdoor"
+ },
+ "img_version": "d6a53102",
+ "download_count": 15001,
+ "thumbnail_url": "https://cdn.polyhaven.com/asset_img/thumbs/red_sand.png?width=256&height=256&format=webp&v=d6a53102"
+}
