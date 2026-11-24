@@ -34,10 +34,11 @@ body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-in
 }
 #btnPause svg { width: 52%; height: 52%; fill: currentColor; }
 #btnPause:active { transform: scale(.92); }
+#btnPause { opacity: .55; }
 
 /* ---------- Táctil ---------- */
 #touch { position: fixed; inset: 0; z-index: 4; }
-#joyZone { position: absolute; left: 0; top: 0; width: 45%; height: 100%; }
+#joyZone { position: absolute; left: 0; top: 0; width: 45%; height: 100%; opacity: .55; } /* joystick más transparente */
 #lookZone { position: absolute; right: 0; top: 0; width: 55%; height: 100%; }
 /* Los botones se colocan por su CENTRO (right/bottom marcan el centro), como en los juegos de móvil:
    disparo grande abajo a la derecha, saltar arriba a su derecha, agacharse abajo a su izquierda. */
@@ -74,6 +75,9 @@ body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-in
 }
 .tbtn:active:not(.on) { transform: translate(50%, 50%) scale(.93); }
 .tbtn.on { transform: translate(50%, 50%) scale(.95); }
+/* botones del HUD más transparentes (algo más visibles al pulsarlos) */
+.tbtn { opacity: .5; transition: opacity .12s; }
+.tbtn.on { opacity: .85; }
 
 #btnFire {
   --accent: 96,184,255;
@@ -124,7 +128,7 @@ body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-in
   font-size: 12px; font-weight: 800; line-height: 1; color: #e4f9c8;
   background: #16240f; border: 1.5px solid rgba(180,230,130,.85); box-shadow: 0 1px 4px rgba(0,0,0,.5);
 }
-#btnGrenade.empty { opacity: .4; }
+#btnGrenade.empty { opacity: .25; }
 #btnGrenade.empty .badge { color: #ff9a8a; border-color: rgba(255,120,100,.8); }
 #touch.grenadeMode #btnFire, #touch.grenadeMode #btnHip { --accent: 160,220,110; }
 #hud.grenadeMode #crosshair { background: rgba(190,230,150,.95); }
