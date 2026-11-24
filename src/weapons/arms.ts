@@ -93,6 +93,36 @@ function leftHand() {
   return p;
 }
 
+const hash = (x: number, y: number, z: number) => { const v = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return v - Math.floor(v); };
+const noise = (x: number, y: number, z: number, f: number) => {
+  const X = x * f, Y = y * f, Z = z * f, ix = Math.floor(X), iy = Math.floor(Y), iz = Math.floor(Z);
+  const fx = X - ix, fy = Y - iy, fz = Z - iz, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = fz * fz * (3 - 2 * fz);
+  const l = (a: number, b: number, t: number) => a + (b - a) * t;
+  return l(l(l(hash(ix, iy, iz), hash(ix + 1, iy, iz), u), l(hash(ix, iy + 1, iz), hash(ix + 1, iy + 1, iz), u), v), l(l(hash(ix, iy, iz + 1), hash(ix + 1, iy, iz + 1), u), l(hash(ix, iy + 1, iz + 1), hash(ix + 1, iy + 1, iz + 1), u), v), w);
+};
+
+/** Suciedad de combate en el color de cada vértice: arena roja de Geonosis (más hacia abajo y en las zonas bajas del brazo), manchas de quemadura negras
+ *  y un desgaste suave general. Así las piezas blancas dejan de verse limpias. */
+function weather(g: THREE.BufferGeometry) {
+  const p = g.attributes.position, c = g.attributes.color;
+  const sand = new THREE.Color(0x9a5636), soot = new THREE.Color(0x0e0c0b), col = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    col.setRGB(c.getX(i), c.getY(i), c.getZ(i));
+    const grain = noise(x, y, z, 22);
+    const patch = noise(x + 3.1, y, z - 1.7, 6);
+    // arena roja: acumulada hacia abajo y hacia delante (donde se hace más contacto), en manchas y con grano fino
+    const low = THREE.MathUtils.smoothstep(-y, 0.18, 0.55);
+    const dust = Math.min(0.78, THREE.MathUtils.smoothstep(patch * 0.65 + low * 0.6 + grain * 0.25, 0.42, 0.95) * 0.85);
+    col.lerp(sand, dust);
+    // quemaduras negras: manchas irregulares sueltas
+    const burn = THREE.MathUtils.smoothstep(noise(x - 2.3, y + 1.1, z + 4.2, 8) * 0.7 + noise(x, y, z, 30) * 0.3, 0.6, 0.78) * 0.85;
+    col.lerp(soot, burn);
+    col.multiplyScalar(0.82 + 0.3 * grain); // desgaste fino
+    c.setXYZ(i, col.r, col.g, col.b);
+  }
+}
+
 /** Los dos brazos del arma. `A`: antebrazos que entran desde las esquinas de abajo (como en Battlefront). `B`: más juntos y verticales, el izquierdo por debajo del arma (como en Halo/CoD). */
 export function buildArms(variant: ArmsVariant): THREE.Mesh {
   const parts: THREE.BufferGeometry[] = [];
@@ -107,6 +137,7 @@ export function buildArms(variant: ArmsVariant): THREE.Mesh {
   const g = mergeGeometries(parts, false)!;
   for (const x of parts) x.dispose();
   g.computeVertexNormals();
+  weather(g);
   const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, fog: false }));
   m.frustumCulled = false;
   return m;
