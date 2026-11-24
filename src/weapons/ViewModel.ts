@@ -54,13 +54,14 @@ export class ViewModel {
   private gRaise = 0;
   private throwT = 0;
   private cold = new THREE.Color(0x000000);
-  private hot = new THREE.Color(0x9a2408);
+  private hot = new THREE.Color(0x9a2408); // con el modelo con textura (más claro) el rojo del calor es más suave
 
   constructor(camera: THREE.Camera) {
     if (blasterModel) {
       // El gris oscuro de la textura se aclara un poco para que no se pierda con la luz cálida de Geonosis.
       this.body = new THREE.MeshLambertMaterial({ map: blasterModel.map, color: blasterModel.map ? 0xffffff : 0x3b3f45, fog: false });
       if (blasterModel.map) this.body.color.setScalar(BLASTER_BRIGHT);
+      this.hot.set(0x5a1503);
       this.group.add(new THREE.Mesh(blasterModel.geo, this.body));
       this.muzzle.position.set(...blasterModel.muzzle);
     } else {
