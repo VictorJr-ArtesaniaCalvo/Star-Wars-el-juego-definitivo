@@ -6,7 +6,9 @@ html, body {
   touch-action: none; overscroll-behavior: none;
 }
 [hidden] { display: none !important; }
-#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; filter: contrast(1.1) saturate(1.06); }
+/* viñeta suave en los bordes (una capa de pantalla, sin coste para el dibujo del juego); siempre activa */
+body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 4; background: radial-gradient(ellipse 120% 105% at 50% 48%, transparent 52%, rgba(26, 10, 14, .22) 78%, rgba(18, 6, 10, .55) 100%); }
 
 /* ---------- Indicadores ---------- */
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }

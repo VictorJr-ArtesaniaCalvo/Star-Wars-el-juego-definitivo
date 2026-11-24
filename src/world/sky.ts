@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 
 // Neblina y horizonte: ámbar dorado, como el aire polvoriento de Geonosis.
-export const FOG_COLOR = 0xd9a45e;
-// Sol bajo (unos 17° sobre el horizonte): sombras largas y luz muy cálida de costado
-export const SUN_DIR = new THREE.Vector3(-0.62, 0.27, 0.5).normalize();
+// Neblina y horizonte: ámbar pálido y apagado (lo lejano se vuelve pálido; lo cercano queda más intenso y oscuro)
+export const FOG_COLOR = 0xdcbf8c;
+// Sol a unos 27° sobre el horizonte y girado hacia el eje del cañón (detrás de ti al empezar, algo a la izquierda): una pared proyecta su sombra
+// sobre una parte del suelo y la otra queda al sol (las sombras se calculan en `sunShadow.ts`)
+export const SUN_DIR = new THREE.Vector3(-0.38, 0.45, 0.8).normalize();
 
 // Cielo dorado con nubes pesadas y sol bajo, dibujado por código (ligero para el móvil).
 export function buildSky(scene: THREE.Scene) {
@@ -13,8 +15,8 @@ export function buildSky(scene: THREE.Scene) {
     fog: false,
     uniforms: {
       horizon: { value: new THREE.Color(FOG_COLOR) },
-      mid: { value: new THREE.Color(0xe0a850) },
-      top: { value: new THREE.Color(0x7c4c1e) },
+      mid: { value: new THREE.Color(0xdcb26a) },
+      top: { value: new THREE.Color(0x6a4a46) },
       sunDir: { value: SUN_DIR },
       time: { value: 0 },
     },
@@ -65,11 +67,11 @@ export function buildSky(scene: THREE.Scene) {
   sky.frustumCulled = false;
   scene.add(sky);
 
-  scene.fog = new THREE.Fog(FOG_COLOR, 14, 150);
+  scene.fog = new THREE.Fog(FOG_COLOR, 26, 150);
 
-  // luz ambiente teñida de naranja (cielo cálido arriba, tierra rojiza abajo)
-  scene.add(new THREE.HemisphereLight(0xffcf90, 0x8a5430, 1.45));
-  const sun = new THREE.DirectionalLight(0xffb865, 3.3);
+  // luz ambiente fría y apagada (marrón violáceo): es el color de las sombras; el sol, amarillo pálido e intenso, pone el calor
+  scene.add(new THREE.HemisphereLight(0xa8929e, 0x5c4048, 1.45));
+  const sun = new THREE.DirectionalLight(0xffe9b0, 3.9);
   sun.shadow.mapSize.set(1024, 1024);
   const sc = sun.shadow.camera;
   sc.left = sc.bottom = -35;

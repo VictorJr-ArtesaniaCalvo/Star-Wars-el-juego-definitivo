@@ -3,6 +3,7 @@ import { CANYON_HALF_L, CANYON_HALF_W, crashField, makeRng, terrainHeight } from
 import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, rockJointsTexture, rockTexture, slabRockTexture, slabsTexture, strataTexture } from './materials';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { Quality } from '../core/Settings';
+import { bakeSunShadow, shadeColor, sunShadow } from './sunShadow';
 
 // Decoración del suelo de Geonosis, solo en calidad media y alta (en baja no se dibuja nada de esto):
 //  · Lajas de piedra planas e irregulares con la textura de Rock 029, esparcidas por el suelo (más junto a rocas y paredes, menos en los caminos),
@@ -159,6 +160,7 @@ export class Scatter {
       geo.setAttribute('normal', new THREE.BufferAttribute(N, 3));
       geo.setAttribute('color', new THREE.BufferAttribute(C, 3));
       geo.computeBoundingSphere();
+      bakeSunShadow(geo);
       const mesh = new THREE.Mesh(geo, mat);
       mesh.receiveShadow = true;
       mesh.visible = false;
@@ -206,7 +208,9 @@ export class Scatter {
         this.tmp.scale.set(s * (0.8 + rnd() * 0.6), s * (0.45 + rnd() * 0.3), s * (0.8 + rnd() * 0.6));
         this.tmp.updateMatrix();
         this.pebbles.setMatrixAt(n, this.tmp.matrix);
-        this.pebbles.setColorAt(n, this.col.copy(PEBBLE_COLORS[Math.floor(rnd() * PEBBLE_COLORS.length)]).multiplyScalar(0.8 + rnd() * 0.4));
+        this.col.copy(PEBBLE_COLORS[Math.floor(rnd() * PEBBLE_COLORS.length)]).multiplyScalar(0.8 + rnd() * 0.4);
+        shadeColor(sunShadow(x, this.tmp.position.y, z), this.col);
+        this.pebbles.setColorAt(n, this.col);
         n++;
       }
     }
@@ -270,6 +274,7 @@ export class Ledges {
     geo.setAttribute('texAmt', new THREE.BufferAttribute(new Float32Array(cnt).fill(1), 1));
     geo.setAttribute('texKind', new THREE.BufferAttribute(new Float32Array(cnt), 1));
     geo.computeBoundingSphere();
+    bakeSunShadow(geo);
     // mismo material que las rocas del cañón (arenisca en capas)
     const mat = applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), { ground: groundTexture(), groundX: groundExtraTexture(), slabs: slabsTexture(), strata: strataTexture(), pits: pitsTexture(), spire: { rock: rockTexture(), joints: rockJointsTexture() }, rockOnly: true, strataScale: 0.2 });
     this.mesh = new THREE.Mesh(geo, mat);

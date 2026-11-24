@@ -4,6 +4,7 @@ import type RAPIER from '@dimforge/rapier3d-compat';
 import { CRASH, crashField, makeRng, terrainHeight } from './terrain';
 import { laatData } from './laat';
 import { slabRockTexture } from './materials';
+import { bakeSunShadow } from './sunShadow';
 
 // Restos del accidente y cajas de suministros, sin cajas planas de color:
 //  · Trozos del propio casco de la LAAT (alas, cubierta, cofia, panza, costados), cortados del modelo con su misma textura,
@@ -359,6 +360,7 @@ export class Wreckage {
       const g = mergeGeometries(list, false)!;
       for (const x of list) x.dispose();
       g.computeBoundingSphere();
+      bakeSunShadow(g);
       const mesh = new THREE.Mesh(g, mat);
       mesh.castShadow = cast; mesh.receiveShadow = true;
       scene.add(mesh);

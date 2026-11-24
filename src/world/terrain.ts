@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 
+import { shadeColor, sunShadow } from './sunShadow';
 import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, slabsTexture, strataTexture } from './materials';
 
 export const WORLD_SEED = 1138;
@@ -248,6 +249,7 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
       const k = 0.5 + 0.5 * Math.sin(x * 0.05 + Math.sin(z * 0.08) * 2) * Math.cos(z * 0.043 + 1);
       tmp.copy(dark).lerp(light, Math.min(1, Math.max(0, k * 0.7 + h * 0.06 + 0.2)));
     }
+    shadeColor(sunShadow(x, h, z, nor.getX(i), nor.getY(i), nor.getZ(i)), tmp); // sombra de las paredes (pintada al cargar)
     const cf = crashField(x, z);
     if (cf.sand > 0.01) tmp.lerp(SAND, Math.min(0.75, cf.sand * 0.8)); // tierra clara removida por la nave
     const sc = Math.max(cf.scorch, 0.8 * (1 - smoothstep(10, 34, Math.hypot(x - WRECK.x, z - WRECK.z))));

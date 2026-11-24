@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { bakeSunShadow } from './sunShadow';
 import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, rockJointsTexture, rockTexture, slabsTexture, strataTexture } from './materials';
 
 // Junta muchas piezas en un único objeto dibujable (mucho más ligero para el móvil)
@@ -126,6 +127,7 @@ export class Builder {
     for (const o of this.extras) scene.add(o);
     const merged = mergeGeometries(this.geos, false)!;
     for (const g of this.geos) g.dispose();
+    bakeSunShadow(merged); // sombra de las paredes pintada al cargar
     // Las rocas y piezas llevan la arenisca estratificada (en el espacio del mundo); la cañonera y los restos metálicos
     // se verían raros con ella, pero el efecto es suave porque solo modula el color de cada pieza.
     const mesh = new THREE.Mesh(merged, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), { ground: groundTexture(), groundX: groundExtraTexture(), slabs: slabsTexture(), strata: strataTexture(), pits: pitsTexture(), spire: { rock: rockTexture(), joints: rockJointsTexture() }, rockOnly: true, strataScale: 0.2 }));
