@@ -141,7 +141,8 @@ export class AudioEngine {
     if (this.recentEnemyShots.length >= 6) return; // demasiados a la vez
     if (dist > 140) return; // demasiado lejos para oírse
     this.recentEnemyShots.push(now);
-    if (kind === 'b1' && this.playB1Clip(x, y, z)) return;
+    // Los B1 y los B2 comparten los mismos disparos (los 4 clips reales); si no cargaron, suena el sintético de cada uno
+    if ((kind === 'b1' || kind === 'b2') && this.playB1Clip(x, y, z)) return;
     const id: SoundId = kind === 'b2' ? 'b2' : kind === 'droideka' ? 'deka' : 'b1';
     const vol = kind === 'b2' ? 0.7 : kind === 'droideka' ? 0.45 : 0.5;
     this.play(id, vol, rnd(0.93, 1.08), [x, y, z], kind === 'b2' ? 9 : 7);

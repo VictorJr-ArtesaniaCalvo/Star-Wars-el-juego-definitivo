@@ -128,6 +128,7 @@ export class Droid {
     this.deploy = 0;
     this.roll = 0;
     if (this.dekaRig) poseDroideka(this.dekaRig, 0, 0);
+    if (this.b2Rig) ctx.appear?.('b2', x, s.y + 1.2, z); // el B2 también suena a «cargar el arma» al aparecer
     if (this.rig) {
       // Los B1 aparecen agachados y plegados y se van desplegando (se ve desde lejos)
       this.unfold = 0;
