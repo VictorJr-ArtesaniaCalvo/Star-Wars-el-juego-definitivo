@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { applyWorldTextures, groundExtraTexture, groundTexture, rockJointsTexture, rockTexture } from './materials';
+import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, rockJointsTexture, rockTexture, slabsTexture, strataTexture } from './materials';
 
 // Junta muchas piezas en un único objeto dibujable (mucho más ligero para el móvil)
 // y crea a la vez su versión "sólida" para la física.
@@ -15,9 +15,11 @@ export class Builder {
     private physics: RAPIER.World,
   ) {}
 
-  /** Cuánto se aplica la textura de arenisca a una pieza (1 = roca; 0 = metal, cajas, cañonera). */
-  private texAmt(geo: THREE.BufferGeometry, amt: number) {
-    geo.setAttribute('texAmt', new THREE.BufferAttribute(new Float32Array(geo.attributes.position.count).fill(amt), 1));
+  /** Cuánto se aplica la textura de arenisca a una pieza (1 = roca; 0 = metal, cajas, cañonera) y de qué tipo es (1 = aguja/torre, que lleva otras texturas). */
+  private texAmt(geo: THREE.BufferGeometry, amt: number, kind = 0) {
+    const n = geo.attributes.position.count;
+    geo.setAttribute('texAmt', new THREE.BufferAttribute(new Float32Array(n).fill(amt), 1));
+    geo.setAttribute('texKind', new THREE.BufferAttribute(new Float32Array(n).fill(kind), 1));
   }
 
   private paint(geo: THREE.BufferGeometry, color: number, shade = 1) {
@@ -29,13 +31,13 @@ export class Builder {
   }
 
   /** Pieza con forma libre (rocas). Su parte sólida es su envolvente. */
-  addHull(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, color: number, shade = 1, solid = true) {
+  addHull(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, color: number, shade = 1, solid = true, spire = false) {
     const g = geo.index ? geo.toNonIndexed() : geo;
     g.applyMatrix4(matrix);
     g.computeVertexNormals();
     g.deleteAttribute('uv');
     this.paint(g, color, shade);
-    this.texAmt(g, 1);
+    this.texAmt(g, 1, spire ? 1 : 0);
     this.geos.push(g);
     if (!solid) return; // piezas inalcanzables (el borde del cañón) no necesitan cuerpo sólido
     const desc = this.rapier.ColliderDesc.convexHull(new Float32Array(g.attributes.position.array));
@@ -115,7 +117,7 @@ export class Builder {
     for (const g of this.geos) g.dispose();
     // Las rocas y piezas llevan la arenisca estratificada (en el espacio del mundo); la cañonera y los restos metálicos
     // se verían raros con ella, pero el efecto es suave porque solo modula el color de cada pieza.
-    const mesh = new THREE.Mesh(merged, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), { ground: groundTexture(), groundX: groundExtraTexture(), rock: rockTexture(), rock2: rockJointsTexture(), rockOnly: true, rockScale: 0.3, rock2Scale: 0.07 }));
+    const mesh = new THREE.Mesh(merged, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), { ground: groundTexture(), groundX: groundExtraTexture(), slabs: slabsTexture(), strata: strataTexture(), pits: pitsTexture(), spire: { rock: rockTexture(), joints: rockJointsTexture() }, rockOnly: true, strataScale: 0.2 }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);

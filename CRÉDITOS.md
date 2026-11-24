@@ -47,7 +47,7 @@ textura de color del autor se ha combinado con su mapa de oclusión en una sola 
 
 ## Texturas y partículas (CC0)
 Todas de dominio público (CC0 1.0); se citan por cortesía. Detalles completos en `assets/CREDITOS.md`.
-- **Poly Haven** (https://polyhaven.com): *Red Sandstone Wall* (Amal Kumar), *Sandstone Cracks* (Rob Tuytel), *Mud Cracked Dry 03* (Dario Barresi y Dimitrios Savva) y *Sand 03* (Charlotte Baglioni). Usadas, ya preparadas en blanco y negro con relieve, para las rocas, las paredes y el suelo.
+- **Poly Haven** (https://polyhaven.com): *Red Sandstone Wall* (Amal Kumar), *Sandstone Cracks* (Rob Tuytel), *Mud Cracked Dry 03* (Dario Barresi y Dimitrios Savva), *Sand 03* (Charlotte Baglioni) y *Cliff Side* (James Ray Cock y Dario Barresi, fotografía; Jenelle van Heerden, procesado). Usadas, ya preparadas en blanco y negro con relieve, para las rocas, las paredes y el suelo.
 - **OpenGameArt** — *Arid ground textures* de **pansapiens** (https://opengameart.org/content/arid-ground-textures): tierra roja con grava (suelo).
 - **Kenney** (https://kenney.nl) — *Smoke Particles* y *Particle Pack* de Kenney Vleugels: humo, fuego, chispas y polvo de la cañonera derribada, las explosiones, los impactos y los fogonazos.
 

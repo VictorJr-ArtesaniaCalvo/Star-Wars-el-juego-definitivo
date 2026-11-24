@@ -17,6 +17,7 @@ Cada textura trae tres mapas en JPG, en 2k (2048 px) y en 1k (1024 px): color (`
 | `sandstone_cracks` — Sandstone Cracks | roca de las agujas y paredes del cañón — **en uso** | Rob Tuytel | https://polyhaven.com/a/sandstone_cracks |
 | `mud_cracked_dry_03` — Mud Cracked Dry 03 | suelo agrietado (para teñir de rojo) — **en uso** | Dario Barresi (procesado) y Dimitrios Savva (fotografía) | https://polyhaven.com/a/mud_cracked_dry_03 |
 | `sand_03` — Sand 03 | arena — **en uso** | Charlotte Baglioni | https://polyhaven.com/a/sand_03 |
+| `cliff_side` — Cliff Side | capas de roca erosionada de rocas y paredes del cañón (no de las agujas) — **en uso** | James Ray Cock y Dario Barresi (fotografía), Jenelle van Heerden (procesado) | https://polyhaven.com/a/cliff_side |
 
 En cada carpeta hay también `informacion_polyhaven.json`, los datos oficiales de la textura (autores, etiquetas, tamaño real que cubre…).
 
@@ -39,7 +40,7 @@ Autor: **Kenney Vleugels** (https://kenney.nl) · Licencia: CC0 1.0 · «Crédit
 ---
 
 ## Qué se usa en el juego y cómo
-- **Suelo y rocas:** `public/textures/ground-red.jpg` (de `red_earth_03` de pansapiens), `ground-extra.jpg` (barro agrietado y arena de Poly Haven), `rock-cracks.jpg` y `rock-wall.jpg` (de `sandstone_cracks` y `red_sandstone_wall`). Cada una es una imagen de 1024 px con el relieve y el brillo en blanco y negro (el color rojo lo pone el juego). Se generan con `python tools/build-textures.py`.
+- **Suelo y rocas:** `public/textures/ground-red.jpg` (de `red_earth_03` de pansapiens), `ground-extra.jpg` (barro agrietado y arena de Poly Haven), `rock-cracks.jpg` y `rock-wall.jpg` (de `sandstone_cracks` y `red_sandstone_wall`), `rock-strata.jpg` (de `cliff_side`). `ground-slabs.jpg` (lajas del suelo) y `rock-pits.jpg` (picaduras tipo panal) **no son fotos**: las dibuja el propio script, así que no llevan autor externo. Cada una es una imagen de 1024 px con el relieve y el brillo en blanco y negro (el color rojo lo pone el juego). Se generan con `python tools/build-textures.py`.
 - **Partículas:** `public/particles/atlas.png`: 16 imágenes de Kenney (humo, polvo, fuego, chispas, rayo) en una sola; se usan en la cañonera derribada y en las explosiones, impactos y fogonazos. Se genera con `python tools/build-particles.py`.
 - Siguen sin usarse: `sand_01` a `04` y el resto de `red_earth` de pansapiens, y la mayoría de las partículas de Kenney.
 

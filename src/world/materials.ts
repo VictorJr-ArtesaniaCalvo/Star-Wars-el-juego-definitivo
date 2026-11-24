@@ -37,7 +37,7 @@ function toTexture(data: Uint8ClampedArray, size: number): THREE.DataTexture {
   return t;
 }
 
-interface Real { ground: THREE.Texture; groundX: THREE.Texture; wall: THREE.Texture; cracks: THREE.Texture }
+interface Real { ground: THREE.Texture; groundX: THREE.Texture; wall: THREE.Texture; cracks: THREE.Texture; slabs: THREE.Texture; strata: THREE.Texture; pits: THREE.Texture }
 let real: Real | null = null;
 
 /** Descarga las texturas reales (1024 px). Si alguna falla, el juego sigue con las generadas por código. */
@@ -51,8 +51,8 @@ export async function loadWorldTextures(base: string): Promise<boolean> {
       t.colorSpace = THREE.NoColorSpace; // son datos (relieve y brillo), no un color
       return t;
     };
-    const [ground, groundX, wall, cracks] = await Promise.all([get('ground-red'), get('ground-extra'), get('rock-wall'), get('rock-cracks')]);
-    real = { ground, groundX, wall, cracks };
+    const [ground, groundX, wall, cracks, slabs, strata, pits] = await Promise.all([get('ground-red'), get('ground-extra'), get('rock-wall'), get('rock-cracks'), get('ground-slabs'), get('rock-strata'), get('rock-pits')]);
+    real = { ground, groundX, wall, cracks, slabs, strata, pits };
     return true;
   } catch (e) {
     console.warn('No se pudieron cargar las texturas del escenario; se usan las generadas por código.', e);
@@ -77,11 +77,20 @@ const fallback = (k: string, mk: () => THREE.DataTexture, extra = false) => (fb[
 
 export const groundTexture = (): THREE.Texture => real?.ground ?? fallback('g', () => buildGroundCached());
 export const groundExtraTexture = (): THREE.Texture => real?.groundX ?? fallback('gx', () => buildGroundCached(), true);
-/** Paredes altas del cañón y rocas: arenisca con grietas. */
+/** Arenisca con grietas: ahora solo la llevan las agujas (torres). */
 export const wallTexture = (): THREE.Texture => real?.cracks ?? fallback('w', () => buildRockCached());
 export const rockTexture = wallTexture;
-/** Juntas grandes de bloques (agujas y rocas): se mezcla por encima de la anterior. */
+/** Juntas grandes de bloques (agujas): se mezcla por encima de la anterior. */
 export const rockJointsTexture = (): THREE.Texture | null => real?.wall ?? null;
+// Textura neutra (relieve plano, brillo medio) para cuando faltan las nuevas
+let neutralTex: THREE.DataTexture | null = null;
+const neutral = () => (neutralTex ??= toTexture(new Uint8ClampedArray(Array.from({ length: 16 }, () => [128, 128, 200, 255]).flat()), 2));
+/** Roca estratificada (capas horizontales): paredes del cañón y rocas (no las agujas). */
+export const strataTexture = (): THREE.Texture => real?.strata ?? fallback('w', () => buildRockCached());
+/** Huecos de erosión sobre las rocas. */
+export const pitsTexture = (): THREE.Texture => real?.pits ?? neutral();
+/** Lajas de arenisca sueltas sobre arena (suelo). */
+export const slabsTexture = (): THREE.Texture => real?.slabs ?? neutral();
 
 /** Tierra rojiza de Geonosis: moteado, parches pálidos, guijarros y pequeñas ondulaciones. Los valores multiplican el color base. */
 let groundCache: THREE.DataTexture | null = null;
@@ -154,77 +163,118 @@ function buildRock(size: number): THREE.DataTexture {
   return toTexture(d, size);
 }
 
-interface Options { ground: THREE.Texture; groundX: THREE.Texture; rock: THREE.Texture; /** Segunda imagen de roca (juntas de bloques), a otra escala. */ rock2?: THREE.Texture | null; rock2Scale?: number; rockOnly?: boolean; groundScale?: number; rockScale?: number }
+interface Options {
+  ground: THREE.Texture; groundX: THREE.Texture; slabs: THREE.Texture;
+  /** Roca estratificada: paredes del cañón y rocas. */
+  strata: THREE.Texture; pits?: THREE.Texture;
+  /** Solo en el material de las rocas sueltas: las agujas (torres) llevan estas dos imágenes de siempre en vez de las nuevas. */
+  spire?: { rock: THREE.Texture; joints: THREE.Texture | null };
+  rockOnly?: boolean; groundScale?: number; strataScale?: number;
+}
 
 // Fuerza del relieve de las texturas (se baja a 0 en calidad «baja» para ahorrar batería). Se comparte entre todos los materiales.
 const bumpUniform = { value: 1 };
 export const setWorldBump = (on: boolean) => { bumpUniform.value = on ? 1 : 0; };
 
 /**
- * Añade al material las texturas en el espacio del mundo: sobre superficies casi horizontales la tierra (con parches de barro agrietado
- * y de arena), en las pendientes y paredes la arenisca (proyectada por los tres ejes, sin estirarse). Además de colorear, las texturas
- * inclinan un poco la luz (relieve) para que se noten las piedras, las grietas y las juntas.
+ * Añade al material las texturas en el espacio del mundo: sobre superficies casi horizontales la tierra (con parches de lajas de arenisca,
+ * de barro agrietado y de arena), en las pendientes y paredes la roca estratificada con huecos de erosión (proyectada por los tres ejes,
+ * sin estirarse). Las agujas (torres) llevan arenisca con grietas y juntas de bloques. Además de colorear, las texturas inclinan un poco
+ * la luz (relieve) para que se noten las piedras, las capas y los huecos.
  */
 export function applyWorldTextures(mat: THREE.MeshLambertMaterial, o: Options) {
-  const gs = o.groundScale ?? 0.4, rs = o.rockScale ?? 0.2, rs2 = o.rock2Scale ?? 0.07, two = !!o.rock2;
+  const gs = o.groundScale ?? 0.4, ss = o.strataScale ?? 0.15, sp = o.spire, pits = !!o.pits;
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.groundMap = { value: o.ground };
     shader.uniforms.groundXMap = { value: o.groundX };
-    shader.uniforms.rockMap = { value: o.rock };
-    if (two) shader.uniforms.rock2Map = { value: o.rock2 };
+    shader.uniforms.slabMap = { value: o.slabs };
+    shader.uniforms.strataMap = { value: o.strata };
+    if (pits) shader.uniforms.pitMap = { value: o.pits };
+    if (sp) { shader.uniforms.spireMap = { value: sp.rock }; if (sp.joints) shader.uniforms.jointMap = { value: sp.joints }; }
     shader.uniforms.uBump = bumpUniform;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vTexAmt;' + (o.rockOnly ? '\nattribute float texAmt;' : ''))
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(position, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvTexAmt = ' + (o.rockOnly ? 'texAmt' : '1.0') + ';');
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vTexAmt;\nvarying float vKind;' + (o.rockOnly ? '\nattribute float texAmt;\nattribute float texKind;' : ''))
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(position, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\nvTexAmt = ' + (o.rockOnly ? 'texAmt' : '1.0') + ';\nvKind = ' + (o.rockOnly ? 'texKind' : '0.0') + ';');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
 varying vec3 vWPos;
 varying vec3 vWNor;
 varying float vTexAmt;
+varying float vKind;
 uniform sampler2D groundMap;
 uniform sampler2D groundXMap;
-uniform sampler2D rockMap;
-${two ? 'uniform sampler2D rock2Map;' : ''}
+uniform sampler2D slabMap;
+uniform sampler2D strataMap;
+${pits ? 'uniform sampler2D pitMap;' : ''}
+${sp ? 'uniform sampler2D spireMap;' + (sp.joints ? '\nuniform sampler2D jointMap;' : '') : ''}
 uniform float uBump;
 float hash21(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vnoise(vec2 p) {
   vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), f.x), mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+// Una imagen proyectada por los tres ejes: devuelve su brillo (azul) y la inclinación de la luz (rojo y verde) en coordenadas del mundo
+void tri(sampler2D t, vec3 p, float s, vec3 w, out float l, out vec3 b) {
+  vec4 x = texture2D(t, vec2(p.z, p.y) * s);
+  vec4 z = texture2D(t, vec2(p.x, p.y) * s);
+  vec4 y = texture2D(t, p.xz * s);
+  vec2 nx = x.rg * 2.0 - 1.0, nz = z.rg * 2.0 - 1.0, ny = y.rg * 2.0 - 1.0;
+  float k = max(w.x + w.y + w.z, 0.0001);
+  l = (x.b * w.x + z.b * w.z + y.b * w.y) / k;
+  b = (vec3(0.0, nx.y, nx.x) * w.x + vec3(nz.x, nz.y, 0.0) * w.z + vec3(ny.x, 0.0, ny.y) * w.y) / k;
 }`)
       .replace('#include <map_fragment>', `
   vec3 wn = normalize(vWNor);
   vec3 an = abs(wn);
+  vec3 tw = an * an;
   float steep = ${o.rockOnly ? '1.0' : 'smoothstep(0.5, 0.82, 1.0 - an.y)'};
-  // suelo: tierra con grava (relieve y brillo en una sola imagen), una pasada grande para romper la repetición y parches de barro y arena
+  // suelo: tierra con grava (relieve y brillo en una sola imagen), una pasada grande para romper la repetición y parches de lajas, barro y arena
   vec4 g1 = texture2D(groundMap, vWPos.xz * ${gs.toFixed(4)});
   vec4 g2 = texture2D(groundMap, vWPos.xz * ${(gs * 0.09).toFixed(4)} + vec2(0.37, 0.61));
   vec2 gx = texture2D(groundXMap, vWPos.xz * ${(gs * 0.45).toFixed(4)}).rg;
-  float mudM = smoothstep(0.5, 0.62, vnoise(vWPos.xz * 0.017));
-  float sandM = smoothstep(0.52, 0.66, vnoise(vWPos.xz * 0.011 + vec2(7.3, 2.1))) * (1.0 - mudM);
+  vec4 sl = texture2D(slabMap, vWPos.xz * ${(gs * 0.5).toFixed(4)});
+  float slabM = smoothstep(0.36, 0.5, vnoise(vWPos.xz * 0.026 + vec2(3.7, 9.1)));
+  float mudM = smoothstep(0.5, 0.62, vnoise(vWPos.xz * 0.017)) * (1.0 - slabM);
+  float sandM = smoothstep(0.52, 0.66, vnoise(vWPos.xz * 0.011 + vec2(7.3, 2.1))) * (1.0 - mudM) * (1.0 - slabM);
+  // las lajas, el barro y la arena solo en suelo casi llano (en las cuestas se estirarían)
+  float flatG = smoothstep(0.9, 0.97, an.y);
+  slabM *= flatG; mudM *= flatG; sandM *= flatG;
   float gl = mix(mix(g1.b, gx.r, mudM), gx.g, sandM);
+  gl = mix(gl, sl.b, slabM);
   vec3 groundTex = vec3(gl * (0.55 + 0.6 * g2.b)) * mix(vec3(1.0), vec3(1.2, 1.04, 0.8), sandM);
-  // rocas y paredes: la misma imagen proyectada por los tres ejes
-  vec4 rx = texture2D(rockMap, vec2(vWPos.z, vWPos.y) * ${rs.toFixed(4)});
-  vec4 rz = texture2D(rockMap, vec2(vWPos.x, vWPos.y) * ${rs.toFixed(4)});
-  vec4 ry = texture2D(rockMap, vWPos.xz * ${rs.toFixed(4)});
-  float wx = an.x * an.x, wz = an.z * an.z, wy = an.y * an.y;
-  float wsum = max(wx + wz + wy, 0.0001);
-  vec3 rockTex = vec3((rx.b * wx + rz.b * wz + ry.b * wy) / wsum) * vec3(1.0, 0.97, 0.92);
-${two ? `  vec4 sx = texture2D(rock2Map, vec2(vWPos.z, vWPos.y) * ${rs2.toFixed(4)});
-  vec4 sz = texture2D(rock2Map, vec2(vWPos.x, vWPos.y) * ${rs2.toFixed(4)});
-  vec4 sy = texture2D(rock2Map, vWPos.xz * ${rs2.toFixed(4)});
-  rockTex *= mix(1.0, ((sx.b * wx + sz.b * wz + sy.b * wy) / wsum) / 0.78, 0.65);` : ''}
-  diffuseColor.rgb *= mix(vec3(1.0) , mix(groundTex * 1.46, rockTex * 1.34, steep), vTexAmt);
-  // relieve: se inclina la luz según la pendiente de cada imagen (en el mundo: u,v de cada proyección)
-  vec2 gnv = (g1.rg * 2.0 - 1.0) * (1.0 - 0.6 * mudM);
-  vec2 nx2 = rx.rg * 2.0 - 1.0, nz2 = rz.rg * 2.0 - 1.0, ny2 = ry.rg * 2.0 - 1.0;
-  vec3 rockBump = (vec3(0.0, nx2.y, nx2.x) * wx + vec3(nz2.x, nz2.y, 0.0) * wz + vec3(ny2.x, 0.0, ny2.y) * wy) / wsum;
-${two ? `  vec2 sx2 = sx.rg * 2.0 - 1.0, sz2 = sz.rg * 2.0 - 1.0, sy2 = sy.rg * 2.0 - 1.0;
-  rockBump += 0.6 * (vec3(0.0, sx2.y, sx2.x) * wx + vec3(sz2.x, sz2.y, 0.0) * wz + vec3(sy2.x, 0.0, sy2.y) * wy) / wsum;` : ''}
+  vec2 gnv = mix(g1.rg * 2.0 - 1.0, (sl.rg * 2.0 - 1.0) * 1.7, slabM) * (1.0 - 0.6 * mudM);
+  // rocas y paredes
+  vec3 rockTex = vec3(1.0);
+  vec3 rockBump = vec3(0.0);
+  float rl; vec3 rb;
+${sp ? `  if (vKind > 0.5) {
+    // agujas (torres): arenisca con grietas y juntas de bloques de siempre
+    tri(spireMap, vWPos, 0.3, tw, rl, rb);
+    rockTex = vec3(rl) * vec3(1.0, 0.97, 0.92);
+    rockBump = rb;
+${sp.joints ? `    float jl; vec3 jb;
+    tri(jointMap, vWPos, 0.07, tw, jl, jb);
+    rockTex *= mix(1.0, jl / 0.78, 0.65);
+    rockBump += 0.6 * jb;` : ''}
+  } else {` : ''}
+  tri(strataMap, vWPos, ${ss.toFixed(4)}, tw, rl, rb);
+  // las manchas de claro y oscuro a gran escala rompen la repetición de la imagen
+  float macroR = 0.78 + 0.44 * vnoise(vec2(vWPos.x + vWPos.z, vWPos.y) * 0.045);
+  rockTex = vec3(rl * macroR) * vec3(1.0, 0.97, 0.92);
+  rockBump = rb;
+${pits ? `  // huecos de erosión en parches de las caras verticales
+  float pl; vec3 pb;
+  tri(pitMap, vWPos, 0.13, tw, pl, pb);
+  float pitM = smoothstep(0.45, 0.62, vnoise(vWPos.xz * 0.06 + vWPos.y * 0.05)) * smoothstep(0.3, 0.7, 1.0 - an.y);
+  rockTex *= mix(1.0, pl / 0.78, pitM);
+  rockBump = mix(rockBump, pb * 1.3, pitM);` : ''}
+${sp ? '  }' : ''}
+  diffuseColor.rgb *= mix(vec3(1.0), mix(groundTex * 1.46, rockTex * 1.34, steep), vTexAmt);
+  // relieve: se inclina la luz según la pendiente de cada imagen (en el mundo)
   vec3 gBump = mix(vec3(gnv.x, 0.0, gnv.y) * 0.35, rockBump * 0.8, steep) * vTexAmt * uBump;`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   normal = normalize(normal + (viewMatrix * vec4(gBump, 0.0)).xyz);`);
   };
-  mat.customProgramCacheKey = () => 'worldtex3-' + (o.rockOnly ? 'rock' : 'terrain') + (two ? '2' : '');
+  mat.customProgramCacheKey = () => 'worldtex4-' + (o.rockOnly ? 'rock' : 'terrain') + (pits ? 'p' : '') + (sp ? 's' : '');
   return mat;
 }

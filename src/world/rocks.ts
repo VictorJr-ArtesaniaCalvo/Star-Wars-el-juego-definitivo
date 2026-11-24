@@ -104,7 +104,7 @@ export function buildRocks(b: Builder) {
       const y = terrainHeight(x + ox, z + oz) - 1.5;
       const floor = onFloor(x + ox, z + oz);
       if (floor) OBSTACLES.push({ x: x + ox, z: z + oz, radius: r * 0.9, height: h });
-      b.addHull(spireGeometry(r, h, seed++, range(-0.12, 0.12), floor), place(x + ox, y, z + oz, range(0, 6.28)), SPIRE, range(0.8, 1.1), floor);
+      b.addHull(spireGeometry(r, h, seed++, range(-0.12, 0.12), floor), place(x + ox, y, z + oz, range(0, 6.28)), SPIRE, range(0.8, 1.1), floor, true);
     }
   };
 

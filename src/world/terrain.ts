@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 
-import { applyWorldTextures, groundExtraTexture, groundTexture, wallTexture } from './materials';
+import { applyWorldTextures, groundExtraTexture, groundTexture, slabsTexture, strataTexture } from './materials';
 
 export const WORLD_SEED = 1138;
 // La malla del terreno es mucho más larga que la zona jugable: el cañón sigue a lo lejos.
@@ -188,7 +188,7 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-  const mesh = new THREE.Mesh(geo, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true }), { ground: groundTexture(), groundX: groundExtraTexture(), rock: wallTexture(), rockScale: 0.2 }));
+  const mesh = new THREE.Mesh(geo, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true }), { ground: groundTexture(), groundX: groundExtraTexture(), slabs: slabsTexture(), strata: strataTexture(), strataScale: 0.07 }));
   mesh.receiveShadow = true;
   scene.add(mesh);
 

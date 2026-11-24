@@ -73,3 +73,107 @@ save('ground-red.jpg', nx, ny, detail(oga('red_earth_03', 'diff'), keep_large=0.
 mud = detail(ph('mud_cracked_dry_03', 'diff'), keep_large=0.15, contrast=1.25)
 sand = detail(ph('sand_03', 'diff'), keep_large=0.1, contrast=1.3, blur=60)
 save('ground-extra.jpg', mud, sand, np.full_like(mud, 0.5))
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Segunda tanda: roca estratificada (foto) y dos texturas hechas por código (lajas de arenisca para el suelo y huecos de erosión para las rocas)
+# ---------------------------------------------------------------------------------------------------------------------------------
+rng = np.random.default_rng(1138)
+
+
+def periodic_noise(sigma, seed):
+    """Ruido suave que se repite sin costuras, con valores entre 0 y 1."""
+    r = np.random.default_rng(seed).standard_normal((SIZE, SIZE))
+    n = periodic_blur(r, sigma)
+    return (n - n.min()) / (n.max() - n.min())
+
+
+def worley(cells, seed, warp=0.0, warp_sigma=40, jitter=(0.15, 0.85)):
+    """Celdas de Voronoi que se repiten sin costuras. Devuelve (distancia al punto más cercano, al borde de su celda, número de celda, vector al centro), en píxeles."""
+    r = np.random.default_rng(seed)
+    pts = (np.stack(np.meshgrid(np.arange(cells), np.arange(cells), indexing='ij'), -1) + r.uniform(jitter[0], jitter[1], (cells, cells, 2))) * (SIZE / cells)
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE].astype(np.float32)
+    if warp:  # deforma un poco las celdas para que no parezcan una cuadrícula
+        xx = xx + (periodic_noise(warp_sigma, seed + 1) - 0.5) * warp
+        yy = yy + (periodic_noise(warp_sigma, seed + 2) - 0.5) * warp
+    ci = np.floor(xx / (SIZE / cells)).astype(int)  # sin «% cells»: así la deformación no rompe la repetición en los bordes
+    cj = np.floor(yy / (SIZE / cells)).astype(int)
+    best = np.full(xx.shape, 1e9, np.float32); second = np.full(xx.shape, 1e9, np.float32)
+    best_id = np.zeros(xx.shape, np.int32); bvx = np.zeros(xx.shape, np.float32); bvy = np.zeros(xx.shape, np.float32)
+    for di in (-1, 0, 1):
+        for dj in (-1, 0, 1):
+            gi, gj = ci + di, cj + dj
+            px = pts[gi % cells, gj % cells, 0] + (gi // cells) * SIZE
+            py = pts[gi % cells, gj % cells, 1] + (gj // cells) * SIZE
+            dx, dy = xx - px, yy - py  # (el eje 0 de pts es x)
+            d = np.sqrt(dx * dx + dy * dy)
+            better = d < best
+            second = np.where(better, best, np.minimum(second, d))
+            best_id = np.where(better, (gi % cells) * cells + (gj % cells), best_id)
+            bvx = np.where(better, dx, bvx); bvy = np.where(better, dy, bvy)
+            best = np.where(better, d, best)
+    return best, second - best, best_id, bvx, bvy
+
+
+def smooth(a, b, v):
+    t = np.clip((v - a) / (b - a), 0, 1)
+    return t * t * (3 - 2 * t)
+
+
+def normal_from_height(h, strength):
+    gx = (np.roll(h, -1, 1) - np.roll(h, 1, 1)) * 0.5
+    gy = (np.roll(h, -1, 0) - np.roll(h, 1, 0)) * 0.5
+    nx, ny, nz = -gx * strength, gy * strength, np.ones_like(h)  # +y hacia arriba de la imagen, como los mapas OpenGL
+    l = np.sqrt(nx * nx + ny * ny + nz * nz)
+    return nx / l * 0.5 + 0.5, ny / l * 0.5 + 0.5
+
+
+def finish(nxn, nyn, luma):
+    luma = np.clip(luma / luma.mean() * MEAN, 0, 1)
+    return nxn, nyn, luma
+
+
+# Roca estratificada (Poly Haven, Cliff Side): capas horizontales de arenisca roja. Para las rocas y las paredes (no para las agujas).
+nx, ny = normal_xy(ph('cliff_side', 'nor_gl'))
+save('rock-strata.jpg', nx, ny, detail(ph('cliff_side', 'diff'), keep_large=0.3, contrast=0.95, blur=150))
+
+# Lajas de arenisca sueltas sobre arena (suelo): placas irregulares e inclinadas al azar, esparcidas entre arena clara y polvo.
+def plates(cells, seed, present, margin, warp):
+    d, edge, cid, vx, vy = worley(cells, seed, warp=warp, warp_sigma=50)
+    r = np.random.default_rng(seed + 100)
+    n = cells * cells
+    pres = (r.uniform(0, 1, n) < present)[cid]
+    m = r.uniform(*margin, n)[cid]
+    body = smooth(m, m + 7.0, edge) * pres                 # la laja es más pequeña que su celda: queda arena alrededor
+    return body, edge - m, cid, vx, vy, r.uniform(0.0, 1.0, n)[cid], r.uniform(-1, 1, (n, 2))[cid], r.uniform(0.42, 1.0, n)[cid]
+
+
+bigA, edgeA, cidA, vxA, vyA, liftA, tiltA, toneA = plates(11, 7, 0.7, (5, 26), 90)
+bigB, edgeB, cidB, vxB, vyB, liftB, tiltB, toneB = plates(40, 9, 0.2, (2, 5), 20)
+grainS = periodic_noise(2.5, 21) * 0.6 + periodic_noise(8, 22) * 0.4
+planeA = (tiltA[..., 0] * vxA + tiltA[..., 1] * vyA) * 0.0045
+planeB = (tiltB[..., 0] * vxB + tiltB[..., 1] * vyB) * 0.012
+hA = bigA * (0.5 + 0.5 * liftA + planeA)
+hB = bigB * (0.35 + 0.35 * liftB + planeB)
+h = np.maximum(hA, hB * 0.9) + (grainS - 0.5) * 0.05
+nxn, nyn = normal_from_height(h, 13.0)
+body = np.maximum(bigA, bigB * 0.9)
+tone = np.where(bigA >= bigB * 0.9, toneA, toneB) * (0.84 + 0.3 * grainS)
+sand = 1.18 * (0.88 + 0.24 * grainS)
+shadow = 1.0 - 0.45 * smooth(2.0, 9.0, edgeA) * (1 - smooth(9.0, 16.0, edgeA)) * (bigA > 0.05)  # sombra fina al pie de cada laja
+luma = (sand * (1 - body) + tone * body) * np.where(body > 0.05, 1.0, shadow) * (0.82 + 0.26 * periodic_noise(60, 23))
+save('ground-slabs.jpg', *finish(nxn, nyn, luma))
+
+# Huecos de erosión (alvéolos) en la roca: cuencos irregulares con borde claro (nunca más anchos que su celda, para que no se corten).
+d, edge, cid, vx, vy = worley(11, 31, warp=40, warp_sigma=50, jitter=(0.32, 0.68))
+radius = np.random.default_rng(32).uniform(17, 29, 11 * 11)[cid]
+depth = smooth(radius, radius * 0.3, d)
+present = np.random.default_rng(33).uniform(0, 1, 11 * 11)[cid] > 0.25  # no todas las celdas tienen hueco
+depth = depth * present
+rim = smooth(radius * 1.3, radius, d) * smooth(radius * 0.75, radius, d) * present
+bump = periodic_noise(4, 34)
+h = -depth + 0.2 * rim + (bump - 0.5) * 0.08
+nxn, nyn = normal_from_height(h, 5.5)
+luma = (0.9 + 0.2 * bump) * (1 - 0.62 * depth * (0.5 + 0.5 * smooth(radius, 0, d))) + 0.18 * rim
+luma = luma * (0.85 + 0.22 * periodic_noise(70, 35))
+save('rock-pits.jpg', *finish(nxn, nyn, luma))
