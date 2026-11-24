@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 
-// Efectos de la cañonera derribada, sin tocar el modelo: humo continuo de los motores, chispas ocasionales y pequeños fuegos.
-// Todo son puntos suaves en una reserva fija (muy ligera para el móvil): un solo objeto para el humo y otro para chispas y llamas.
+// Efectos de la cañonera derribada, sin tocar el modelo: humo continuo de los motores, chispas ocasionales, pequeños fuegos y polvo.
+// Todo son puntos en una reserva fija (muy ligera para el móvil): un solo objeto por tipo. Cada punto dibuja una de las imágenes de partículas
+// de Kenney (CC0, ver assets/CREDITOS.md) reunidas en public/particles/atlas.png; si no se pudieran cargar, se dibuja una mancha suave.
 
 export interface FirePoint { x: number; y: number; z: number; size: number }
 export interface SmokeSource { x: number; y: number; z: number; rate: number; size: number }
+export interface DustSource { x: number; y: number; z: number; rate: number; size: number }
 export interface SparkSource { x: number; y: number; z: number; every: [number, number]; count: number }
 
 /** Puntos donde arde fuego en la cañonera (destellos que parpadean, ver Atmosphere). */
@@ -14,14 +16,38 @@ export const GUNSHIP_FX = {
   smoke: [] as SmokeSource[],
   sparks: [] as SparkSource[],
   flames: [] as FirePoint[],
+  dust: [] as DustSource[],
 };
+
+// ---------- Imágenes de las partículas (atlas de 4×4 casillas) ----------
+// 0-4 humo · 5-7 polvo · 8-11 fuego (2 estallidos y 2 lenguas) · 12-14 chispas · 15 rayo
+export const SPRITES = { smoke: [0, 1, 2, 3, 4], dust: [5, 6, 7], fire: [8, 9, 10, 11], sparks: [12, 13, 14] };
+let atlasTex: THREE.Texture | null = null;
+/** Descarga el atlas de partículas. Si falla, las partículas se dibujan como manchas suaves. */
+export async function loadParticleAtlas(base: string): Promise<boolean> {
+  try {
+    const t = await new THREE.TextureLoader().loadAsync(`${base}particles/atlas.png`);
+    t.colorSpace = THREE.NoColorSpace; // el color son grises que luego se tiñen
+    t.anisotropy = 1;
+    atlasTex = t;
+    return true;
+  } catch (e) {
+    console.warn('No se pudo cargar el atlas de partículas; se dibujan manchas suaves.', e);
+    atlasTex = null;
+    return false;
+  }
+}
 
 const VERT = /* glsl */ `
 attribute float aSize;
 attribute float aAlpha;
 attribute vec3 aColor;
+attribute float aFrame;
+attribute float aRot;
 varying float vAlpha;
 varying vec3 vColor;
+varying float vFrame;
+varying float vRot;
 uniform float uScale;
 uniform float uMax;
 void main() {
@@ -30,14 +56,30 @@ void main() {
   gl_PointSize = min(aSize * uScale / max(0.1, -mv.z), uMax);
   vAlpha = aAlpha;
   vColor = aColor;
+  vFrame = aFrame;
+  vRot = aRot;
 }`;
 const FRAG = /* glsl */ `
 varying float vAlpha;
 varying vec3 vColor;
+varying float vFrame;
+varying float vRot;
+uniform sampler2D uAtlas;
 void main() {
-  float d = length(gl_PointCoord - 0.5) * 2.0;
-  float a = smoothstep(1.0, 0.0, d);
-  gl_FragColor = vec4(vColor, a * a * vAlpha);
+  if (vFrame < 0.0) {
+    float d = length(gl_PointCoord - 0.5) * 2.0;
+    float a = smoothstep(1.0, 0.0, d);
+    gl_FragColor = vec4(vColor, a * a * vAlpha);
+    return;
+  }
+  // la imagen de la partícula, girada y algo más pequeña que el punto (así no se recortan las esquinas al girar)
+  vec2 c = gl_PointCoord - 0.5;
+  float cs = cos(vRot), sn = sin(vRot);
+  vec2 r = vec2(c.x * cs - c.y * sn, c.x * sn + c.y * cs) * 1.15 + 0.5;
+  if (r.x < 0.0 || r.x > 1.0 || r.y < 0.0 || r.y > 1.0) discard;
+  vec2 cell = vec2(mod(vFrame, 4.0), floor(vFrame / 4.0));
+  vec4 t = texture2D(uAtlas, vec2((cell.x + r.x) * 0.25, 1.0 - (cell.y + r.y) * 0.25));
+  gl_FragColor = vec4(vColor * t.rgb, t.a * vAlpha);
 }`;
 
 export interface PoolOpts {
@@ -49,6 +91,9 @@ export interface PoolOpts {
   colorA: [number, number, number]; // color al nacer
   colorB: [number, number, number]; // color al morir
   alpha: number; // opacidad máxima
+  sprites?: number[]; // casillas del atlas que usa cada partícula (se elige una al azar); sin esto, mancha suave
+  spin?: number; // velocidad máxima de giro (rad/s)
+  tilt?: number; // giro inicial máximo (rad; por defecto, cualquiera)
 }
 
 /** Reserva de partículas suaves: tamaño, opacidad y color cambian a lo largo de su vida. */
@@ -57,6 +102,7 @@ export class SoftPoints {
   private n: number;
   private pos: Float32Array; private vel: Float32Array;
   private age: Float32Array; private life: Float32Array; private s0: Float32Array; private s1: Float32Array;
+  private frame: Float32Array; private rot: Float32Array; private spinV: Float32Array;
   private size: Float32Array; private alpha: Float32Array; private color: Float32Array;
   private next = 0;
   private tmpV = new THREE.Vector2();
@@ -67,14 +113,17 @@ export class SoftPoints {
     this.age = new Float32Array(n).fill(1); this.life = new Float32Array(n).fill(1);
     this.s0 = new Float32Array(n); this.s1 = new Float32Array(n);
     this.size = new Float32Array(n); this.alpha = new Float32Array(n); this.color = new Float32Array(n * 3);
+    this.frame = new Float32Array(n).fill(-1); this.rot = new Float32Array(n); this.spinV = new Float32Array(n);
     for (let i = 0; i < n; i++) this.pos[i * 3 + 1] = -1000;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
     g.setAttribute('aSize', new THREE.BufferAttribute(this.size, 1));
     g.setAttribute('aAlpha', new THREE.BufferAttribute(this.alpha, 1));
     g.setAttribute('aColor', new THREE.BufferAttribute(this.color, 3));
+    g.setAttribute('aFrame', new THREE.BufferAttribute(this.frame, 1));
+    g.setAttribute('aRot', new THREE.BufferAttribute(this.rot, 1));
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uScale: { value: 400 }, uMax: { value: 400 } },
+      uniforms: { uScale: { value: 400 }, uMax: { value: 400 }, uAtlas: { value: atlasTex } },
       vertexShader: VERT, fragmentShader: FRAG,
       transparent: true, depthWrite: false, blending: o.additive ? THREE.AdditiveBlending : THREE.NormalBlending, fog: false,
     });
@@ -95,6 +144,10 @@ export class SoftPoints {
     this.next = (this.next + 1) % this.n;
     this.pos.set([x, y, z], i * 3); this.vel.set([vx, vy, vz], i * 3);
     this.age[i] = 0; this.life[i] = life; this.s0[i] = s0; this.s1[i] = s1;
+    const sp = this.o.sprites;
+    this.frame[i] = sp && atlasTex ? sp[(Math.random() * sp.length) | 0] : -1;
+    this.rot[i] = (Math.random() * 2 - 1) * (this.o.tilt ?? Math.PI);
+    this.spinV[i] = (Math.random() * 2 - 1) * (this.o.spin ?? 0);
   }
 
   clear() {
@@ -110,6 +163,7 @@ export class SoftPoints {
     for (let i = 0; i < this.n; i++) {
       if (this.age[i] >= this.life[i]) { if (this.alpha[i] !== 0) { this.alpha[i] = 0; this.pos[i * 3 + 1] = -1000; } continue; }
       this.age[i] += dt;
+      this.rot[i] += this.spinV[i] * dt;
       const k = Math.min(1, this.age[i] / this.life[i]);
       this.vel[i * 3] = (this.vel[i * 3] + wind[0] * dt) * d;
       this.vel[i * 3 + 1] = (this.vel[i * 3 + 1] + (wind[1] - gravity) * dt) * d;
@@ -122,6 +176,7 @@ export class SoftPoints {
     const a = this.points.geometry.attributes;
     (a.position as THREE.BufferAttribute).needsUpdate = true; (a.aSize as THREE.BufferAttribute).needsUpdate = true;
     (a.aAlpha as THREE.BufferAttribute).needsUpdate = true; (a.aColor as THREE.BufferAttribute).needsUpdate = true;
+    (a.aFrame as THREE.BufferAttribute).needsUpdate = true; (a.aRot as THREE.BufferAttribute).needsUpdate = true;
   }
 }
 
@@ -131,19 +186,24 @@ export class CrashFx {
   private smoke: SoftPoints;
   private sparks: SoftPoints;
   private flames: SoftPoints;
+  private dust: SoftPoints;
   private smokeAcc: number[];
   private sparkT: number[];
   private flameAcc: number[];
+  private dustAcc: number[];
 
   constructor(scene: THREE.Scene, private fx = GUNSHIP_FX) {
     // Humo: gris oscuro que sube, se ensancha y se aclara, empujado por el viento (hacia +x, como las brasas)
-    this.smoke = new SoftPoints(scene, { n: 90, additive: false, gravity: 0, drag: 0.25, wind: [0.9, 0.55, 0.15], colorA: [0.1, 0.085, 0.075], colorB: [0.34, 0.29, 0.24], alpha: 0.55 });
+    this.smoke = new SoftPoints(scene, { n: 90, additive: false, gravity: 0, drag: 0.25, wind: [0.9, 0.55, 0.15], colorA: [0.1, 0.085, 0.075], colorB: [0.34, 0.29, 0.24], alpha: 0.55, sprites: SPRITES.smoke, spin: 0.5 });
     // Chispas (caen) y llamas (suben): puntos que brillan, se suman a la luz
-    this.sparks = new SoftPoints(scene, { n: 60, additive: true, gravity: 8, drag: 0.5, wind: [0, 0, 0], colorA: [1, 0.85, 0.45], colorB: [0.9, 0.25, 0.05], alpha: 1 });
-    this.flames = new SoftPoints(scene, { n: 80, additive: true, gravity: -2.2, drag: 1.2, wind: [0.5, 0, 0.1], colorA: [1, 0.72, 0.25], colorB: [0.75, 0.12, 0.02], alpha: 0.9 });
+    this.sparks = new SoftPoints(scene, { n: 60, additive: true, gravity: 8, drag: 0.5, wind: [0, 0, 0], colorA: [1, 0.85, 0.45], colorB: [0.9, 0.25, 0.05], alpha: 1, sprites: SPRITES.sparks, spin: 3 });
+    this.flames = new SoftPoints(scene, { n: 80, additive: true, gravity: -2.2, drag: 1.2, wind: [0.5, 0, 0.1], colorA: [1, 0.72, 0.25], colorB: [0.75, 0.12, 0.02], alpha: 0.9, sprites: SPRITES.fire, tilt: 0.3, spin: 0.35 });
+    // Polvo: la arena que se levanta lentamente alrededor del morro hundido y del muñón del ala
+    this.dust = new SoftPoints(scene, { n: 40, additive: false, gravity: -0.15, drag: 0.5, wind: [0.9, 0.1, 0.2], colorA: [0.62, 0.42, 0.28], colorB: [0.5, 0.35, 0.25], alpha: 0.4, sprites: SPRITES.dust, spin: 0.3 });
     this.smokeAcc = fx.smoke.map(() => Math.random());
     this.sparkT = fx.sparks.map((s) => rnd(...s.every));
     this.flameAcc = fx.flames.map(() => Math.random());
+    this.dustAcc = fx.dust.map(() => Math.random());
   }
 
   tick(dt: number) {
@@ -176,8 +236,17 @@ export class CrashFx {
         this.flames.emit(f.x + rnd(-0.12, 0.12) * f.size, f.y, f.z + rnd(-0.12, 0.12) * f.size, rnd(-0.15, 0.15), rnd(0.9, 1.6), rnd(-0.15, 0.15), rnd(0.5, 0.9), f.size * 0.38, f.size * 0.08);
       }
     });
+    // polvo
+    this.fx.dust.forEach((d, i) => {
+      this.dustAcc[i] += d.rate * dt;
+      while (this.dustAcc[i] >= 1) {
+        this.dustAcc[i] -= 1;
+        this.dust.emit(d.x + rnd(-0.8, 0.8), d.y + rnd(0, 0.3), d.z + rnd(-0.8, 0.8), rnd(-0.2, 0.4), rnd(0.15, 0.45), rnd(-0.3, 0.3), rnd(4, 6.5), d.size * 0.6, d.size * rnd(1.5, 2.2));
+      }
+    });
     this.smoke.update(dt);
     this.sparks.update(dt);
     this.flames.update(dt);
+    this.dust.update(dt);
   }
 }

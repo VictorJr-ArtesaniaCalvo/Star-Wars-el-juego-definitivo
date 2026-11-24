@@ -8,6 +8,7 @@ import { laatReady } from './laat';
 import { buildDefenseZone } from './defenseZone';
 import { buildRocks } from './rocks';
 import { buildSky, SUN_DIR } from './sky';
+import { setWorldBump } from './materials';
 import { SkyLife } from './skyLife';
 import { buildTerrain } from './terrain';
 import { QUALITY, type Quality } from '../core/Settings';
@@ -57,6 +58,7 @@ export class World {
     }
     (this.scene.fog as THREE.Fog).far = this.baseFar = cfg.viewDistance;
     this.atmosphere.gustDustOn = q !== 'low';
+    setWorldBump(q !== 'low'); // el relieve de las texturas se apaga en calidad baja
   }
 
   /** Las nubes avanzan y los voladores giran. */

@@ -3,6 +3,8 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { loadB1Model } from '../enemies/B1Rig';
 import { loadB2Model } from '../enemies/B2Rig';
 import { loadDekaModel } from '../enemies/DroidekaRig';
+import { loadWorldTextures } from '../world/materials';
+import { loadParticleAtlas } from '../world/crashFx';
 import { loadLaat } from '../world/laat';
 import { EnemyManager } from '../enemies/EnemyManager';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -122,7 +124,7 @@ export class Game {
 
   async init() {
     await RAPIER.init();
-    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`)]);
+    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`), loadWorldTextures(import.meta.env.BASE_URL), loadParticleAtlas(import.meta.env.BASE_URL)]);
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = TICK;
     this.audio.init();

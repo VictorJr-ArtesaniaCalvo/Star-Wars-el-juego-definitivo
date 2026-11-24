@@ -87,6 +87,11 @@ El B1 usa un modelo 3D real (`public/models/b1.bin` + `b1-atlas.jpg`) con dos ni
 Se genera desde el OBJ original con `node tools/convert-b1.mjs <B1DROID.obj> public/models/b1.bin <carpeta-de-texturas-jpg>` (necesita `npm install`; el OBJ original no está en el repositorio).
 Se tienen 31 de las ~40 texturas pintadas, reunidas en un atlas de 2048×2048 que solo se usa en el nivel de detalle cercano (de lejos, color arena por vértice). Faltan las del brazo superior (`B1 arm.L`) y los tubos del hombro (`arm_rotat.L/R`), que van en color arena, y el rifle va en gris metálico por vértice. Cada textura se asigna por *material* del modelo en la tabla `TEXTURED` de `tools/convert-b1.mjs` (las dudosas están marcadas con `?`).
 
+## Texturas del escenario y partículas (fotos reales, CC0)
+- **Suelo y rocas** (`public/textures/*.jpg`): fotos de Poly Haven (red_sandstone_wall, sandstone_cracks, mud_cracked_dry_03, sand_03) y de OpenGameArt (pansapiens, «Arid ground textures»). Cada imagen de 1024 px lleva el relieve y el detalle de brillo; el juego las proyecta por los tres ejes (`src/world/materials.ts`) y las multiplica por el color de cada trozo, que es el que da el tono rojo de Geonosis. Suelo: tierra con grava, parches de barro agrietado y de arena. Paredes: arenisca con grietas. Rocas y agujas: arenisca con grietas más juntas de bloques. En calidad «baja» se apaga el relieve para ahorrar batería.
+- **Humo, fuego, chispas y polvo de la cañonera derribada** (`public/particles/atlas.png`): 16 partículas de Kenney (CC0) reunidas en una sola imagen (`src/world/crashFx.ts`).
+- Se preparan desde `assets/` con `python tools/build-textures.py` y `python tools/build-particles.py` (necesitan Python con Pillow y NumPy; los resultados ya están en `public/`). Si algún archivo no cargara, el juego usa las texturas y manchas generadas por código.
+
 ## Modelos del B2, del droideka, de la cañonera y del bláster
 
 - **B2** (`public/models/b2.bin` + `b2-atlas.jpg`): modelo de zakeriiino (CC-BY 4.0) con esqueleto de 14 huesos y dos niveles de detalle. Se genera con `node tools/convert-b2.mjs <scene.gltf> <carpeta-de-texturas>`.

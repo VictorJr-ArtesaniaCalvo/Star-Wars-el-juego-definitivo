@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { applyWorldTextures, groundTexture, rockTexture } from './materials';
+import { applyWorldTextures, groundExtraTexture, groundTexture, rockJointsTexture, rockTexture } from './materials';
 
 // Junta muchas piezas en un único objeto dibujable (mucho más ligero para el móvil)
 // y crea a la vez su versión "sólida" para la física.
@@ -115,7 +115,7 @@ export class Builder {
     for (const g of this.geos) g.dispose();
     // Las rocas y piezas llevan la arenisca estratificada (en el espacio del mundo); la cañonera y los restos metálicos
     // se verían raros con ella, pero el efecto es suave porque solo modula el color de cada pieza.
-    const mesh = new THREE.Mesh(merged, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), { ground: groundTexture(), rock: rockTexture(), rockOnly: true }));
+    const mesh = new THREE.Mesh(merged, applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), { ground: groundTexture(), groundX: groundExtraTexture(), rock: rockTexture(), rock2: rockJointsTexture(), rockOnly: true, rockScale: 0.3, rock2Scale: 0.07 }));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);

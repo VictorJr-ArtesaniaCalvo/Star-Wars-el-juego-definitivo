@@ -119,7 +119,7 @@ function sootTexture(): THREE.Texture {
 export function buildLaatWreck(b: Builder) {
   const d = data!;
   GUNSHIP_FIRES.length = 0;
-  GUNSHIP_FX.smoke.length = 0; GUNSHIP_FX.sparks.length = 0; GUNSHIP_FX.flames.length = 0;
+  GUNSHIP_FX.smoke.length = 0; GUNSHIP_FX.sparks.length = 0; GUNSHIP_FX.flames.length = 0; GUNSHIP_FX.dust.length = 0;
 
   // --- Colocación del casco: ladeada hacia el enemigo (-Z), con el morro hundido en la arena y el ala entera apoyando la punta ---
   const px = CRASH.x, pz = CRASH.z - 1.2;
@@ -226,6 +226,8 @@ export function buildLaatWreck(b: Builder) {
   const e1 = P(-7.5, 2.6, 1.4), e2 = P(-7.5, 2.6, -1.4); // salida de los dos motores
   GUNSHIP_FX.smoke.push({ x: e1.x, y: e1.y, z: e1.z, rate: 5.5, size: 1.7 }, { x: e2.x, y: e2.y, z: e2.z, rate: 2.2, size: 1.3 });
   const stub = P(-2.6, 1.0, 2.2), deck = P(-3.4, 3.1, 0.2), nosePt = P(4.6, -0.2, 0.9);
+  const noseD = P(5.2, -0.9, 0.2), keelD = P(1.5, -1.0, 2.6), stubD = P(-2.6, -0.8, 2.4);
+  GUNSHIP_FX.dust.push({ x: noseD.x, y: noseD.y, z: noseD.z, rate: 2.2, size: 1.5 }, { x: keelD.x, y: keelD.y, z: keelD.z, rate: 1.2, size: 1.2 }, { x: stubD.x, y: stubD.y, z: stubD.z, rate: 1.0, size: 1.2 });
   GUNSHIP_FX.sparks.push(
     { x: stub.x, y: stub.y, z: stub.z, every: [1.6, 4.5], count: 11 },
     { x: e1.x, y: e1.y - 0.2, z: e1.z, every: [2.5, 6], count: 8 },

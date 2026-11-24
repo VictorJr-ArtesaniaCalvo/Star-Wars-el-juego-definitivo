@@ -1,7 +1,7 @@
 # Carpeta `assets`: materiales para usar más adelante en el juego
 
-Esta carpeta está **fuera** de `public/`, así que **no viaja con el juego** (no pesa al instalarlo en el móvil). Cuando se use un recurso,
-se copia a `public/` (ya reducido y listo para el móvil).
+Esta carpeta está **fuera** de `public/`, así que **no viaja con el juego** (no pesa al instalarlo en el móvil). Cuando se usa un recurso,
+se prepara y se copia a `public/` (ya reducido y listo para el móvil) con `tools/build-textures.py` y `tools/build-particles.py`.
 
 ```
 assets/

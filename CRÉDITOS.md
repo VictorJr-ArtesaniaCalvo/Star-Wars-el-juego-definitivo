@@ -45,6 +45,12 @@ de [A308 Digital](https://sketchfab.com/A308), con licencia
 Cambios hechos para el juego (herramienta `tools/convert-blaster.mjs`): se ha girado y escalado para verlo en primera persona (~4.900 triángulos, sin simplificar) y la
 textura de color del autor se ha combinado con su mapa de oclusión en una sola imagen de 1024×1024. No se usa el mapa de relieve (viene plano). El arma es propiedad de Lucasfilm Ltd. / Disney.
 
+## Texturas y partículas (CC0)
+Todas de dominio público (CC0 1.0); se citan por cortesía. Detalles completos en `assets/CREDITOS.md`.
+- **Poly Haven** (https://polyhaven.com): *Red Sandstone Wall* (Amal Kumar), *Sandstone Cracks* (Rob Tuytel), *Mud Cracked Dry 03* (Dario Barresi y Dimitrios Savva) y *Sand 03* (Charlotte Baglioni). Usadas, ya preparadas en blanco y negro con relieve, para las rocas, las paredes y el suelo.
+- **OpenGameArt** — *Arid ground textures* de **pansapiens** (https://opengameart.org/content/arid-ground-textures): tierra roja con grava (suelo).
+- **Kenney** (https://kenney.nl) — *Smoke Particles* y *Particle Pack* de Kenney Vleugels: humo, fuego, chispas y polvo de la cañonera derribada.
+
 ## Sonido
 - **Ambiente y granadas:** sintetizados por código (originales).
 - **Disparos de los droides B1 y B2** (`public/audio/b1-1.mp3` a `b1-4.mp3`, y `b1-load.mp3` para el «cargar el arma» cuando aparecen) y
