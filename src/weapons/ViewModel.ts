@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildArms, type ArmsVariant } from './arms';
 
 // El bláster que se ve en pantalla. Va pegado a la cámara. El modelo 3D (public/models/blaster.bin + blaster-color.jpg) es el «E-5 Blaster Rifle»
 // de A308 Digital (CC-BY 4.0, ver CRÉDITOS.md) y se genera con tools/convert-blaster.mjs. Si no se pudiera cargar, se usa uno de cajas.
@@ -47,6 +48,7 @@ export class ViewModel {
   readonly group = new THREE.Group();
   readonly muzzle = new THREE.Object3D();
   private body: THREE.MeshLambertMaterial;
+  private arms: THREE.Mesh | null = null;
   private kick = 0;
   private flashSprite: THREE.Sprite;
   private grenade = new THREE.Group();
@@ -79,6 +81,7 @@ export class ViewModel {
       this.muzzle.position.set(0, 0.012, -0.4);
     }
     this.group.add(this.muzzle);
+    this.setArms(null); // los brazos están preparados (propuestas A y B) pero apagados hasta elegir
     // Destello azul al disparar (dura una fracción de segundo)
     const fc = document.createElement('canvas'); fc.width = fc.height = 64;
     const fg = fc.getContext('2d')!;
@@ -103,6 +106,12 @@ export class ViewModel {
     this.grenade.visible = false;
     this.grenade.scale.setScalar(0.7);
     camera.add(this.grenade);
+  }
+
+  /** Brazos de armadura clon sujetando el arma (dos propuestas: A y B). */
+  setArms(v: ArmsVariant | null) {
+    if (this.arms) { this.group.remove(this.arms); this.arms.geometry.dispose(); this.arms = null; }
+    if (v) { this.arms = buildArms(v); this.group.add(this.arms); }
   }
 
   /** Animación de lanzamiento: la granada sale disparada hacia delante. */
