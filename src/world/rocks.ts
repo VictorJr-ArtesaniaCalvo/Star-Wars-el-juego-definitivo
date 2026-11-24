@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Builder, place } from './builder';
 import { slabGeometry } from './scatter';
-import { CRATE_SPOTS, METAL_WALL_SPOTS } from './wreckage';
+import { METAL_WALL_SPOTS } from './wreckage';
 import { CANYON_HALF_L, CANYON_HALF_W, crashField, makeRng, terrainHeight, WORLD_SEED } from './terrain';
 
 const ROCK = 0x8a4a30;
@@ -169,16 +169,14 @@ export function buildRocks(b: Builder) {
     OBSTACLES.push({ x, z, radius: w * 0.5, height: h });
     n++;
   }
-  // Restos metálicos: cajas grandes de suministros (sólidas, sirven de cobertura)
-  CRATE_SPOTS.length = 0;
+  // Restos metálicos: ya no hay cajas sueltas por el mapa (se gasta el mismo azar para que el resto no cambie)
   for (let n = 0; n < 24; ) {
     const x = range(-HW, HW), z = range(-HL, HL);
     if (!clear(x, z) || Math.hypot(x, z) < 17) continue;
     const sx = range(1, 2.6), sy = range(0.8, 1.6), sz = range(0.8, 1.8);
     const yaw = range(0, 6.28);
     range(-0.3, 0.3); range(-0.3, 0.3);
-    CRATE_SPOTS.push({ x, z, sx, sy, sz, yaw });
-    OBSTACLES.push({ x, z, radius: Math.max(sx, sz) * 0.6, height: sy });
+    void sx; void sy; void sz; void yaw; // (las cajas grandes repartidas por el mapa se han quitado)
     n++;
   }
 

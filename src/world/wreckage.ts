@@ -125,6 +125,8 @@ function burn(g: THREE.BufferGeometry, seed: number, base = 0.5) {
 }
 
 // ---------- Cajas, barriles y muros de chapa de la República ----------
+// versión oscura (gris y negro) de las cajas y barriles, para variar el aspecto
+const DK_BODY = new THREE.Color(0x55585d), DK_TRIM = new THREE.Color(0x24262a), DK_STRIPE = new THREE.Color(0x303338);
 const WHITE = new THREE.Color(0xcdcec8), GREY = new THREE.Color(0x8b8e92), DGREY = new THREE.Color(0x474a4f), RED = new THREE.Color(0x8e2c2c), DARK = new THREE.Color(0x2b3039);
 
 function boxPart(w: number, h: number, d: number, x: number, y: number, z: number, c: THREE.Color, rx = 0, rz = 0): THREE.BufferGeometry {
@@ -158,27 +160,28 @@ function weather(g: THREE.BufferGeometry, seed: number, soot = 0.5) {
 
 type CrateKind = 'big' | 'long' | 'small';
 /** Caja de suministros: cuerpo claro, tapa y base grises, postes en las esquinas, franja roja y asa. `open`: con la tapa entreabierta. */
-function crateGeometry(kind: CrateKind, open: boolean, seed: number): THREE.BufferGeometry {
+function crateGeometry(kind: CrateKind, open: boolean, seed: number, dark = false): THREE.BufferGeometry {
+  const [cW, cG, cR] = dark ? [DK_BODY, DK_TRIM, DK_STRIPE] : [WHITE, GREY, RED];
   const [w, h, d] = kind === 'big' ? [1.2, 1.15, 1.2] : kind === 'long' ? [1.8, 0.8, 0.7] : [0.7, 0.6, 0.6];
   const parts: THREE.BufferGeometry[] = [];
   const t = 0.07;
-  parts.push(boxPart(w, h - t, d, 0, (h - t) / 2, 0, WHITE)); // cuerpo
-  if (!open) parts.push(boxPart(w + 0.06, t, d + 0.06, 0, h - t / 2, 0, GREY)); // tapa
+  parts.push(boxPart(w, h - t, d, 0, (h - t) / 2, 0, cW)); // cuerpo
+  if (!open) parts.push(boxPart(w + 0.06, t, d + 0.06, 0, h - t / 2, 0, cG)); // tapa
   else {
     parts.push(boxPart(w - 0.1, 0.04, d - 0.1, 0, h - t - 0.03, 0, DARK)); // interior
-    parts.push(boxPart(w + 0.06, t, d + 0.06, 0, h + d * 0.28, -d * 0.62, GREY, -1.1, 0)); // tapa levantada
+    parts.push(boxPart(w + 0.06, t, d + 0.06, 0, h + d * 0.28, -d * 0.62, cG, -1.1, 0)); // tapa levantada
   }
   const sy = h * 0.5, o = 0.012;
   const stripe = (sw: number, sh: number, x: number, y: number, z: number, ry: number) => {
     const g = new THREE.PlaneGeometry(sw, sh).toNonIndexed();
     g.rotateY(ry); g.translate(x, y, z);
     const n = g.attributes.position.count, col = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) col.set([RED.r, RED.g, RED.b], i * 3);
+    for (let i = 0; i < n; i++) col.set([cR.r, cR.g, cR.b], i * 3);
     g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.deleteAttribute('uv');
     return g;
   };
   parts.push(stripe(w, 0.14, 0, sy, d / 2 + o, 0), stripe(w, 0.14, 0, sy, -d / 2 - o, Math.PI), stripe(d, 0.14, w / 2 + o, sy, 0, Math.PI / 2), stripe(d, 0.14, -w / 2 - o, sy, 0, -Math.PI / 2));
-  parts.push(boxPart(w + 0.06, t, d + 0.06, 0, t / 2, 0, GREY)); // base
+  parts.push(boxPart(w + 0.06, t, d + 0.06, 0, t / 2, 0, cG)); // base
   const g = mergeGeometries(parts, false)!;
   for (const q of parts) q.dispose();
   weather(g, seed);
@@ -186,7 +189,8 @@ function crateGeometry(kind: CrateKind, open: boolean, seed: number): THREE.Buff
 }
 
 /** Barril de la República: cilindro blanco con aros grises y una franja roja. */
-function barrelGeometry(seed: number, tall = 0.95): THREE.BufferGeometry {
+function barrelGeometry(seed: number, tall = 0.95, dark = false): THREE.BufferGeometry {
+  const [cW, cG, cR] = dark ? [DK_BODY, DK_TRIM, DK_STRIPE] : [WHITE, GREY, RED];
   const parts: THREE.BufferGeometry[] = [];
   const cyl = (r: number, hh: number, y: number, c: THREE.Color) => {
     const g = new THREE.CylinderGeometry(r, r, hh, 8).toNonIndexed();
@@ -196,7 +200,7 @@ function barrelGeometry(seed: number, tall = 0.95): THREE.BufferGeometry {
     g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.deleteAttribute('uv');
     return g;
   };
-  parts.push(cyl(0.34, tall, tall / 2, WHITE), cyl(0.37, 0.07, 0.04, GREY), cyl(0.37, 0.07, tall - 0.04, GREY), cyl(0.345, 0.16, tall * 0.5, RED));
+  parts.push(cyl(0.34, tall, tall / 2, cW), cyl(0.37, 0.07, 0.04, cG), cyl(0.37, 0.07, tall - 0.04, cG), cyl(0.345, 0.16, tall * 0.5, cR));
   const g = mergeGeometries(parts, false)!;
   for (const q of parts) q.dispose();
   weather(g, seed);
@@ -232,9 +236,6 @@ function mergeToLaat(a: THREE.BufferGeometry, b: THREE.BufferGeometry): THREE.Bu
 export interface CoverSpot { x: number; z: number; w: number; h: number; yaw: number }
 /** Muros de chapa que sustituyen a muros en ruinas (los rellena `buildRocks`). */
 export const METAL_WALL_SPOTS: CoverSpot[] = [];
-/** Cajas grandes que sustituyen a los bloques metálicos sueltos (los rellena `buildRocks`). */
-export const CRATE_SPOTS: Array<{ x: number; z: number; sx: number; sy: number; sz: number; yaw: number }> = [];
-
 const SPAWN = { x: -2.5, z: 3.2 };
 
 export class Wreckage {
@@ -273,7 +274,7 @@ export class Wreckage {
     for (let n = 0; n < 5 && pieces.length; n++) { const back = range(8, 34), lat = range(-3, 3) + 0.9 * Math.sin(back * 0.11); pieceSpots.push([CRASH.x - back * cos + lat * sin, CRASH.z + back * sin + lat * cos]); } // por el surco
     let solidHull = 0;
     pieceSpots.forEach(([x, z], k) => {
-      if (!free(x, z)) return;
+      if (!free(x, z) || k % 3 === 2) return; // se quita un tercio de los trozos
       const pc = pieces[k % pieces.length];
       const s = SC * range(0.45, 0.8) * (pc.radius > 5 ? 0.6 : 1);
       const g = pc.geo.clone();
@@ -291,7 +292,7 @@ export class Wreckage {
       let x: number, z: number;
       if (n < 18) { const back = range(5, 36), lat = range(-3.2, 3.2) + 0.9 * Math.sin(back * 0.11); x = CRASH.x - back * cos + lat * sin; z = CRASH.z + back * sin + lat * cos; }
       else { const a = range(0, 6.28), r = range(5, 14); x = CRASH.x + Math.cos(a) * r * 1.2; z = CRASH.z + Math.sin(a) * r * 0.8; }
-      if (!free(x, z)) continue;
+      if (!free(x, z) || n % 3 === 2) continue; // se quita un tercio de las chapas
       const g = sheets[n % sheets.length];
       place(laat, g, x, terrainHeight(x, z) + range(-0.15, 0.1), z, range(0, 6.28), range(-1.0, 1.0), range(-0.6, 0.6), range(0.8, 1.3));
     }
@@ -301,15 +302,18 @@ export class Wreckage {
     const wallAt = (gi: number, x: number, z: number, yaw: number, w: number, h: number) =>
       place(laat, wall[gi], x, terrainHeight(x, z) - 0.05, z, yaw, 0, 0, 1, { hx: w / 2, hy: h / 2, hz: 0.28, oy: h / 2 });
     wallAt(0, -8.8, -2.9, 0.28, 2.6, 1.2); wallAt(1, 9.8, -2.2, -0.3, 2.2, 1.2); wallAt(2, -10.2, 0.8, 1.15, 3.2, 1.3);
-    const big = crateGeometry('big', false, 1), bigOpen = crateGeometry('big', true, 2), long = crateGeometry('long', false, 3), small = crateGeometry('small', false, 4), smallOpen = crateGeometry('small', true, 5);
-    const crateAt = (g: THREE.BufferGeometry, k: CrateKind, x: number, z: number, yaw: number, rx = 0, rz = 0, solid = true, sink = 0.05) => {
+    // Cajas y barriles de la zona del impacto: las de cobertura junto a la nave y otras despedidas por el choque (decoración, algunas volcadas o abiertas).
+    // Se juntan primero todas para quitar la mitad (primero las de decoración) y pintar de gris y negro un tercio de las que quedan.
+    const mk = (kind: CrateKind, open: boolean, seed: number) => [crateGeometry(kind, open, seed), crateGeometry(kind, open, seed, true)] as const;
+    const big = mk('big', false, 1), bigOpen = mk('big', true, 2), long = mk('long', false, 3), small = mk('small', false, 4), smallOpen = mk('small', true, 5);
+    type Item = { cover: boolean; put: (dark: boolean) => void };
+    const items: Item[] = [];
+    const crateAt = (g: readonly [THREE.BufferGeometry, THREE.BufferGeometry], k: CrateKind, x: number, z: number, yaw: number, rx = 0, rz = 0, solid = true, sink = 0.05) => {
       const [w, h, d] = k === 'big' ? [1.2, 1.15, 1.2] : k === 'long' ? [1.8, 0.8, 0.7] : [0.7, 0.6, 0.6];
-      place(props, g, x, terrainHeight(x, z) - sink, z, yaw, rx, rz, 1, solid ? { hx: w / 2, hy: h / 2, hz: d / 2, oy: h / 2 } : undefined);
+      items.push({ cover: solid, put: (dark) => place(props, g[dark ? 1 : 0], x, terrainHeight(x, z) - sink, z, yaw, rx, rz, 1, solid ? { hx: w / 2, hy: h / 2, hz: d / 2, oy: h / 2 } : undefined) });
     };
     crateAt(big, 'big', -4.6, 0.7, 0.2); crateAt(long, 'long', 6.4, 1.6, -0.15); crateAt(small, 'small', 6.5, 2.8, 0.4);
     crateAt(bigOpen, 'big', 0.8, 4.6, 0.1); crateAt(small, 'small', -0.5, 4.9, 0.7);
-
-    // --- 4. Cajas y barriles despedidos por el impacto: decoración (algunas volcadas o abiertas) ---
     for (let n = 0; n < 18; n++) {
       const a = range(0, 6.28), r = range(5, 16);
       const x = CRASH.x + Math.cos(a) * r * 1.25, z = CRASH.z + Math.sin(a) * r * 0.85;
@@ -319,15 +323,20 @@ export class Wreckage {
       if (kind < 0.3) crateAt(rng() < 0.5 ? small : smallOpen, 'small', x, z, range(0, 6.28), tip, range(-0.2, 0.2), false, 0.08);
       else if (kind < 0.55) crateAt(long, 'long', x, z, range(0, 6.28), 0, tip, false, 0.06);
       else if (kind < 0.7) crateAt(rng() < 0.5 ? big : bigOpen, 'big', x, z, range(0, 6.28), 0, tip, false, 0.1);
-      else place(props, barrelGeometry(n), x, terrainHeight(x, z) - 0.04, z, range(0, 6.28), tip ? 1.5 : 0, range(-0.2, 0.2), 1, undefined);
+      else {
+        const yaw = range(0, 6.28), rz = range(-0.2, 0.2), ge = [barrelGeometry(n), barrelGeometry(n, 0.95, true)] as const;
+        items.push({ cover: false, put: (dark) => place(props, ge[dark ? 1 : 0], x, terrainHeight(x, z) - 0.04, z, yaw, tip ? 1.5 : 0, rz, 1, undefined) });
+      }
     }
+    const covers = items.filter((i) => i.cover), decor = items.filter((i) => !i.cover);
+    const keepTotal = Math.ceil((covers.length + decor.length) / 2); // se queda la mitad
+    const keepDecor = Math.max(0, Math.min(decor.length, keepTotal - covers.length));
+    const kept = [...covers, ...decor.filter((_, i) => Math.floor(((i + 1) * keepDecor) / Math.max(1, decor.length)) > Math.floor((i * keepDecor) / Math.max(1, decor.length)))];
+    const order = kept.map((_, i) => i).sort(() => rng() - 0.5);
+    const darkSet = new Set(order.slice(0, Math.floor(kept.length / 3))); // un tercio, al azar, en gris y negro
+    kept.forEach((it, i) => it.put(darkSet.has(i)));
+    // (las cajas grandes repartidas por el resto del mapa se han quitado: CRATE_SPOTS ya no se usa)
 
-    // --- 5. Cajas grandes (sólidas) en el lugar de los bloques metálicos sueltos del mapa, y muros de chapa en lugar de algunos muros en ruinas ---
-    for (const c of CRATE_SPOTS) {
-      const k: CrateKind = c.sx > 1.6 ? 'long' : 'big';
-      const g = k === 'long' ? long : (c.sz > 1.2 ? big : bigOpen);
-      place(props, g, c.x, terrainHeight(c.x, c.z) - 0.08, c.z, c.yaw, rng() < 0.25 ? 0.12 : 0, rng() < 0.25 ? 0.12 : 0, Math.min(1.4, Math.max(0.9, c.sx / 1.2)), k === 'long' ? { hx: 0.9, hy: 0.4, hz: 0.35, oy: 0.4 } : { hx: 0.6, hy: 0.575, hz: 0.6, oy: 0.575 });
-    }
     METAL_WALL_SPOTS.forEach((c, i) => wallAt(i % 3, c.x, c.z, c.yaw, [2.6, 2.2, 3.2][i % 3], [1.2, 1.2, 1.3][i % 3]));
 
     const grunge = (() => {
