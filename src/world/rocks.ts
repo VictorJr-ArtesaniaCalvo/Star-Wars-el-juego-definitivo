@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Builder, place } from './builder';
 import { slabGeometry } from './scatter';
+import { beadedSpire } from './landmarks';
 import { METAL_WALL_SPOTS } from './wreckage';
 import { CANYON_HALF_L, CANYON_HALF_W, crashField, floorHalfWidth, makeRng, terrainHeight, WORLD_SEED } from './terrain';
 
@@ -25,22 +26,17 @@ function hash(x: number, y: number, z: number, seed: number) {
   return n - Math.floor(n);
 }
 
+/** Aguja con anillos redondeados (la misma forma que las torres del castillo): una pila de «cuentas» que se estrechan hasta una punta, algo irregulares y con una pequeña inclinación. */
 function spireGeometry(radius: number, height: number, seed: number, lean: number, detail = true) {
-  const g = new THREE.ConeGeometry(radius, height, detail ? 8 : 6, detail ? 12 : 9);
-  g.translate(0, height / 2, 0);
+  const beads = Math.max(3, Math.min(8, Math.round(height / 9)));
+  const prof = beadedSpire(height, radius, beads);
+  const g = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(Math.max(r, 0.001), y)), detail ? 8 : 6);
   const p = g.attributes.position as THREE.BufferAttribute;
+  const k = radius * 0.3;
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
     const t = y / height;
-    const k = radius * 0.45 * (1 - t * 0.7);
-    // Anillos a lo largo de la aguja y base ancha, como las torres de las referencias.
-    const rib = 1 + 0.11 * Math.sin(t * 36 + seed) + 1.0 * Math.pow(1 - t, 7);
-    p.setXYZ(
-      i,
-      x * rib + (hash(x, y, z, seed) - 0.5) * k + lean * t * t * height,
-      t > 0.99 || t < 0.01 ? y : y + (hash(z, x, y, seed + 1) - 0.5) * height * 0.06,
-      z * rib + (hash(y, z, x, seed + 2) - 0.5) * k,
-    );
+    p.setXYZ(i, x + (hash(x, y, z, seed) - 0.5) * k + lean * t * t * height, y, z + (hash(y, z, x, seed + 2) - 0.5) * k);
   }
   return g;
 }

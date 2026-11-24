@@ -59,7 +59,7 @@ function lathe(profile: Prof, seg: number, x: number, y: number, z: number, colo
 }
 
 /** Torre geonosiana: una pila de «cuentas» redondeadas (cuello, panza, cuello) que se van estrechando hasta una punta. */
-function beadedSpire(H: number, R: number, beads: number): Prof {
+export function beadedSpire(H: number, R: number, beads: number): Prof {
   const pts: Prof = [[R * 1.25, 0]];
   for (let b = 0; b < beads; b++) {
     const t0 = b / beads, t1 = (b + 1) / beads, tm = (t0 + t1) / 2;
@@ -193,6 +193,7 @@ function panelTexture(): THREE.Texture {
 interface Port { origin: THREE.Vector3; dir: THREE.Vector3 }
 
 function buildCoreShip(scene: THREE.Scene): { ports: Port[]; lights: Array<{ x: number; y: number; z: number; color: number }>; center: THREE.Vector3 } {
+  const K = 0.55; // escala de la torre de arriba
   const R = 19, gy = terrainHeight(CORE_SHIP.x, CORE_SHIP.z);
   const center = new THREE.Vector3(CORE_SHIP.x, gy + R * 1.25, CORE_SHIP.z);
   const LIGHT = new THREE.Color(0xc9c3b4), BLACK = new THREE.Color(0x1d1f23), GREY = new THREE.Color(0x6f7378);
@@ -222,19 +223,19 @@ function buildCoreShip(scene: THREE.Scene): { ports: Port[]; lights: Array<{ x: 
     parts.push(bar(p0, foot, 0.7, BLACK));
     parts.push(box(4.2, 0.8, 5, foot.x, gy + 0.4, foot.z, BLACK, 0, a, 0));
   }
-  // torre de arriba: tallo, plataforma, bloque, travesaño con extremos, antena y cuatro platos
+  // torre de arriba (más pequeña: a poco más de la mitad de su tamaño anterior): tallo, plataforma, bloque, travesaño con extremos, antena y cuatro platos
   const T = C.y + R;
-  parts.push(box(3.4, 10, 3.4, C.x, T + 3, C.z, GREY));
-  parts.push(box(12, 2.4, 12, C.x, T + 8.5, C.z, LIGHT));
-  parts.push(box(5.5, 6, 5.5, C.x, T + 12.5, C.z, GREY));
-  parts.push(box(32, 1.6, 3.4, C.x, T + 18, C.z, LIGHT));
-  parts.push(box(5.5, 2.8, 4.4, C.x - 16, T + 18, C.z, GREY), box(5.5, 2.8, 4.4, C.x + 16, T + 18, C.z, GREY));
-  parts.push(bar(new THREE.Vector3(C.x, T + 18, C.z), new THREE.Vector3(C.x, T + 36, C.z), 0.35, BLACK));
-  for (const [dx, dz, s] of [[-10, 3, 1], [10, 3, 1], [-7, -7, 0.7], [7, -7, 0.7]] as const) {
-    const d = new THREE.CylinderGeometry(3.4 * s, 3.4 * s, 0.7, 10).toNonIndexed();
+  parts.push(box(3.4 * K, 10 * K, 3.4 * K, C.x, T + 1.5 + 3 * K, C.z, GREY));
+  parts.push(box(12 * K, 2.4 * K, 12 * K, C.x, T + 8.5 * K, C.z, LIGHT));
+  parts.push(box(5.5 * K, 6 * K, 5.5 * K, C.x, T + 12.5 * K, C.z, GREY));
+  parts.push(box(32 * K, 1.6 * K, 3.4 * K, C.x, T + 18 * K, C.z, LIGHT));
+  parts.push(box(5.5 * K, 2.8 * K, 4.4 * K, C.x - 16 * K, T + 18 * K, C.z, GREY), box(5.5 * K, 2.8 * K, 4.4 * K, C.x + 16 * K, T + 18 * K, C.z, GREY));
+  parts.push(bar(new THREE.Vector3(C.x, T + 18 * K, C.z), new THREE.Vector3(C.x, T + 36 * K, C.z), 0.3, BLACK));
+  for (const [dx, dz, sc] of [[-10, 3, 1], [10, 3, 1], [-7, -7, 0.7], [7, -7, 0.7]] as const) {
+    const d = new THREE.CylinderGeometry(3.4 * sc * K, 3.4 * sc * K, 0.5, 10).toNonIndexed();
     d.deleteAttribute('uv');
     d.rotateX(Math.PI / 2.6); d.rotateY(Math.atan2(dx, dz) * 0.8);
-    d.translate(C.x + dx, T - 1.5, C.z + dz);
+    d.translate(C.x + dx * K, T - 1.5, C.z + dz * K);
     d.computeVertexNormals(); paint(d, LIGHT, 0.05);
     parts.push(d);
   }
@@ -251,8 +252,8 @@ function buildCoreShip(scene: THREE.Scene): { ports: Port[]; lights: Array<{ x: 
   mesh.frustumCulled = false;
   scene.add(mesh);
   const lights = [
-    { x: C.x - 16, y: T + 18, z: C.z + 2.5, color: 0x7fb8ff }, { x: C.x + 16, y: T + 18, z: C.z + 2.5, color: 0x7fb8ff },
-    { x: C.x, y: T + 36, z: C.z, color: 0xeaf4ff }, { x: C.x, y: T + 8.5, z: C.z + 6.4, color: 0xeaf4ff },
+    { x: C.x - 16 * K, y: T + 18 * K, z: C.z + 1.4, color: 0x7fb8ff }, { x: C.x + 16 * K, y: T + 18 * K, z: C.z + 1.4, color: 0x7fb8ff },
+    { x: C.x, y: T + 36 * K, z: C.z, color: 0xeaf4ff }, { x: C.x, y: T + 8.5 * K, z: C.z + 3.6, color: 0xeaf4ff },
   ];
   return { ports, lights, center };
 }
