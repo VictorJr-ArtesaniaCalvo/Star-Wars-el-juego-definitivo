@@ -3,8 +3,8 @@ import { terrainHeight } from '../world/terrain';
 
 // Kits médicos: algunos droides los sueltan al morir. Se recogen pasando por encima y curan.
 export const MEDKIT = {
-  heal: { b1: 15, b2: 25, droideka: 40 },
-  chance: { b1: 0.14, b2: 0.5, droideka: 1 },
+  heal: { b1: 15, b2: 18, droideka: 28 },
+  chance: { b1: 0.1, b2: 0.35, droideka: 0.75 },
   life: 20, // segundos en el suelo
   blinkFrom: 5, // parpadea en los últimos segundos
   pickupRadius: 1.7,

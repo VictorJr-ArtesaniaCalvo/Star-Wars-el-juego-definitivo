@@ -37,7 +37,7 @@ En la brújula, los B2 se marcan con un triángulo rojo más grande y los droide
 
 ## Kits médicos
 
-Los droides pueden soltar un kit médico al morir (B1 14 %, B2 50 %, droideka siempre). Se recoge pasando por encima: B1 +15 de vida, B2 +25, droideka +40.
+Los droides pueden soltar un kit médico al morir (B1 10 %, B2 35 %, droideka 75 %). Se recoge pasando por encima: B1 +15 de vida, B2 +18, droideka +28.
 Tiene una luz verde y una marca verde en la brújula; dura 20 s en el suelo (parpadea los últimos 5) y no puede haber más de 4 a la vez. Ya no hay curación por bajas.
 
 ## Menú oculto de pruebas
