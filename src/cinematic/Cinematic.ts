@@ -5,7 +5,7 @@ import { CineSounds } from '../audio/CineSounds';
 import { Voices } from '../audio/Voices';
 import type { Effects } from '../weapons/Effects';
 import { B1Walkers, buildCloneLegs, buildFlyingLaat, Commando } from './actors';
-import { COMANDO, DROIDES, PIERNAS, SALIDA, TOMAS, VUELO, type Actor, type Camara, type Evento, type Postura, type Punto, type Toma, type Vista } from './script';
+import { COMANDO, DROIDES, ESTATURA, PIERNAS, SALIDA, TOMAS, VUELO, type Actor, type Camara, type Evento, type Postura, type Punto, type Toma, type Vista } from './script';
 
 // Reproductor de la cinemática inicial: sigue el guion (script.ts) segundo a segundo.
 // Mueve la cámara, enseña y anima los «actores», lanza sonidos y efectos, y maneja lo que va por encima de la imagen
@@ -89,10 +89,10 @@ export class Cinematic {
     if (this.ship) return;
     const { scene } = this.d;
     this.ship = buildFlyingLaat();
-    this.legs = buildCloneLegs();
+    this.legs = buildCloneLegs(ESTATURA.clon, PIERNAS.separacion);
     this.legs.group.position.set(PIERNAS.x, PIERNAS.suelo, PIERNAS.z); // en el suelo de la bahía, junto a la puerta
     this.ship.add(this.legs.group);
-    this.commando = new Commando();
+    this.commando = new Commando(ESTATURA.comando);
     this.commando.group.position.set(COMANDO.x, terrainHeight(COMANDO.x, COMANDO.z), COMANDO.z);
     this.droids = new B1Walkers(DROIDES);
     for (const o of [this.ship, this.commando.group, this.droids.group]) { o.visible = false; scene.add(o); }
@@ -383,6 +383,32 @@ export class Cinematic {
       this.root.classList.remove('outro');
       this.fadeEl.style.transition = '';
     }, SALIDA.fundido * 1000 + 700);
+  }
+
+  /** Solo para pruebas: dentro de la cañonera (en su marco, metros reales), distancia hasta el casco desde `from` en la dirección `dir`. */
+  debugProbe(from: Punto, dir: Punto) {
+    this.ensureActors();
+    const ship = this.ship!;
+    const keep = { p: ship.position.clone(), q: ship.quaternion.clone(), v: ship.visible, l: this.legs!.group.visible };
+    ship.position.set(0, 0, 0); ship.quaternion.identity(); ship.visible = true; this.legs!.group.visible = false;
+    ship.updateMatrixWorld(true);
+    const rc = new THREE.Raycaster(new THREE.Vector3(...from), new THREE.Vector3(...dir).normalize());
+    const hit = rc.intersectObject(ship, true).find((h) => h.object.visible);
+    ship.position.copy(keep.p); ship.quaternion.copy(keep.q); ship.visible = keep.v; this.legs!.group.visible = keep.l;
+    ship.updateMatrixWorld(true);
+    return hit ? +hit.distance.toFixed(3) : null;
+  }
+
+  /** Solo para pruebas: qué pieza de la nave y qué triángulo hay en esa dirección. */
+  debugProbeHit(from: Punto, dir: Punto) {
+    this.ensureActors();
+    const ship = this.ship!;
+    const keep = { p: ship.position.clone(), q: ship.quaternion.clone(), v: ship.visible };
+    ship.position.set(0, 0, 0); ship.quaternion.identity(); ship.visible = true; ship.updateMatrixWorld(true);
+    const rc = new THREE.Raycaster(new THREE.Vector3(...from), new THREE.Vector3(...dir).normalize());
+    const hit = rc.intersectObject(ship, true)[0];
+    ship.position.copy(keep.p); ship.quaternion.copy(keep.q); ship.visible = keep.v; ship.updateMatrixWorld(true);
+    return hit ? { d: +hit.distance.toFixed(2), part: hit.object.name, face: hit.face ? [hit.face.a, hit.face.b, hit.face.c] : null, point: hit.point.toArray().map((v) => +v.toFixed(2)) } : null;
   }
 
   /** Solo para pruebas: estado actual. */

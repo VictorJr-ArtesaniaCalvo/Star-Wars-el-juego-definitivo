@@ -9,7 +9,7 @@
 //      z: norte (−, hacia delante) / sur (+, a tu espalda). La cañonera estrellada está en el centro (0, 0).
 //      altura: metros SOBRE EL SUELO de ese punto (así la cámara no se mete bajo la arena aunque cambie el relieve).
 //  · En la toma dentro de la cañonera en vuelo, los puntos de la cámara son DENTRO de la nave:
-//      x hacia el morro, altura desde el centro del casco (el suelo de la bahía está en ‑2,75), z hacia el lado de la puerta (−).
+//      en metros reales: x hacia el morro, altura desde el centro del casco (el suelo de la bahía está en ‑3,35), z hacia el lado de la puerta abierta (−).
 //  · `en`: segundos desde que empieza la toma.  · `angulo`: campo de visión en grados (menos = más zoom; el juego usa 72).
 //  · `temblor`: 0 = cámara quieta · 0,3 = vuelo suave · 1 = mucho.
 // ============================================================================
@@ -83,8 +83,11 @@ export const COBERTURA = { x: -4.3, z: 3.0, giro: 0.08 };
 /** Vuelo de la cañonera durante la toma 2: gira alrededor de un punto con la puerta mirando hacia él. Ángulos de MAYOR a MENOR. */
 export const VUELO = { centro: [0, -2] as [number, number], radio: 46, altura: 32, giroDesde: 60, giroHasta: 36, alabeo: 10 };
 
-/** Dónde están de pie los dos clones de la puerta (dentro de la nave; el suelo de la bahía está a ‑2,62). */
-export const PIERNAS = { x: -0.25, suelo: -2.62, z: -1.12 };
+/** Dónde están de pie los dos clones junto a la puerta abierta (dentro de la nave, en metros; el suelo de la bahía está a ‑3,35). `separacion`: entre uno y otro. */
+export const PIERNAS = { x: -0.05, suelo: -3.35, z: -1.3, separacion: 2.4 };
+
+/** Estaturas (m). */
+export const ESTATURA = { clon: 1.83, comando: 1.85 };
 
 /** Droides B1 de la toma 4: dónde empiezan a andar (x, z). Avanzan hacia el sur (hacia la cámara). */
 export const DROIDES: Array<[number, number]> = [[-3, -72], [1.5, -70], [5.5, -74], [-0.5, -77], [3.5, -79], [-6, -77.5], [8, -71]];
@@ -108,8 +111,8 @@ export const TOMAS: Toma[] = [
     actores: ['canonera', 'piernas'],
     camara: {
       tipo: 'canonera',
-      desde: { pos: [1.25, -1.35, 0.15], mira: [0.55, -3.55, -3.8] },
-      hasta: { pos: [1.0, -1.4, 0.05], mira: [1.0, -3.75, -3.8] },
+      desde: { pos: [1.25, -1.9, -0.1], mira: [0.9, -5.6, -4.5] },
+      hasta: { pos: [1.1, -2.0, -0.35], mira: [1.2, -5.5, -4.5] },
     },
     angulo: 62,
     temblor: 0.35,

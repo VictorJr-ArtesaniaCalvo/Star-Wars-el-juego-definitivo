@@ -28,7 +28,7 @@ Tomas: 1 · negro con «GEONOSIS» (viento y disparos lejanos) · 2 · desde la 
 
 - **Guion:** `src/cinematic/script.ts` (duraciones, posiciones y zoom de la cámara, temblor, neblina, posturas del comando, sonidos, diálogos y subtítulos; cada valor comentado). El reproductor es `src/cinematic/Cinematic.ts` y los personajes y naves, `src/cinematic/actors.ts`.
 - **Voces:** de momento solo subtítulos. Los archivos van en `public/audio/voces/` con los nombres de `LEEME.txt`; se les aplica solo el filtro de radio de casco clon (`src/audio/Voices.ts`: corta graves y agudos, realza los medios, satura un poco, comprime y añade estática y el clic de la radio; dos intensidades, `radio` y `casco`). Motor de la cañonera, golpe en el casco y crepitar del fuego se generan por código (`src/audio/CineSounds.ts`).
-- **Provisional:** el comando y las piernas de los clones están hechos con formas sencillas hasta tener sus modelos. La cañonera en vuelo es el modelo LAAT del juego, entero y limpio, con el hueco de la puerta abierto por código.
+- **Provisional:** el comando y las piernas de los clones están hechos con formas sencillas hasta tener sus modelos. La cañonera en vuelo es el modelo LAAT del juego, entero y limpio, a tamaño real (ampliado por igual hasta 17,69 m de largo: 6,9 m de alto y 19,4 m de envergadura), con la abertura lateral de la bahía abierta por código a los dos lados (`APERTURA` en `actors.ts`). Clones de 1,83 m y comando de 1,85 m (`ESTATURA` en el guion).
 - La partida empieza donde estaba el comando, detrás de una caja de la República en el borde del cráter (cobertura sólida del mapa, `COBERTURA` en el guion).
 - Modo de pruebas: botones 1–6 para ver la cinemática desde una toma concreta.
 

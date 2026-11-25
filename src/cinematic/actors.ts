@@ -51,20 +51,36 @@ function bake(root: THREE.Object3D, shadow = false) {
 // ---------- Cañonera LAAT en vuelo ----------
 // Marco del modelo: +X = morro, +Y = arriba, ±Z = lados. La bahía de tropas va de x = −2,8 a 4,3 y su suelo está hacia y = −2,6.
 // La puerta lateral que usa la cinemática es la del lado −Z.
-export const FLY_SCALE = 1; // a tamaño real: dentro caben los clones de pie
+// Medidas de la LAAT real: 17,69 m de largo, 6,1–6,94 m de alto, 17–28,8 m de envergadura. El modelo mide 15,84 × 6,2 × 17,4 m:
+// ampliado por igual (sin deformarlo) hasta los 17,69 m de largo queda en 6,93 m de alto y 19,4 m de envergadura.
+export const FLY_SCALE = 17.69 / 15.84;
 
-/** Hueco de la puerta lateral abierta (lado −Z), en el marco del modelo: de dónde a dónde a lo largo (x) y en altura (y). */
-export const DOOR = { x0: -1.75, x1: 2.95, y0: -2.62, y1: -0.3, z: -0.95 };
+/**
+ * Abertura lateral de la bahía de tropas (la puerta abierta), a los dos lados: el hueco rectangular que queda justo detrás de la torreta de bola
+ * y de la ventanita en arco, hasta donde empieza la parte trasera inclinada. En el modelo es parte del casco: se quitan los triángulos del casco
+ * que caen enteros dentro de este rectángulo (medidas del modelo sin ampliar: x hacia el morro, y hacia arriba; `lado` = distancia mínima al centro).
+ * El resto de la nave queda completo.
+ */
+export const APERTURA = { x0: -0.6, x1: 2.6, y0: -3.0, y1: 0.25, lado: 0.35, margen: 0.4 };
 
-/** Copia de una pieza sin los triángulos que caen dentro del hueco de la puerta (así se ve el exterior). */
-function withDoorCut(geo: THREE.BufferGeometry): THREE.BufferGeometry {
+/** Copia del casco con la abertura lateral abierta a los dos lados. */
+function withSideOpenings(geo: THREE.BufferGeometry): THREE.BufferGeometry {
   const idx = geo.index!, pos = geo.attributes.position as THREE.BufferAttribute;
+  const A = APERTURA;
+  // un triángulo se quita si su centro cae en el rectángulo y ninguna esquina se sale más de `margen` (así no se comen piezas vecinas)
+  const inBox = (x: number, y: number, m: number) => x > A.x0 - m && x < A.x1 + m && y > A.y0 - m && y < A.y1 + m;
   const keep: number[] = [];
-  for (let i = 0; i < idx.count; i += 3) {
-    const a = idx.getX(i), b = idx.getX(i + 1), c = idx.getX(i + 2);
-    const x = (pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3, y = (pos.getY(a) + pos.getY(b) + pos.getY(c)) / 3, z = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
-    if (z < DOOR.z && x > DOOR.x0 && x < DOOR.x1 && y > DOOR.y0 && y < DOOR.y1) continue;
-    keep.push(a, b, c);
+  for (let t = 0; t < idx.count; t += 3) {
+    const v = [idx.getX(t), idx.getX(t + 1), idx.getX(t + 2)];
+    const cx = (pos.getX(v[0]) + pos.getX(v[1]) + pos.getX(v[2])) / 3, cy = (pos.getY(v[0]) + pos.getY(v[1]) + pos.getY(v[2])) / 3;
+    const zs = v.map((i) => pos.getZ(i));
+    const side = zs.every((z) => z < -A.lado) || zs.every((z) => z > A.lado);
+    // solo chapas que miran hacia un lado (no el techo ni el suelo)
+    const e1 = new THREE.Vector3(pos.getX(v[1]) - pos.getX(v[0]), pos.getY(v[1]) - pos.getY(v[0]), zs[1] - zs[0]);
+    const e2 = new THREE.Vector3(pos.getX(v[2]) - pos.getX(v[0]), pos.getY(v[2]) - pos.getY(v[0]), zs[2] - zs[0]);
+    const n = e1.cross(e2).normalize();
+    if (side && Math.abs(n.z) > 0.45 && inBox(cx, cy, 0) && v.every((i) => inBox(pos.getX(i), pos.getY(i), A.margen))) continue;
+    keep.push(v[0], v[1], v[2]);
   }
   const g = new THREE.BufferGeometry();
   for (const k of Object.keys(geo.attributes)) g.setAttribute(k, geo.attributes[k]);
@@ -74,7 +90,10 @@ function withDoorCut(geo: THREE.BufferGeometry): THREE.BufferGeometry {
 }
 
 export function buildFlyingLaat(): THREE.Group {
-  const g = new THREE.Group();
+  const g = new THREE.Group(); // marco de la nave en metros reales (la cámara y los clones se colocan aquí)
+  const hull = new THREE.Group(); // el modelo, ampliado a su tamaño real
+  hull.scale.setScalar(FLY_SCALE);
+  g.add(hull);
   const d = laatData();
   if (d) {
     const mats = d.textures.map((t) => lambert(0xffffff, { map: t, side: THREE.DoubleSide }));
@@ -82,54 +101,32 @@ export function buildFlyingLaat(): THREE.Group {
     for (const n of ['casco', 'ala', 'cabina', 'bahia', 'marco']) {
       const p = d.parts[n];
       if (!p) continue;
-      const m = new THREE.Mesh(n === 'casco' || n === 'bahia' || n === 'marco' ? withDoorCut(p.geo) : p.geo, mats[p.material]);
+      const m = new THREE.Mesh(n === 'casco' ? withSideOpenings(p.geo) : p.geo, mats[p.material]);
+      m.name = n;
       m.frustumCulled = false; // la cámara va dentro: que no desaparezca ninguna pieza por estar «detrás»
-      g.add(m);
+      hull.add(m);
     }
-    // Marco de la puerta abierta (el casco es una chapa sin grosor: así el borde del hueco no se ve de papel)
-    const frame = lambert(0x6d6760), redM = lambert(0x7e2a22);
-    const fz = -1.5, T = 0.14;
-    const door = new THREE.Group();
-    g.add(door);
-    const bar = (w: number, h: number, x: number, y: number, m: THREE.Material) => {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.35), m);
-      b.position.set(x, y, fz);
-      door.add(b);
-    };
-    const cx = (DOOR.x0 + DOOR.x1) / 2, w = DOOR.x1 - DOOR.x0, hgt = DOOR.y1 - DOOR.y0;
-    bar(w + T * 2, T, cx, DOOR.y1 + T / 2, frame); // dintel
-    bar(w + T * 2, T * 0.8, cx, DOOR.y0 - T * 0.4, frame); // umbral
-    bar(T, hgt, DOOR.x0 - T / 2, (DOOR.y0 + DOOR.y1) / 2, frame); // jambas
-    bar(T, hgt, DOOR.x1 + T / 2, (DOOR.y0 + DOOR.y1) / 2, frame);
-    bar(w, 0.05, cx, DOOR.y1 + T + 0.03, redM); // franja roja de la República sobre la puerta
-    // asideros del techo a los que se agarran los clones
-    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, w, 6), frame);
-    rail.rotation.z = Math.PI / 2;
-    rail.position.set(cx, DOOR.y1 - 0.12, -1.05);
-    door.add(rail);
-    bake(door);
   } else {
     // Respaldo si el modelo no cargó: un casco de cajas con los colores de la República
-    const hull = lambert(0xcfc7b6), red = lambert(0x8e2a22), dark = lambert(0x2d2a27, { side: THREE.DoubleSide });
+    const white = lambert(0xcfc7b6), red = lambert(0x8e2a22), dark = lambert(0x2d2a27, { side: THREE.DoubleSide });
     const box = (w: number, h: number, dd: number, x: number, y: number, z: number, m: THREE.Material) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, dd), m);
       mesh.position.set(x, y, z);
-      g.add(mesh);
+      hull.add(mesh);
     };
-    box(14, 0.2, 3.2, 0, -3, 0, hull); // panza
-    box(14, 0.2, 3.2, 0, 0.2, 0, hull); // techo de la bahía
+    box(14, 0.2, 3.2, 0, -3, 0, white); // panza
+    box(14, 0.2, 3.2, 0, 0.2, 0, white); // techo de la bahía
     box(14, 3.2, 0.15, 0, -1.4, 1.6, dark); // pared del otro lado (la del lado −Z está abierta)
-    box(4, 2, 3.4, 6.5, -1.6, 0, hull); // morro
+    box(4, 2, 3.4, 6.5, -1.6, 0, white); // morro
     box(3, 1, 0.3, 0, 0.6, -1.6, red);
-    box(0.8, 0.6, 16, -2, 1.2, 0, hull); // alas
+    box(0.8, 0.6, 16, -2, 1.2, 0, white); // alas
   }
-  g.scale.setScalar(FLY_SCALE);
   return g;
 }
 
 // ---------- Piernas de dos clones (armadura blanca de fase I) ----------
 /** Dos clones de pie junto a la puerta, agarrados al techo: solo se modela de la cintura para abajo. Devuelve también una función para balancearlos. */
-export function buildCloneLegs() {
+export function buildCloneLegs(height: number, gap: number) {
   const white = lambert(0xe4e0d6), black = lambert(0x1f1f22), grey = lambert(0x8d8a84);
   const g = new THREE.Group();
   const clones: THREE.Group[] = [];
@@ -149,7 +146,7 @@ export function buildCloneLegs() {
     l.add(thigh, knee, shin, boot, sole);
     return l;
   };
-  for (const [x, z, yaw] of [[0, 0, 0.25], [2.1, 0.15, -0.2]] as const) {
+  for (const [x, z, yaw] of [[0, 0, 0.25], [gap, 0.15, -0.2]] as const) {
     const c = new THREE.Group();
     c.position.set(x, 0, z);
     c.rotation.y = Math.PI / 2 + yaw; // miran hacia la puerta (lado −Z de la nave)
@@ -169,6 +166,9 @@ export function buildCloneLegs() {
     // los clones se balancean un poco con el vuelo (cada uno a su ritmo)
     clones.forEach((c, i) => { c.rotation.x = 0.03 * Math.sin(t * 1.3 + i * 2.1); c.rotation.z = 0.025 * Math.sin(t * 0.9 + i); });
   };
+  bake(g);
+  // las piernas están hechas para un clon de 1,80 m (cadera a 0,95 m): se ajustan a la estatura pedida sin deformarlas
+  for (const c of clones) c.scale.setScalar(height / 1.8);
   return { group: g, sway };
 }
 
@@ -186,7 +186,8 @@ export class Commando {
   private thighL = new THREE.Group(); private shinL = new THREE.Group(); private footL = new THREE.Group();
   private thighR = new THREE.Group(); private shinR = new THREE.Group(); private footR = new THREE.Group();
 
-  constructor() {
+  /** `height`: estatura de pie (m). */
+  constructor(height: number) {
     const armor = lambert(0xb9b6ac), dark = lambert(0x3a3a3c), under = lambert(0x232325), orange = lambert(0xc0662a);
     const visor = new THREE.MeshLambertMaterial({ color: 0x2a1a08, emissive: 0x6a3a08 });
     const gun = lambert(0x2b2d30);
@@ -270,6 +271,11 @@ export class Commando {
     leg(this.thighL, this.shinL, this.footL, 1);
     leg(this.thighR, this.shinR, this.footR, -1);
     bake(this.group, true);
+    // Estatura: se mide de pie y se escala la figura entera (sin deformarla)
+    this.pose(0, 0, 0);
+    this.group.updateMatrixWorld(true);
+    const h = new THREE.Box3().setFromObject(this.group).getSize(new THREE.Vector3()).y;
+    this.group.scale.setScalar(height / h);
     this.pose(1, 0, 0);
   }
 
@@ -284,7 +290,7 @@ export class Commando {
     this.thighR.rotation.x = L(0, -0.05, c);  // muslo derecho casi vertical...
     this.shinR.rotation.x = L(0, -1.45, c);   // ...con la espinilla apoyada en el suelo hacia atrás
     this.footR.rotation.x = L(0, 0.9, c);
-    this.hips.position.y = L(0.95, 0.5, c) + peek * 0.2 * c;
+    this.hips.position.y = L(0.95, 0.5, c) + peek * 0.34 * c;
     this.hips.position.z = L(0, 0.08, c);
     // Tronco: inclinado hacia delante al estar agachado; al asomarse se endereza un poco
     this.torso.rotation.x = L(-0.05, -0.38, c) + peek * 0.3 * c + Math.sin(t * 1.6) * 0.015;
