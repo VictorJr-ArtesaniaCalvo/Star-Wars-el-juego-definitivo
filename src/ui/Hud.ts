@@ -7,12 +7,10 @@ const $ = (id: string) => document.getElementById(id)!;
 export class Hud {
   private root = $('hud');
   private touch = $('touch');
-  private stance = $('stance');
   private btnCrouch = $('btnCrouch');
   private crouching: boolean | null = null;
   private heat = $('heat');
   private heatFill = $('heatFill');
-  private heatLabel = $('heatLabel');
   private hitmark = $('hitmark');
   private hitLife = 0;
   private lastHeat = -1;
@@ -118,6 +116,7 @@ export class Hud {
     $('bannerSub').textContent = sub;
     this.banner.hidden = false;
     this.bannerLife = seconds;
+    $('roundBox').classList.add('away'); // el indicador de ronda y droides se aparta mientras sale el aviso
     // Reinicia la animación de entrada.
     this.banner.style.animation = 'none';
     void this.banner.offsetWidth;
@@ -127,6 +126,7 @@ export class Hud {
   hideBanner() {
     this.bannerLife = 0;
     this.banner.hidden = true;
+    $('roundBox').classList.remove('away');
   }
 
   /** Destello rojo al recibir daño y flecha hacia el lugar de donde viene (ángulo en grados, 0 = delante). */
@@ -160,8 +160,7 @@ export class Hud {
     }
     if (locked !== this.lastLocked) {
       this.lastLocked = locked;
-      this.heat.classList.toggle('locked', locked);
-      this.heatLabel.textContent = locked ? 'SOBRECALENTADO' : 'BLÁSTER';
+      this.heat.classList.toggle('locked', locked); // sobrecalentado: borde rojo parpadeando (sin texto)
     }
   }
 
@@ -179,7 +178,7 @@ export class Hud {
     }
     if (this.bannerLife > 0) {
       this.bannerLife -= dt;
-      if (this.bannerLife <= 0) this.banner.hidden = true;
+      if (this.bannerLife <= 0) this.hideBanner();
     }
     if (this.dmgLife > 0) {
       this.dmgLife = Math.max(0, this.dmgLife - dt * 1.4);
@@ -206,8 +205,6 @@ export class Hud {
   setCrouching(c: boolean) {
     if (c === this.crouching) return;
     this.crouching = c;
-    this.stance.textContent = c ? 'AGACHADO' : 'DE PIE';
-    this.stance.classList.toggle('crouch', c);
     this.btnCrouch.classList.toggle('on', c);
   }
 }

@@ -13,7 +13,7 @@ export interface MenuActions {
   onMusicTouch?: () => void;
   /** Se suelta el control de efectos (suena un disparo de muestra) */
   onSfxPreview?: () => void;
-  /** «Ver cinemática inicial» (desde la toma `shot`, 0 = el principio) y después a jugar */
+  /** Modo de pruebas: ver la cinemática desde la toma `shot` (0 = el principio) y después a jugar */
   onCinematic?: (shot: number) => void;
   /** Abre el panel de ajuste de las manos en primera persona (modo de pruebas) */
   onTuneHands?: () => void;
@@ -21,7 +21,8 @@ export interface MenuActions {
   onTuneVoice?: () => void;
 }
 
-// Menú de inicio y de pausa, con los ajustes y el panel oculto de pruebas.
+// Pantalla principal (fondo de Geonosis; JUGAR, AJUSTES, AGRADECIMIENTOS) y menú de pausa (CONTINUAR, AJUSTES, ABANDONAR).
+// Los ajustes van en su propia pantalla. El panel oculto de pruebas sale con 5 toques en el título.
 export class Menu {
   private root = $('menu');
   private sub = $('menuSub');
@@ -33,7 +34,8 @@ export class Menu {
   constructor(private settings: Settings, actions: MenuActions) {
     this.btnPlay.addEventListener('click', actions.onPlay);
     this.btnQuit.addEventListener('click', actions.onQuit);
-    $('btnCine').addEventListener('click', () => actions.onCinematic?.(0));
+    $('btnSettings').addEventListener('click', () => this.showSettings(true));
+    $('btnSettingsBack').addEventListener('click', () => this.showSettings(false));
     $('btnTuneHands').addEventListener('click', () => actions.onTuneHands?.());
     $('btnTuneVoice').addEventListener('click', () => actions.onTuneVoice?.());
     document.querySelectorAll<HTMLButtonElement>('#cineShots button').forEach((b) => b.addEventListener('click', () => actions.onCinematic?.(Number(b.dataset.s) - 1)));
@@ -132,9 +134,13 @@ export class Menu {
 
   ready() {
     $('loading').hidden = true;
-    this.btnPlay.hidden = false;
-    $('btnCine').hidden = false;
-    $('settings').hidden = false;
+    $('menuButtons').hidden = false;
+  }
+
+  /** Abre o cierra la pantalla de ajustes. */
+  private showSettings(on: boolean) {
+    $('settingsPanel').hidden = !on;
+    $('mainPanel').hidden = on;
   }
 
   error(msg: string) {
@@ -149,7 +155,9 @@ export class Menu {
     this.sub.textContent = paused ? 'EN PAUSA' : 'ÚLTIMA DEFENSA';
     this.btnPlay.textContent = paused ? 'CONTINUAR' : 'JUGAR';
     this.btnQuit.hidden = !paused;
-    $('btnCine').hidden = paused; // la cinemática se ve desde el menú de inicio (empieza una partida nueva)
+    $('btnCredits').hidden = paused; // los agradecimientos, solo en la pantalla principal
+    this.root.classList.toggle('main', !paused); // pantalla principal con el fondo de Geonosis; en pausa se ve la partida detrás
+    this.showSettings(false);
     $('btnGoRound').hidden = !paused; // solo en pausa: saltar de ronda sin reiniciar
     const best = $('best');
     best.hidden = paused || this.settings.data.best < 1;

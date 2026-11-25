@@ -32,8 +32,7 @@
     <div id="roundBox"><div id="roundNum">RONDA 1</div><div id="enemyLeft"></div></div>
     <div id="banner" hidden><div id="bannerTitle"></div><div id="bannerSub"></div></div>
     <div id="hitmark"></div>
-    <div id="stance">DE PIE</div>
-    <div id="heat"><div id="heatFill"></div><span id="heatLabel">BLÁSTER</span></div>
+    <div id="heat"><div id="heatFill"></div></div>
     <button id="btnPause" aria-label="Pausa"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="7" width="5" height="18" rx="1.6"/><rect x="18" y="7" width="5" height="18" rx="1.6"/></svg></button>
   </div>
 
@@ -79,50 +78,18 @@
   <div id="zoneFade" hidden><div id="zoneTitle">ARENA DE GEONOSIS</div><div id="zoneSub">Los droides os han rodeado. Resiste.</div></div>
 
   <!-- Menú de inicio / pausa -->
-  <div id="menu">
-    <div class="panel">
+  <div id="menu" class="main">
+    <div class="panel" id="mainPanel">
       <h1 id="title">GEONOSIS</h1>
       <h2 id="menuSub">ÚLTIMA DEFENSA</h2>
       <p id="loading">Cargando…</p>
-      <button id="btnPlay" class="big" hidden>JUGAR</button>
-      <button id="btnQuit" class="ghost" hidden>ABANDONAR PARTIDA</button>
-      <button id="btnCine" class="ghost" hidden>VER CINEMÁTICA INICIAL</button>
-      <p id="best" class="help" hidden></p>
-
-      <div id="settings" hidden>
-        <label>Sensibilidad al apuntar
-          <span id="sensVal"></span>
-          <input id="sens" type="range" min="0.3" max="3" step="0.1" />
-        </label>
-        <label>Volumen general
-          <span id="volVal"></span>
-          <input id="vol" type="range" min="0" max="1" step="0.05" />
-        </label>
-        <label>Música
-          <span id="musicVal"></span>
-          <input id="musicVol" type="range" min="0" max="1" step="0.05" />
-        </label>
-        <label>Efectos
-          <span id="sfxVal"></span>
-          <input id="sfxVol" type="range" min="0" max="1" step="0.05" />
-        </label>
-        <div class="row">
-          <span>Calidad gráfica</span>
-          <div id="quality" class="seg">
-            <button data-q="low">Baja</button>
-            <button data-q="medium">Media</button>
-            <button data-q="high">Alta</button>
-            <button data-q="ultra">Ultra</button>
-          </div>
-        </div>
-        <div class="row" style="margin-top:10px">
-          <span>Ayuda al apuntar (táctil)</span>
-          <div id="assist" class="seg">
-            <button data-a="1">Sí</button>
-            <button data-a="0">No</button>
-          </div>
-        </div>
+      <div id="menuButtons" hidden>
+        <button id="btnPlay" class="big">JUGAR</button>
+        <button id="btnSettings" class="ghost">AJUSTES</button>
+        <button id="btnCredits" class="ghost">AGRADECIMIENTOS</button>
+        <button id="btnQuit" class="ghost" hidden>ABANDONAR PARTIDA</button>
       </div>
+      <p id="best" class="help" hidden></p>
 
       <div id="testPanel" hidden>
         <div class="testTitle">MODO DE PRUEBAS</div>
@@ -154,9 +121,50 @@
         </div>
       </div>
 
-      <p id="help" class="help"></p>
       <p id="build" class="help" style="opacity:.55;font-size:11px"></p>
-      <button id="btnCredits" class="ghost credits-btn">Créditos y agradecimientos</button>
+    </div>
+
+    <!-- Ajustes (desde la pantalla principal o desde la pausa) -->
+    <div class="panel" id="settingsPanel" hidden>
+      <div class="screenHead"><button id="btnSettingsBack" class="ghost back">‹ VOLVER</button><h1 class="screenTitle">AJUSTES</h1></div>
+      <div id="settings">
+        <div class="sliders">
+        <label>Sensibilidad al apuntar
+          <span id="sensVal"></span>
+          <input id="sens" type="range" min="0.3" max="3" step="0.1" />
+        </label>
+        <label>Volumen general
+          <span id="volVal"></span>
+          <input id="vol" type="range" min="0" max="1" step="0.05" />
+        </label>
+        <label>Música
+          <span id="musicVal"></span>
+          <input id="musicVol" type="range" min="0" max="1" step="0.05" />
+        </label>
+        <label>Efectos
+          <span id="sfxVal"></span>
+          <input id="sfxVol" type="range" min="0" max="1" step="0.05" />
+        </label>
+        </div>
+        <div class="row">
+          <span>Calidad gráfica</span>
+          <div id="quality" class="seg">
+            <button data-q="low">Baja</button>
+            <button data-q="medium">Media</button>
+            <button data-q="high">Alta</button>
+            <button data-q="ultra">Ultra</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <span>Ayuda al apuntar (táctil)</span>
+          <div id="assist" class="seg">
+            <button data-a="1">Sí</button>
+            <button data-a="0">No</button>
+          </div>
+        </div>
+      </div>
+
+      <p id="help" class="help"></p>
     </div>
   </div>
 

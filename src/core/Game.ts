@@ -43,8 +43,6 @@ type Mode = 'menu' | 'cinematic' | 'playing' | 'paused' | 'gameover' | 'transiti
 const ZONE_FADE_OUT = 1.6;
 const ZONE_HOLD = 2.2;
 const ZONE_FADE_IN = 1.6;
-/** Recuerda entre recargas (en la misma apertura de la app) que la cinemática ya se ha visto. */
-const CINE_SEEN_KEY = 'geonosis.cineSeen';
 // Apuntar: acerca la vista y afina la puntería; desde la cadera se mueve más rápido pero el disparo se abre.
 const FOV_HIP = 72;
 const FOV_ADS = 42;
@@ -80,8 +78,6 @@ export class Game {
     look: (d) => { this.pitch = d * 0.75; },
     close: () => this.closeHandTuner(),
   });
-  /** La cinemática inicial ya se ha visto en esta apertura de la app (no se repite al reintentar ni al volver a jugar). */
-  private cineSeen = (() => { try { return sessionStorage.getItem(CINE_SEEN_KEY) === '1'; } catch { return false; } })();
 
   private state: GameState = { players: [], enemies: [], round: 0, kills: 0 };
   private enemies!: EnemyManager;
@@ -297,9 +293,9 @@ export class Game {
     this.gameOver.hide();
     this.hud.setTestTag(this.testMode);
     this.hud.setHealth(p.health);
-    const wantCine = cineShot !== undefined || (fromMenu && !this.cineSeen && !this.testMode);
+    // JUGAR en la pantalla principal empieza siempre con la cinemática (se puede omitir); reintentar, no
+    const wantCine = cineShot !== undefined || (fromMenu && !this.testMode);
     if (wantCine) {
-      this.markCineSeen();
       this.beginCinematic(cineShot ?? 0);
       return;
     }
@@ -315,14 +311,8 @@ export class Game {
     this.resume();
   }
 
-  private markCineSeen() {
-    this.cineSeen = true;
-    try { sessionStorage.setItem(CINE_SEEN_KEY, '1'); } catch { /* sin almacenamiento: no pasa nada */ }
-  }
-
-  /** Vuelve a cargar el juego para tener otra vez el cañón (se borró al pasar a la arena). */
+  /** Vuelve a cargar el juego para tener otra vez el cañón (se borró al pasar a la arena): sale la pantalla principal. */
   private reloadForCanyon() {
-    this.markCineSeen();
     window.location.reload();
   }
 
