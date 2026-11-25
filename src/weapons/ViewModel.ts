@@ -1,10 +1,15 @@
 import * as THREE from 'three';
 import { buildArms, type ArmsVariant } from './arms';
+import { commandoModelReady, createFirstPersonArms, type FirstPersonArms } from '../player/commandoModel';
+import { EYE_STAND } from '../player/PlayerController';
 
 // El bláster que se ve en pantalla. Va pegado a la cámara. El modelo 3D (public/models/blaster.bin + blaster-color.jpg) es el «E-5 Blaster Rifle»
 // de A308 Digital (CC-BY 4.0, ver CRÉDITOS.md) y se genera con tools/convert-blaster.mjs. Si no se pudiera cargar, se usa uno de cajas.
 interface BlasterModel { geo: THREE.BufferGeometry; map: THREE.Texture | null; muzzle: [number, number, number] }
 let blasterModel: BlasterModel | null = null;
+/** El modelo del bláster (para ponérselo en las manos al comando de la cinemática), o null si no cargó. */
+export const blasterModelData = () => blasterModel;
+export const BLASTER_COLOR_BOOST = 2.2;
 const BLASTER_BRIGHT = 2.2;
 // Posición del arma en pantalla: desde la cadera (abajo a la derecha) y apuntando (centrada, un poco más arriba)
 const HIP = { x: 0.23, y: -0.2, z: -0.58, scale: 0.54, adsLift: 0.065 };
@@ -49,6 +54,11 @@ export class ViewModel {
   readonly muzzle = new THREE.Object3D();
   private body: THREE.MeshLambertMaterial;
   private arms: THREE.Mesh | null = null;
+  private modelArms: FirstPersonArms | null = null;
+  private gripR = new THREE.Object3D();
+  private gripL = new THREE.Object3D();
+  private _r = new THREE.Vector3();
+  private _l = new THREE.Vector3();
   private kick = 0;
   private flashSprite: THREE.Sprite;
   private grenade = new THREE.Group();
@@ -81,7 +91,14 @@ export class ViewModel {
       this.muzzle.position.set(0, 0.012, -0.4);
     }
     this.group.add(this.muzzle);
-    this.setArms('A'); // propuesta A elegida (se revisa antes de subir)
+    // Brazos: los del modelo del clon comando (si cargó); si no, los de formas sencillas (propuesta A)
+    if (commandoModelReady()) {
+      this.modelArms = createFirstPersonArms(1.85, EYE_STAND);
+      camera.add(this.modelArms.root);
+      this.gripR.position.set(0.03, -0.215, 0.27); // mango (mano derecha), en el sistema del arma
+      this.gripL.position.set(0.0, -0.225, -0.2); // empuñadura delantera (mano izquierda)
+      this.group.add(this.gripR, this.gripL);
+    } else this.setArms('A');
     // Destello azul al disparar (dura una fracción de segundo)
     const fc = document.createElement('canvas'); fc.width = fc.height = 64;
     const fg = fc.getContext('2d')!;
@@ -144,6 +161,14 @@ export class ViewModel {
     this.group.position.y = HIP.y + zoom * HIP.adsLift - (1 - this.bRaise) * 0.3;
     this.group.position.z = HIP.z + this.kick * 0.05 * (1 - zoom * 0.5);
     this.group.rotation.x = this.kick * 0.07;
+    if (this.modelArms) {
+      // las manos siguen al arma (al apuntar, al disparar, al cambiar de arma)
+      this.modelArms.root.visible = this.group.visible;
+      if (this.group.visible) {
+        this.group.parent!.updateMatrixWorld(true);
+        this.modelArms.solve(this.gripR.getWorldPosition(this._r), this.gripL.getWorldPosition(this._l));
+      }
+    }
     // El arma se pone al rojo con el calor.
     this.body.emissive.copy(this.cold).lerp(this.hot, Math.max(0, heat - 0.35) / 0.65);
   }

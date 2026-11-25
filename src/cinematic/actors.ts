@@ -5,6 +5,8 @@ import { withLightFloor } from '../world/lightFill';
 import { createB1, poseB1, type B1Bones } from '../enemies/B1Rig';
 import { withDroidWear } from '../enemies/droidWear';
 import { terrainHeight } from '../world/terrain';
+import { createCommandoRig, reach, turnWorld, aimBone, type CommandoRig } from '../player/commandoModel';
+import { blasterModelData, BLASTER_COLOR_BOOST } from '../weapons/ViewModel';
 
 // «Actores» de la cinemática: solo se ven durante ella y no son parte de la partida (no chocan, no disparan, no piensan).
 //  - La cañonera LAAT en vuelo (el mismo modelo que la estrellada, pero entera y limpia).
@@ -299,6 +301,90 @@ export class Commando {
     this.armL.rotation.set(L(rest.sx, -0.4, tap), 0, L(rest.sz, -2.2, tap));
     this.foreL.rotation.set(L(rest.e, 0.1, tap), 0, L(0, -1.9, tap));
     void s;
+  }
+}
+
+// ---------- Clon comando con el modelo de verdad ----------
+// Mismas posturas que el provisional (agachado, asomarse, golpe al casco), pero girando los huesos del modelo:
+// las manos van al bláster (o al casco) y los pies al suelo con IK; el tronco se inclina y la cabeza mira al frente.
+/** Dónde lleva el bláster respecto al pecho (m, en su marco: x derecha, y arriba, z hacia atrás) y cuánto apunta hacia abajo (rad). */
+export const RIFLE_HOLD = { x: 0.14, y: -0.16, z: -0.34, bajoAgachado: 0.35, bajoDePie: 0.12, largo: 0.85 };
+
+export class CommandoModel {
+  readonly group = new THREE.Group();
+  private rig: CommandoRig;
+  private rifle = new THREE.Group();
+  private gripR = new THREE.Object3D();
+  private gripL = new THREE.Object3D();
+  private right = new THREE.Vector3();
+  private v = new THREE.Vector3();
+
+  constructor(height: number) {
+    this.rig = createCommandoRig(height);
+    this.group.add(this.rig.root);
+    for (const m of this.rig.meshes) m.castShadow = true;
+    // bláster en las manos: el mismo modelo que usa el jugador (si no cargó, una caja oscura)
+    const bm = blasterModelData();
+    if (bm) {
+      bm.geo.computeBoundingBox();
+      const bb = bm.geo.boundingBox!, len = bb.max.z - bb.min.z, s = RIFLE_HOLD.largo / len;
+      const mat = withLightFloor(new THREE.MeshLambertMaterial({ map: bm.map, color: bm.map ? 0xffffff : 0x3b3f45 }));
+      if (bm.map) mat.color.setScalar(BLASTER_COLOR_BOOST * 0.8);
+      const mesh = new THREE.Mesh(bm.geo, mat);
+      mesh.scale.setScalar(s);
+      mesh.castShadow = true;
+      this.rifle.add(mesh);
+      // agarres: los mismos puntos que usan los brazos del jugador (mango y empuñadura delantera)
+      this.gripR.position.set(0.03, -0.215, 0.27).multiplyScalar(s);
+      this.gripL.position.set(0.0, -0.225, -0.2).multiplyScalar(s);
+    } else {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, RIFLE_HOLD.largo), lambert(0x2b2d30));
+      this.rifle.add(mesh);
+      this.gripR.position.set(0, -0.08, 0.2);
+      this.gripL.position.set(0, -0.06, -0.15);
+    }
+    this.rifle.add(this.gripR, this.gripL);
+    this.group.add(this.rifle);
+    this.pose(1, 0, 0);
+  }
+
+  /** Igual que el provisional: `crouch` 1 = agachado → 0 = de pie; `peek` = se asoma; `tap` = mano izquierda al casco. */
+  pose(crouch: number, peek: number, tap: number, t = 0) {
+    const b = this.rig.bones, c = crouch;
+    const L = (a: number, z: number, k: number) => a + (z - a) * k;
+    const W = (x: number, y: number, z: number) => this.group.localToWorld(new THREE.Vector3(x, y, z)); // punto del marco del comando → mundo
+    this.rig.reset();
+    this.group.updateMatrixWorld(true);
+    this.right.set(1, 0, 0).transformDirection(this.group.matrixWorld);
+    // 1) Cadera: baja al agacharse y sube un poco al asomarse
+    const hipY = L(0.99, 0.56, c) + peek * 0.22 * c + Math.sin(t * 1.6) * 0.008;
+    b.hips.position.copy(b.hips.parent!.worldToLocal(W(0, hipY, L(-0.03, 0.06, c))));
+    b.hips.updateMatrixWorld(true);
+    // 2) Tronco inclinado hacia delante (menos al asomarse); la cabeza compensa para mirar al frente
+    const lean = c * (0.42 - 0.32 * peek);
+    turnWorld(b.spine, this.right, -lean * 0.5);
+    turnWorld(b.chest, this.right, -lean * 0.5);
+    turnWorld(b.neck, this.right, lean * 0.6);
+    turnWorld(b.head, this.right, lean * 0.3 - peek * 0.1 * c);
+    if (tap > 0.85) turnWorld(b.head, new THREE.Vector3(0, 0, 1).transformDirection(this.group.matrixWorld), -(tap - 0.85) * 0.8);
+    // 3) Piernas: el pie izquierdo plantado delante y la rodilla derecha en el suelo (de pie: los pies bajo la cadera)
+    reach(b.leftleg, b.leftknee, b.leftankle, W(-0.12, 0.1, L(0.03, -0.38, c)), W(-0.12, 0.6, -2));
+    reach(b.rightleg, b.rightknee, b.rightankle, W(0.12, L(0.1, 0.14, c), L(0.03, 0.42, c)), W(0.12, L(0.6, -0.3, c), -2));
+    aimBone(b.leftankle, b.lefttoe, W(0, -0.35, -1).sub(W(0, 0, 0)));
+    aimBone(b.rightankle, b.righttoe, W(0, L(-0.35, -0.9, c), L(-1, 0.4, c)).sub(W(0, 0, 0)));
+    // 4) Bláster delante del pecho, algo bajado
+    const chest = b.chest.getWorldPosition(this.v);
+    const lc = this.group.worldToLocal(chest.clone());
+    this.rifle.position.set(lc.x + RIFLE_HOLD.x, lc.y + RIFLE_HOLD.y, lc.z + RIFLE_HOLD.z);
+    this.rifle.rotation.set(-L(RIFLE_HOLD.bajoDePie, RIFLE_HOLD.bajoAgachado, c) - lean * 0.3, 0, 0);
+    this.rifle.updateMatrixWorld(true);
+    // 5) Brazos: la derecha al mango; la izquierda a la empuñadura… o al casco (golpe a la radio)
+    reach(b.rightarm, b.rightelbow, b.rightwrist, this.gripR.getWorldPosition(new THREE.Vector3()), W(0.55, 0.6, 0.3));
+    const head = b.head.getWorldPosition(new THREE.Vector3());
+    const lh = this.group.worldToLocal(head.clone());
+    const helmet = W(lh.x - 0.2, lh.y + 0.08, lh.z - 0.02);
+    const fore = this.gripL.getWorldPosition(new THREE.Vector3());
+    reach(b.leftarm, b.leftelbow, b.leftwrist, fore.lerp(helmet, tap), L(0, 1, tap) > 0.5 ? W(-0.8, lh.y + 0.2, 0.2) : W(-0.55, 0.6, 0.3));
   }
 }
 

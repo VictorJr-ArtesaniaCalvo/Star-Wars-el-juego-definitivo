@@ -22,6 +22,13 @@ para separar un ala (que queda tirada como cobertura), se simplifica (de ~19.000
 Los daños (hollín, humo, chispas y fuego) se simulan encima, sin modificar el modelo. Hay una versión de formas sencillas de respaldo si el archivo falta.
 Se muestra también en la pantalla de créditos del juego (menú → «Créditos y agradecimientos»).
 
+**Clon comando** (`public/models/commando.glb`): este trabajo se basa en
+«[Republic Commando](https://sketchfab.com/3d-models/republic-commando-30959b9c2ddb475085eaccdcb00e2dd8)»
+de [Abel](https://sketchfab.com/abel76), con licencia
+[CC-BY-NC 4.0](http://creativecommons.org/licenses/by-nc/4.0/) (hay que citar al autor; **no se permite el uso comercial**; ver `public/models/LICENCIA-COMANDO.txt`).
+Modelo aportado por el autor del proyecto. Cambios hechos para el juego (herramienta `tools/convert-commando.py`): las imágenes pasan de PNG a JPG y se quitan las de
+metal/rugosidad/oclusión (de ~9,6 MB a ~3,7 MB); el modelo no se edita. Las posturas (cinemática) y los brazos en primera persona se colocan por código girando sus huesos.
+
 **Droide B2** (`public/models/b2.bin` y `public/models/b2-atlas.jpg`): este trabajo se basa en
 «[B2 Super battle droid](https://sketchfab.com/3d-models/b2-super-battle-droid-927b3ec911cc45c3ad15c458b3de4d50)»
 de [zakeriiino](https://sketchfab.com/zakeriiino), con licencia

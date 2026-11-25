@@ -4,7 +4,8 @@ import type { AudioEngine } from '../audio/AudioEngine';
 import { CineSounds } from '../audio/CineSounds';
 import { Voices } from '../audio/Voices';
 import type { Effects } from '../weapons/Effects';
-import { B1Walkers, buildCloneLegs, buildFlyingLaat, Commando } from './actors';
+import { B1Walkers, buildCloneLegs, buildFlyingLaat, Commando, CommandoModel } from './actors';
+import { commandoModelReady } from '../player/commandoModel';
 import { COMANDO, DROIDES, ESTATURA, PIERNAS, SALIDA, TOMAS, VUELO, type Actor, type Camara, type Evento, type Postura, type Punto, type Toma, type Vista } from './script';
 
 // Reproductor de la cinemática inicial: sigue el guion (script.ts) segundo a segundo.
@@ -51,7 +52,7 @@ export class Cinematic {
   // actores (se crean la primera vez)
   private ship: THREE.Group | null = null;
   private legs: ReturnType<typeof buildCloneLegs> | null = null;
-  private commando: Commando | null = null;
+  private commando: Commando | CommandoModel | null = null;
   private droids: B1Walkers | null = null;
   private poseNow = { agachado: 1, asoma: 0, golpe: 0 };
 
@@ -92,7 +93,7 @@ export class Cinematic {
     this.legs = buildCloneLegs(ESTATURA.clon, PIERNAS.separacion);
     this.legs.group.position.set(PIERNAS.x, PIERNAS.suelo, PIERNAS.z); // en el suelo de la bahía, junto a la puerta
     this.ship.add(this.legs.group);
-    this.commando = new Commando(ESTATURA.comando);
+    this.commando = commandoModelReady() ? new CommandoModel(ESTATURA.comando) : new Commando(ESTATURA.comando);
     this.commando.group.position.set(COMANDO.x, terrainHeight(COMANDO.x, COMANDO.z), COMANDO.z);
     this.droids = new B1Walkers(DROIDES);
     for (const o of [this.ship, this.commando.group, this.droids.group]) { o.visible = false; scene.add(o); }

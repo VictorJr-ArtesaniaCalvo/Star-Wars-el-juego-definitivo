@@ -29,6 +29,7 @@ import { ViewModel, loadBlasterModel } from '../weapons/ViewModel';
 import { World } from '../world/World';
 import { QUALITY, Settings, type Quality } from './Settings';
 import { Cinematic } from '../cinematic/Cinematic';
+import { loadCommandoModel } from '../player/commandoModel';
 import { COMANDO } from '../cinematic/script';
 
 type Mode = 'menu' | 'cinematic' | 'playing' | 'paused' | 'gameover';
@@ -135,7 +136,7 @@ export class Game {
 
   async init() {
     await RAPIER.init();
-    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`), loadWorldTextures(import.meta.env.BASE_URL), loadParticleAtlas(import.meta.env.BASE_URL)]);
+    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`), loadWorldTextures(import.meta.env.BASE_URL), loadParticleAtlas(import.meta.env.BASE_URL), loadCommandoModel(`${import.meta.env.BASE_URL}models/commando.glb`)]);
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = TICK;
     this.audio.init();
