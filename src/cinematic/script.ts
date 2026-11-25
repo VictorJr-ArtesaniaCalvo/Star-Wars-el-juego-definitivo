@@ -84,7 +84,7 @@ export const COBERTURA = { x: -4.3, z: 3.0, giro: 0.08 };
 export const VUELO = { centro: [0, -2] as [number, number], radio: 46, altura: 32, giroDesde: 60, giroHasta: 36, alabeo: 10 };
 
 /** Dónde están de pie los dos clones junto a la puerta abierta (dentro de la nave, en metros; el suelo de la bahía está a ‑3,35). `separacion`: entre uno y otro. */
-export const PIERNAS = { x: -0.05, suelo: -3.35, z: -1.3, separacion: 2.4 };
+export const PIERNAS = { x: 0.35, suelo: -3.35, z: -1.3, separacion: 2.15 };
 
 /** Estaturas (m). */
 export const ESTATURA = { clon: 1.83, comando: 1.85 };

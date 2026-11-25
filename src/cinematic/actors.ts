@@ -56,37 +56,31 @@ function bake(root: THREE.Object3D, shadow = false) {
 export const FLY_SCALE = 17.69 / 15.84;
 
 /**
- * Abertura lateral de la bahía de tropas (la puerta abierta), a los dos lados: el hueco rectangular que queda justo detrás de la torreta de bola
- * y de la ventanita en arco, hasta donde empieza la parte trasera inclinada. En el modelo es parte del casco: se quitan los triángulos del casco
- * que caen enteros dentro de este rectángulo (medidas del modelo sin ampliar: x hacia el morro, y hacia arriba; `lado` = distancia mínima al centro).
- * El resto de la nave queda completo.
+ * Abertura lateral de la bahía de tropas (la puerta abierta), a los dos lados: un rectángulo exacto justo detrás de la torreta de bola
+ * y de la ventanita en arco, hasta donde empieza la parte trasera inclinada (medido sobre la foto de referencia).
+ * El modelo no se toca: al dibujar el casco, lo que cae dentro del rectángulo en las paredes laterales no se pinta, así los bordes salen rectos.
+ * Medidas del modelo sin ampliar (para pasar a metros reales, ×1,117): x hacia el morro, y hacia arriba; `lado` = distancia mínima al centro de la nave.
  */
-export const APERTURA = { x0: -0.6, x1: 2.6, y0: -3.0, y1: 0.25, lado: 0.35, margen: 0.4 };
+export const APERTURA = { x0: 0.02, x1: 2.53, y0: -2.94, y1: -0.08, lado: 0.35 };
 
-/** Copia del casco con la abertura lateral abierta a los dos lados. */
-function withSideOpenings(geo: THREE.BufferGeometry): THREE.BufferGeometry {
-  const idx = geo.index!, pos = geo.attributes.position as THREE.BufferAttribute;
+/** Material del casco con la abertura rectangular recortada (solo en las paredes que miran a un lado, no en techo ni suelo). */
+function withOpening<T extends THREE.Material>(mat: T): T {
+  const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey;
   const A = APERTURA;
-  // un triángulo se quita si su centro cae en el rectángulo y ninguna esquina se sale más de `margen` (así no se comen piezas vecinas)
-  const inBox = (x: number, y: number, m: number) => x > A.x0 - m && x < A.x1 + m && y > A.y0 - m && y < A.y1 + m;
-  const keep: number[] = [];
-  for (let t = 0; t < idx.count; t += 3) {
-    const v = [idx.getX(t), idx.getX(t + 1), idx.getX(t + 2)];
-    const cx = (pos.getX(v[0]) + pos.getX(v[1]) + pos.getX(v[2])) / 3, cy = (pos.getY(v[0]) + pos.getY(v[1]) + pos.getY(v[2])) / 3;
-    const zs = v.map((i) => pos.getZ(i));
-    const side = zs.every((z) => z < -A.lado) || zs.every((z) => z > A.lado);
-    // solo chapas que miran hacia un lado (no el techo ni el suelo)
-    const e1 = new THREE.Vector3(pos.getX(v[1]) - pos.getX(v[0]), pos.getY(v[1]) - pos.getY(v[0]), zs[1] - zs[0]);
-    const e2 = new THREE.Vector3(pos.getX(v[2]) - pos.getX(v[0]), pos.getY(v[2]) - pos.getY(v[0]), zs[2] - zs[0]);
-    const n = e1.cross(e2).normalize();
-    if (side && Math.abs(n.z) > 0.45 && inBox(cx, cy, 0) && v.every((i) => inBox(pos.getX(i), pos.getY(i), A.margen))) continue;
-    keep.push(v[0], v[1], v[2]);
-  }
-  const g = new THREE.BufferGeometry();
-  for (const k of Object.keys(geo.attributes)) g.setAttribute(k, geo.attributes[k]);
-  g.setIndex(keep);
-  g.computeBoundingSphere();
-  return g;
+  mat.onBeforeCompile = (sh, r) => {
+    prev.call(mat, sh, r);
+    sh.uniforms.uOpen = { value: new THREE.Vector4(A.x0, A.x1, A.y0, A.y1) };
+    sh.uniforms.uSide = { value: A.lado };
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vOpP;\nvarying vec3 vOpN;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvOpP = position;\nvOpN = normal;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vOpP;\nvarying vec3 vOpN;\nuniform vec4 uOpen;\nuniform float uSide;')
+      .replace('void main() {', `void main() {
+  if (vOpP.x > uOpen.x && vOpP.x < uOpen.y && vOpP.y > uOpen.z && vOpP.y < uOpen.w && abs(vOpP.z) > uSide && abs(normalize(vOpN).z) > 0.45) discard;`);
+  };
+  mat.customProgramCacheKey = () => prevKey.call(mat) + '+open';
+  return mat;
 }
 
 export function buildFlyingLaat(): THREE.Group {
@@ -97,11 +91,12 @@ export function buildFlyingLaat(): THREE.Group {
   const d = laatData();
   if (d) {
     const mats = d.textures.map((t) => lambert(0xffffff, { map: t, side: THREE.DoubleSide }));
+    const hullMats = d.textures.map((t) => withOpening(lambert(0xffffff, { map: t, side: THREE.DoubleSide }))); // casco y marcos, con la abertura
     // el ala que el escenario corta para tirarla al suelo vuelve a su sitio: en el modelo ya está en su posición original
     for (const n of ['casco', 'ala', 'cabina', 'bahia', 'marco']) {
       const p = d.parts[n];
       if (!p) continue;
-      const m = new THREE.Mesh(n === 'casco' ? withSideOpenings(p.geo) : p.geo, mats[p.material]);
+      const m = new THREE.Mesh(p.geo, (n === 'casco' || n === 'marco' ? hullMats : mats)[p.material]);
       m.name = n;
       m.frustumCulled = false; // la cámara va dentro: que no desaparezca ninguna pieza por estar «detrás»
       hull.add(m);
