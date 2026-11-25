@@ -285,3 +285,31 @@ h1.red { color: #ff7a60; }
 
 #sfxVal, #musicVal { float: right; color: #ffcf9a; }
 #settings input[type=range]#musicVol, #settings input[type=range]#sfxVol { margin-top: 6px; }
+
+/* ---------- Cinemática ---------- */
+#cine { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
+#cine .bar { position: absolute; left: 0; right: 0; height: 9vh; background: #000; transition: transform .7s cubic-bezier(.4,0,.2,1); }
+#cine .bar.top { top: 0; transform: translateY(-100%); }
+#cine .bar.bottom { bottom: 0; transform: translateY(100%); }
+#cine.on .bar { transform: translateY(0); transition: none; }
+#cineFade { position: absolute; inset: 0; background: #000; opacity: 1; }
+#cineTitle {
+  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; opacity: 0;
+  font-size: clamp(30px, 7vw, 64px); font-weight: 300; letter-spacing: .5em; text-indent: .5em; color: #ffd9ad;
+  text-shadow: 0 0 18px rgba(255, 150, 70, .35);
+}
+#cineSub {
+  position: absolute; left: 50%; bottom: calc(9vh + 14px); transform: translateX(-50%); width: min(86vw, 760px);
+  text-align: center; font-size: clamp(14px, 2.3vw, 19px); line-height: 1.35; color: #fff;
+  text-shadow: 0 0 4px #000, 0 1px 2px #000; opacity: 0; transition: opacity .25s;
+}
+#cineSub.show { opacity: 1; }
+#cineWho { display: block; font-size: .7em; letter-spacing: .22em; color: #ffc27a; font-weight: 700; margin-bottom: 2px; }
+#btnSkip {
+  position: absolute; pointer-events: auto; right: calc(14px + env(safe-area-inset-right)); bottom: calc(9vh + 12px + env(safe-area-inset-bottom));
+  padding: 8px 14px; border-radius: 18px; border: 1px solid rgba(255,255,255,.35); background: rgba(0,0,0,.25);
+  color: rgba(255,255,255,.85); font: 600 12px/1 -apple-system, 'Segoe UI', Roboto, sans-serif; letter-spacing: .14em; opacity: .4;
+}
+#btnSkip:active { opacity: .8; }
+#hud.fadein, #touch.fadein { animation: hudIn .9s ease-out; }
+@keyframes hudIn { from { opacity: 0; } to { opacity: 1; } }

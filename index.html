@@ -65,6 +65,16 @@
     </button>
   </div>
 
+  <!-- Cinemática inicial: barras negras, fundidos, título, subtítulos y botón de omitir -->
+  <div id="cine" hidden>
+    <div class="bar top"></div>
+    <div class="bar bottom"></div>
+    <div id="cineFade"></div>
+    <div id="cineTitle"></div>
+    <div id="cineSub"><span id="cineWho"></span><span id="cineText"></span></div>
+    <button id="btnSkip" aria-label="Omitir cinemática">OMITIR ▸▸</button>
+  </div>
+
   <!-- Menú de inicio / pausa -->
   <div id="menu">
     <div class="panel">
@@ -73,6 +83,7 @@
       <p id="loading">Cargando…</p>
       <button id="btnPlay" class="big" hidden>JUGAR</button>
       <button id="btnQuit" class="ghost" hidden>ABANDONAR PARTIDA</button>
+      <button id="btnCine" class="ghost" hidden>VER CINEMÁTICA INICIAL</button>
       <p id="best" class="help" hidden></p>
 
       <div id="settings" hidden>
@@ -123,6 +134,10 @@
         </div>
         <button id="btnGoRound" class="big go" hidden>IR A LA RONDA <span id="goRoundNum">1</span> AHORA</button>
         <p class="hint" id="testHint">Elige la ronda y pulsa JUGAR. Durante la partida, en pausa, puedes saltar a otra ronda sin reiniciar.</p>
+        <div class="row"><span>Ver una toma de la cinemática</span></div>
+        <div id="cineShots" class="quick">
+          <button data-s="1">1</button><button data-s="2">2</button><button data-s="3">3</button><button data-s="4">4</button><button data-s="5">5</button><button data-s="6">6</button>
+        </div>
         <div class="row">
           <span>Invencible</span>
           <div id="god" class="seg"><button data-v="1">Sí</button><button data-v="0">No</button></div>

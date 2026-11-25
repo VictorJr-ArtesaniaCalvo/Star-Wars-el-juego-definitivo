@@ -20,6 +20,18 @@ Proyecto personal y experimental.
 - Extras: salto, brújula azul, indicador de daño direccional, chispas y humo al destruir droides, y curación (kits médicos que sueltan los droides, +30 al superar una ronda).
 - **Fase 4 (hecha):** 4 granadas por partida, con explosión de área. · Fase 5: más enemigos. · Fase 6: mejoras visuales y sonido.
 
+## Cinemática inicial
+
+Unos 26 segundos al pulsar JUGAR por primera vez desde que abres la app (no se repite al reintentar ni al volver a jugar desde el menú). En el menú de inicio, **VER CINEMÁTICA INICIAL** la vuelve a poner y después empieza la partida. Se puede omitir con el botón traslúcido «OMITIR» (abajo a la derecha), Esc, Espacio, Intro o el botón A / Options del mando. La música empieza con la cinemática y sigue sin cortarse en la partida.
+
+Tomas: 1 · negro con «GEONOSIS» (viento y disparos lejanos) · 2 · desde la puerta abierta de una LAAT en vuelo, con las piernas de dos clones y el cañón con la cañonera estrellada abajo (diálogo por radio) · 3 · vuelta alrededor de la cañonera estrellada (fuego, humo y un estallido de chispas) · 4 · droides B1 avanzando como siluetas en la neblina · 5 · el comando agachado tras una caja, se asoma y golpea la radio del casco · 6 · se levanta, la cámara se acerca a su casco y pasa a primera persona; aparece «RONDA 1».
+
+- **Guion:** `src/cinematic/script.ts` (duraciones, posiciones y zoom de la cámara, temblor, neblina, posturas del comando, sonidos, diálogos y subtítulos; cada valor comentado). El reproductor es `src/cinematic/Cinematic.ts` y los personajes y naves, `src/cinematic/actors.ts`.
+- **Voces:** de momento solo subtítulos. Los archivos van en `public/audio/voces/` con los nombres de `LEEME.txt`; se les aplica solo el filtro de radio de casco clon (`src/audio/Voices.ts`: corta graves y agudos, realza los medios, satura un poco, comprime y añade estática y el clic de la radio; dos intensidades, `radio` y `casco`). Motor de la cañonera, golpe en el casco y crepitar del fuego se generan por código (`src/audio/CineSounds.ts`).
+- **Provisional:** el comando y las piernas de los clones están hechos con formas sencillas hasta tener sus modelos. La cañonera en vuelo es el modelo LAAT del juego, entero y limpio, con el hueco de la puerta abierto por código.
+- La partida empieza donde estaba el comando, detrás de una caja de la República en el borde del cráter (cobertura sólida del mapa, `COBERTURA` en el guion).
+- Modo de pruebas: botones 1–6 para ver la cinemática desde una toma concreta.
+
 ## Controles
 
 | | Moverse | Mirar | Disparar apuntando | Disparar desde la cadera | Apuntar | Saltar | Agacharse | Pausa |

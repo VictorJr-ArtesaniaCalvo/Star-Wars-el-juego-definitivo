@@ -290,6 +290,22 @@ export class AudioEngine {
     return true;
   }
 
+  /** Cinemática: un disparo lejano (de droide o de clon, al azar), flojo, más grave y hacia un lado. */
+  distantFire() {
+    if (!this.started) return;
+    const pool = [...this.b1Clips, ...this.clonClips].filter((c) => c.ok);
+    const id = pool.length ? undefined : (Math.random() < 0.5 ? 'b1' : 'blaster') as SoundId;
+    const h = pool.length ? pool[Math.floor(Math.random() * pool.length)].howl : this.pick(id!);
+    const sid = h.play();
+    h.volume(rnd(0.05, 0.14), sid);
+    h.rate(rnd(0.8, 0.95), sid);
+    h.stereo(rnd(-0.8, 0.8), sid);
+    this.played['lejano'] = (this.played['lejano'] ?? 0) + 1;
+  }
+
+  /** Cinemática: cañonazo lejano sin dirección (sin el límite de los del cielo). */
+  boomNow(volume = 0.5) { this.play('boom', volume, rnd(0.85, 1.05)); }
+
   /** Cañonazo de las naves del cielo (como mucho uno cada pocos segundos, para que sea ambiente y no ruido). */
   distantBoom(x: number, y: number, z: number) {
     const now = performance.now();

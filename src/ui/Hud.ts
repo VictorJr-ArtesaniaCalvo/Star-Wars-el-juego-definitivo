@@ -48,6 +48,16 @@ export class Hud {
     $('btnPause').addEventListener('click', onPause);
   }
 
+  /** Aparición suave del HUD y de los controles (al acabar la cinemática). */
+  fadeIn() {
+    for (const el of [this.root, this.touch]) {
+      el.classList.remove('fadein');
+      void el.offsetWidth;
+      el.classList.add('fadein');
+    }
+    window.setTimeout(() => { this.root.classList.remove('fadein'); this.touch.classList.remove('fadein'); }, 1000);
+  }
+
   setVisible(v: boolean, touch: boolean) {
     this.root.hidden = !v;
     this.touch.hidden = !(v && touch);

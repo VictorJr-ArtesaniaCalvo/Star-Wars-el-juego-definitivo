@@ -119,6 +119,12 @@ export class ViewModel {
 
   shot() { this.kick = 1; }
 
+  /** Esconde el arma por debajo de la imagen: en cuanto se actualice, sube a su sitio (al empezar tras la cinemática). */
+  lowerNow() {
+    this.bRaise = 0;
+    this.group.visible = false;
+  }
+
   /** `zoom` va de 0 (desde la cadera) a 1 (apuntando): el arma se centra y baja un poco. */
   update(dt: number, heat: number, zoom = 0, weapon: 'blaster' | 'grenade' = 'blaster') {
     this.kick = Math.max(0, this.kick - dt * 9);

@@ -10,6 +10,8 @@ export interface MenuActions {
   onMusicTouch?: () => void;
   /** Se suelta el control de efectos (suena un disparo de muestra) */
   onSfxPreview?: () => void;
+  /** «Ver cinemática inicial» (desde la toma `shot`, 0 = el principio) y después a jugar */
+  onCinematic?: (shot: number) => void;
 }
 
 // Menú de inicio y de pausa, con los ajustes y el panel oculto de pruebas.
@@ -24,6 +26,8 @@ export class Menu {
   constructor(private settings: Settings, actions: MenuActions) {
     this.btnPlay.addEventListener('click', actions.onPlay);
     this.btnQuit.addEventListener('click', actions.onQuit);
+    $('btnCine').addEventListener('click', () => actions.onCinematic?.(0));
+    document.querySelectorAll<HTMLButtonElement>('#cineShots button').forEach((b) => b.addEventListener('click', () => actions.onCinematic?.(Number(b.dataset.s) - 1)));
     $('btnCredits').addEventListener('click', () => ($('creditsScreen').hidden = false));
     $('btnCreditsBack').addEventListener('click', () => ($('creditsScreen').hidden = true));
 
@@ -114,6 +118,7 @@ export class Menu {
   ready() {
     $('loading').hidden = true;
     this.btnPlay.hidden = false;
+    $('btnCine').hidden = false;
     $('settings').hidden = false;
   }
 
@@ -129,6 +134,7 @@ export class Menu {
     this.sub.textContent = paused ? 'EN PAUSA' : 'ÚLTIMA DEFENSA';
     this.btnPlay.textContent = paused ? 'CONTINUAR' : 'JUGAR';
     this.btnQuit.hidden = !paused;
+    $('btnCine').hidden = paused; // la cinemática se ve desde el menú de inicio (empieza una partida nueva)
     $('btnGoRound').hidden = !paused; // solo en pausa: saltar de ronda sin reiniciar
     const best = $('best');
     best.hidden = paused || this.settings.data.best < 1;

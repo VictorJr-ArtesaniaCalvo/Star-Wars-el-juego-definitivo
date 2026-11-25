@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { COBERTURA } from '../cinematic/script';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { CRASH, crashField, makeRng, terrainHeight } from './terrain';
@@ -339,6 +340,8 @@ export class Wreckage {
     const order = kept.map((_, i) => i).sort(() => rng() - 0.5);
     const darkSet = new Set(order.slice(0, Math.floor(kept.length / 3))); // un tercio, al azar, en gris y negro
     kept.forEach((it, i) => it.put(darkSet.has(i)));
+    // Caja tras la que se cubre el comando en la cinemática inicial (y donde empieza la partida tras verla): cobertura sólida como las demás
+    place(props, big[0], COBERTURA.x, terrainHeight(COBERTURA.x, COBERTURA.z) - 0.12, COBERTURA.z, COBERTURA.giro, 0, 0, 1, { hx: 0.6, hy: 0.575, hz: 0.6, oy: 0.575 });
     // (las cajas grandes repartidas por el resto del mapa se han quitado: CRATE_SPOTS ya no se usa)
 
     METAL_WALL_SPOTS.forEach((c, i) => wallAt(i % 3, c.x, c.z, c.yaw, [2.6, 2.2, 3.2][i % 3], [1.2, 1.2, 1.3][i % 3]));

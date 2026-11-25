@@ -28,8 +28,10 @@ import { Effects } from '../weapons/Effects';
 import { ViewModel, loadBlasterModel } from '../weapons/ViewModel';
 import { World } from '../world/World';
 import { QUALITY, Settings, type Quality } from './Settings';
+import { Cinematic } from '../cinematic/Cinematic';
+import { COMANDO } from '../cinematic/script';
 
-type Mode = 'menu' | 'playing' | 'paused' | 'gameover';
+type Mode = 'menu' | 'cinematic' | 'playing' | 'paused' | 'gameover';
 // Apuntar: acerca la vista y afina la puntería; desde la cadera se mueve más rápido pero el disparo se abre.
 const FOV_HIP = 72;
 const FOV_ADS = 42;
@@ -55,6 +57,9 @@ export class Game {
   private gameOver: GameOver;
   private waves!: WaveManager;
   private testMode = false;
+  private cine!: Cinematic;
+  /** La cinemática inicial ya se ha visto en esta apertura de la app (no se repite al reintentar ni al volver a jugar). */
+  private cineSeen = false;
 
   private state: GameState = { players: [], enemies: [], round: 0, kills: 0 };
   private enemies!: EnemyManager;
@@ -101,7 +106,8 @@ export class Game {
 
     this.input = new InputManager(canvas, document.getElementById('touch')!);
     this.menu = new Menu(this.settings, {
-      onPlay: () => (this.mode === 'paused' ? this.resume() : this.startRun()),
+      onPlay: () => (this.mode === 'paused' ? this.resume() : this.startRun(true)),
+      onCinematic: (shot) => { if (this.mode === 'menu' || this.mode === 'gameover') this.startRun(true, shot); },
       onQuit: () => this.quitToMenu(),
       onGoRound: (round) => this.jumpToRound(round),
       onMusicTouch: () => this.audio.startMusic(), // un toque del jugador: ya puede sonar (iOS)
@@ -115,8 +121,11 @@ export class Game {
     window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250));
 
     // Pausa automática al salir de la app o cambiar de pestaña.
-    const auto = () => { if (document.hidden) this.pause(); };
+    const auto = () => { if (document.hidden) this.pause(); else this.unholdCinematic(); };
     document.addEventListener('visibilitychange', auto);
+    window.addEventListener('focus', () => this.unholdCinematic());
+    // Ordenador: si al acabar la cinemática el ratón no quedó capturado, un clic en la imagen lo captura
+    canvas.addEventListener('click', () => { if (this.mode === 'playing' && !this.input.hasTouch && !document.pointerLockElement) this.lockPointer(); });
     window.addEventListener('pagehide', () => this.pause());
     window.addEventListener('blur', () => this.pause());
     document.addEventListener('pointerlockchange', () => {
@@ -158,6 +167,8 @@ export class Game {
     });
     this.scene.add(this.camera);
     this.viewModel = new ViewModel(this.camera);
+    this.cine = new Cinematic({ scene: this.scene, camera: this.camera, renderer: this.renderer, audio: this.audio, effects: this.effects, onEnd: () => this.endCinematic() });
+    this.cine.voices.preload(Cinematic.voiceIds()); // las voces que existan (public/audio/voces); si no hay, solo subtítulos
     this.physics.step();
 
     this.applySettings();
@@ -218,8 +229,12 @@ export class Game {
     this.dirty = true;
   }
 
-  /** Empieza una partida nueva desde cero (con las opciones del modo de pruebas, si las hay). */
-  private startRun() {
+  /**
+   * Empieza una partida nueva desde cero (con las opciones del modo de pruebas, si las hay).
+   * `fromMenu`: desde el botón JUGAR (la primera vez en esta apertura de la app va precedida de la cinemática; al reintentar, no).
+   * `cineShot`: ver la cinemática desde esa toma (botón del menú o modo de pruebas), aunque ya se haya visto.
+   */
+  private startRun(fromMenu = false, cineShot?: number) {
     const s = this.settings.data;
     this.testMode = s.invincible || s.testRound > 1;
     this.enemies.clear();
@@ -252,8 +267,62 @@ export class Game {
     this.gameOver.hide();
     this.hud.setTestTag(this.testMode);
     this.hud.setHealth(p.health);
+    const wantCine = cineShot !== undefined || (fromMenu && !this.cineSeen && !this.testMode);
+    if (wantCine) {
+      this.cineSeen = true;
+      this.beginCinematic(cineShot ?? 0);
+      return;
+    }
     this.waves.start(s.testRound);
     this.resume();
+  }
+
+  /** Cinemática inicial: sin controles ni HUD; la música empieza ya y sigue en la partida. */
+  private beginCinematic(shot: number) {
+    this.mode = 'cinematic';
+    this.medkits.clear();
+    this.menu.hide();
+    this.gameOver.hide();
+    this.hud.hideBanner();
+    this.hud.setVisible(false, false);
+    this.input.touch?.reset();
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.viewModel.lowerNow();
+    this.audio.start(); // tras el toque en JUGAR: iOS ya deja sonar
+    this.audio.startMusic();
+    this.cine.start(shot);
+    this.dirty = true;
+  }
+
+  /** Fin de la cinemática (o se ha omitido): el comando ya está de pie y empieza la ronda en primera persona desde su sitio. */
+  private endCinematic() {
+    this.localPlayer.teleport(COMANDO.x, COMANDO.z);
+    this.yaw = 0; // mirando al norte, por donde venían los droides
+    this.pitch = -0.03;
+    this.wantCrouch = false;
+    this.eye = EYE_STAND;
+    this.camera.fov = FOV_HIP;
+    this.camera.updateProjectionMatrix();
+    this.viewModel.lowerNow(); // los brazos con el bláster suben a la imagen
+    this.mode = 'menu'; // para que resume() haga todo el arranque
+    this.waves.start(this.settings.data.testRound);
+    this.resume();
+    this.hud.fadeIn();
+    this.syncCamera(1);
+  }
+
+  /** La app vuelve a primer plano durante la cinemática: sigue donde estaba. */
+  private unholdCinematic() {
+    if (this.mode !== 'cinematic' || document.hidden) return;
+    this.cine.hold(false);
+    this.audio.resume();
+  }
+
+  private lockPointer() {
+    try {
+      const r = this.canvas.requestPointerLock?.() as unknown as Promise<void> | undefined;
+      if (r && typeof r.catch === 'function') r.catch(() => undefined); // sin un clic reciente el navegador puede negarse: se captura con el siguiente clic
+    } catch { /* ignorar */ }
   }
 
   /** Desde la pausa: salta directamente a otra ronda (vida y granadas al máximo). Cuenta como partida de pruebas. */
@@ -419,10 +488,11 @@ export class Game {
     this.menu.hide();
     this.hud.setVisible(true, this.input.hasTouch);
     this.acc = 0;
-    if (!this.input.hasTouch) this.canvas.requestPointerLock?.();
+    if (!this.input.hasTouch) this.lockPointer();
   }
 
   private pause() {
+    if (this.mode === 'cinematic') { this.cine.hold(true); this.audio.suspend(); return; }
     if (this.mode !== 'playing') return;
     this.mode = 'paused';
     this.audio.suspend();
@@ -441,6 +511,20 @@ export class Game {
     if (inp.pausePressed) {
       if (this.mode === 'playing') this.pause();
       else if (this.mode === 'paused' && this.input.gamepadActive) this.resume();
+    }
+
+    if (this.mode === 'cinematic') {
+      if (inp.pausePressed || inp.jumpPressed) this.cine.skip(); // Esc / Espacio / botón del mando
+      this.cine.update(dt);
+      if (this.mode === 'cinematic') {
+        this.effects.update(dt);
+        this.world.tick(dt);
+        this.audio.setWindLevel(this.world.gust);
+        this.world.follow(this.camera.position);
+        const f = this.camera.getWorldDirection(this.v3);
+        this.audio.listener(this.camera.position.x, this.camera.position.y, this.camera.position.z, Math.atan2(-f.x, -f.z), Math.asin(Math.max(-1, Math.min(1, f.y))));
+        this.dirty = true;
+      }
     }
 
     if (this.mode === 'playing') {
@@ -719,6 +803,6 @@ export class Game {
 
   /** Solo para pruebas automáticas. */
   debug() {
-    return { kits: this.medkits.list().length, audio: { jugados: this.audio.played, estadisticas: this.audio.stats }, arma: this.weapon, grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
+    return { cine: this.cine?.debug(), kits: this.medkits.list().length, audio: { jugados: this.audio.played, estadisticas: this.audio.stats }, arma: this.weapon, grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
   }
 }

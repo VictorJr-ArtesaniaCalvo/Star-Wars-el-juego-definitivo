@@ -1,6 +1,6 @@
 # NOTAS DEL PROYECTO (para ponerse al día en una conversación nueva)
 
-Última actualización: 2026-11-25. Rama de trabajo: `claude/star-wars-3d-pwa-game-vo2yxm` (cada subida a esta rama se publica sola en GitHub Pages).
+Última actualización: 2026-11-25 (cinemática inicial). Rama de trabajo: `claude/star-wars-3d-pwa-game-vo2yxm` (cada subida a esta rama se publica sola en GitHub Pages).
 
 ## 1. Qué es el juego
 
@@ -31,6 +31,9 @@ src/
   ui/                 Hud.ts, Menu.ts, Compass.ts, GameOver.ts.
   waves/WaveManager.ts   Oleadas y dificultad por ronda (parámetros de cada tipo de droide).
   audio/              AudioEngine.ts (Howler) y Synth.ts (sonidos generados: viento, disparos…).
+  cinematic/          Cinemática inicial: script.ts (GUION: tomas, cámaras, tiempos, diálogos; todo ajustable), Cinematic.ts (reproductor),
+                      actors.ts (LAAT en vuelo con la puerta abierta, piernas de clones, comando PROVISIONAL, B1 en silueta).
+  audio/Voices.ts     Voces con filtro de radio de casco clon (Web Audio). audio/CineSounds.ts: motor, golpe en el casco, fuego.
   sim/, net/          Tipos de estado y reserva de ideas para multijugador (no usado).
 src/world/ (lo más importante del escenario)
   terrain.ts          Altura del terreno (cañón, ancho, grietas, paredes), RIM = curvas del ancho del cañón, cráter de la cañonera.
@@ -71,6 +74,7 @@ Materiales: casi todo es `MeshLambertMaterial` modificado con `onBeforeCompile` 
 - Droides: brillo metálico sutil (un 20 % reducido; solo Media/Alta), aristas claras, polvo rojizo; B2 gris azulado; Droideka un 5 % más pequeño con escudo esférico un 25 % más transparente y disparos que salen de sus manos alternando.
 - Brazos de armadura clon sujetando el bláster (propuesta A: antebrazos que entran por las esquinas de abajo), sucios con arena roja y quemaduras. Subido en el commit `41e9349`; Víctor aún no ha dado su opinión desde el iPhone.
 - Se quitaron: puntos negros del cielo, polvo y ráfagas de arena visibles («niebla de viento»; el sonido del viento sigue).
+- **Cinemática inicial** (~26 s, 6 tomas, ver README «Cinemática inicial»): sale al pulsar JUGAR la primera vez desde que se abre la app; no se repite al reintentar ni al volver a jugar; botón «VER CINEMÁTICA INICIAL» en el menú de inicio; botón OMITIR traslúcido abajo a la derecha (también Esc/Espacio/Intro/mando). Barras negras, fundidos, subtítulos con nombre (SOLDADO, COMANDANTE, TÚ), HUD y controles ocultos, la música empieza con ella y sigue en la partida. La partida empieza de pie donde estaba el comando (−4,35; 4,1), tras una caja de la República nueva y sólida en el borde del cráter (`COBERTURA` en el guion; la añade `wreckage.ts`). Al reintentar se empieza en el SPAWN de siempre. Pendiente: que Víctor la vea en el iPhone y pida ajustes; voces reales; modelo del comando.
 - Todas las pruebas automáticas pasan (ver §8).
 
 ## 5. Problemas pendientes y cosas a medias
@@ -119,7 +123,7 @@ Materiales: casi todo es `MeshLambertMaterial` modificado con `onBeforeCompile` 
 
 ## 7. Próximos pasos (en este orden, pedidos por Víctor)
 
-1. **Cinemática inicial** (al empezar la partida). Hay que definir con Víctor: duración, qué se ve (llegada de la cañonera, el cañón, el enemigo, el castillo), si se puede saltar, y cómo se hace por código con la cámara y sin pesar en el iPhone.
+1. **Cinemática inicial**: HECHA (primera versión). Esperando que Víctor la revise en el iPhone y pida cambios (se ajusta en `src/cinematic/script.ts`). Luego: voces (archivos en `public/audio/voces/`, ver LEEME.txt) y modelo/texturas del clon comando a partir de sus imágenes (sustituir la clase `Commando` de `actors.ts`, que es provisional).
 2. **Zona de la cueva y la arena** (nueva zona del mapa o del juego): preguntar a Víctor su diseño (cómo se llega, qué hay, droides, cobertura), referencias y si es zona jugable nueva o un segundo escenario.
 3. **Cinemática de transición** entre las zonas.
 
@@ -130,6 +134,7 @@ Antes de empezar cada una: proponer el plan sin tecnicismos y esperar el visto b
 - `npm install`, `npm run dev` (desarrollo), `npm run build` (comprueba tipos y compila), `npx vite preview --port 4173` (servidor local para probar lo compilado).
 - Modo de pruebas: ajustes `testRound`, `invincible`, `quality` guardados en `localStorage` bajo `geonosis.settings.v1`. Se puede preparar con `page.addInitScript` en Playwright (cambiar de Baja a otra calidad recarga la página).
 - El objeto del juego se expone como `window.__game` con funciones de depuración: `debugShot(x,y,z,yaw,pitch)`, `debugHeight`, `debugTopDown`, `debugSpawn(tipo,x,z)`, `debugPlace`, `debugKit`, `debugHurt`. Los droides tienen `poseNow()` y `debugRoll(...)`.
+- Cinemática: `__game.startRun(true, n)` la pone desde la toma n (0 = principio); `__game.cine.debug()` da el tiempo y la toma; `__game.cine.hold(true)` la congela para hacer capturas. En el menú oculto hay botones 1–6 para ver una toma.
 - Pruebas de regresión usadas (scripts de Playwright, no están en el repositorio): oleadas y rondas, árbol de triángulos y llamadas por calidad, carga sin archivos de modelos/texturas/partículas, FPS aproximado. Hay que volver a crearlas si se necesitan: lo importante es comprobar que no hay errores de consola, que el juego arranca en las tres calidades y también si faltan `laat.bin`, texturas o el atlas de partículas (deben usarse los respaldos).
 - Regenerar texturas: `python tools/build-textures.py`, partículas `python tools/build-particles.py`; modelos: `node tools/convert-*.mjs` (necesitan los originales descargados, que no están en el repositorio salvo texturas en `assets/`).
 - Documentación detallada de cada función en `README.md`; créditos y licencias en `CRÉDITOS.md` y `assets/CREDITOS.md`.
