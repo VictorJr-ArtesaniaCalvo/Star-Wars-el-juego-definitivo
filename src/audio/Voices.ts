@@ -18,9 +18,13 @@ export const RADIO_FILTERS: Record<VoiceFilter, FilterSetup> = {
   // graves/agudos: frecuencias de corte (Hz) · medios: realce en dB (suena metálico) · saturación: 1 = nada, 6 = mucha · compresión: 1 = nada, 20 = mucha
   // estática: volumen del siseo de fondo · clic: volumen del clic de la radio · volumen: de la voz ya filtrada
   // radio: comunicaciones de la cañonera (tomas 2A y 2B), más marcado · casco: el comando dentro de su casco (toma 5), más suave
-  radio: { graves: 480, agudos: 3000, medios: 8, saturacion: 2.6, compresion: 10, estatica: 0.055, clic: 1, volumen: 0.95 },
-  casco: { graves: 260, agudos: 4600, medios: 4, saturacion: 1.5, compresion: 6, estatica: 0.018, clic: 0.6, volumen: 1 },
+  // valores de Víctor (panel de ajuste, sin estática de fondo)
+  radio: { graves: 480, agudos: 3000, medios: 8, saturacion: 3.1, compresion: 10, estatica: 0, clic: 1, volumen: 1.15 },
+  casco: { graves: 340, agudos: 4600, medios: 5, saturacion: 3, compresion: 7.5, estatica: 0, clic: 0.5, volumen: 1.05 },
 };
+
+/** Volumen de la ráfaga de estática tras el golpe al casco (toma 5): va aparte de la estática de fondo, para que suene aunque esta sea 0. */
+export const RAFAGA_ESTATICA = 0.045;
 
 interface Chain { input: GainNode; out: GainNode }
 
@@ -103,7 +107,7 @@ export class Voices {
   }
 
   /** Siseo de estática con chasquidos sueltos durante `seconds` (desde `at`, en tiempo del audio). `level` multiplica el volumen del filtro. */
-  static(kind: VoiceFilter, seconds: number, level = 1, at?: number) {
+  static(kind: VoiceFilter, seconds: number, level = 1, at?: number, absolute = false) {
     const ctx = this.ctx, c = this.chain(kind);
     if (!ctx || !c) return;
     const t0 = at ?? ctx.currentTime;
@@ -112,7 +116,8 @@ export class Voices {
     src.loop = true;
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2600; bp.Q.value = 0.6;
     const g = ctx.createGain();
-    const v = RADIO_FILTERS[kind].estatica * level;
+    const v = absolute ? level : RADIO_FILTERS[kind].estatica * level;
+    if (v <= 0) return;
     g.gain.setValueAtTime(0, t0);
     g.gain.linearRampToValueAtTime(v, t0 + 0.04);
     // chasquidos: subidas bruscas y breves del siseo

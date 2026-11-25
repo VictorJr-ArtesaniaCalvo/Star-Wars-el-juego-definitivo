@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { terrainHeight } from '../world/terrain';
 import type { AudioEngine } from '../audio/AudioEngine';
 import { CineSounds } from '../audio/CineSounds';
-import { Voices } from '../audio/Voices';
+import { RAFAGA_ESTATICA, Voices } from '../audio/Voices';
 import type { Effects } from '../weapons/Effects';
 import { B1Walkers, buildCloneLegs, buildFlyingLaat, buildShipTroopers, Commando, CommandoModel } from './actors';
 import { commandoModelReady } from '../player/commandoModel';
@@ -195,7 +195,7 @@ export class Cinematic {
       case 'motor': if (e.encender) this.sounds.startEngine(); else this.sounds.stopEngine(0.5); break;
       case 'fuego': this.sounds.crackle(e.dura); break;
       case 'golpeCasco': this.sounds.knock(2); break;
-      case 'estatica': this.voices.static(e.filtro ?? 'casco', e.dura, 2.2); this.voices.click(e.filtro ?? 'casco', true); break;
+      case 'estatica': this.voices.static(e.filtro ?? 'casco', e.dura, RAFAGA_ESTATICA, undefined, true); this.voices.click(e.filtro ?? 'casco', true); break;
     }
   }
 
@@ -423,7 +423,7 @@ export class Cinematic {
     this.voices.stopAll();
     if (what === 'golpe') {
       this.sounds.knock(2);
-      setTimeout(() => { this.voices.static('casco', 0.6, 2.2); this.voices.click('casco', true); }, 150);
+      setTimeout(() => { this.voices.static('casco', 0.6, RAFAGA_ESTATICA, undefined, true); this.voices.click('casco', true); }, 150);
       return;
     }
     const line = TOMAS.flatMap((s) => s.dialogos ?? []).find((d) => d.voz === `${what}-1`);
