@@ -34,6 +34,12 @@ export class World {
   private wallBlocks: WallBlocks | null = null;
   private landmarks: Landmarks;
   private time = 0;
+  /** Lo que es del cañón (piezas dibujadas y cuerpos sólidos): se borra entero al pasar a la arena. Cielo y luces se quedan. */
+  private canyonObjects: THREE.Object3D[] = [];
+  private canyonColliders: number[] = [];
+  private canyonBodies: number[] = [];
+  /** ¿Sigue cargado el cañón? */
+  canyon = true;
 
   constructor(
     private scene: THREE.Scene,
@@ -41,9 +47,15 @@ export class World {
     physics: RAPIER.World,
     hooks: { skyFire?: (x: number, y: number, z: number) => void } = {},
   ) {
+    const before = new Set(scene.children);
+    const collidersBefore = new Set<number>(), bodiesBefore = new Set<number>();
+    physics.forEachCollider((c) => { collidersBefore.add(c.handle); });
+    physics.forEachRigidBody((b) => { bodiesBefore.add(b.handle); });
     const terrain = buildTerrain(scene, rapier, physics);
     buildScorch(scene); // marcas de quemado del accidente sobre el suelo
+    const preSky = new Set(scene.children);
     const { sky, sun, fill, material } = buildSky(scene);
+    const skyObjects = new Set(scene.children.filter((o) => !preSky.has(o)));
     this.fill = fill;
     this.sky = sky;
     this.sun = sun;
@@ -64,10 +76,38 @@ export class World {
     this.skyLife = new SkyLife(scene, hooks.skyFire);
     // humo, columna de humo alta, brasas, chispas y llamas de la cañonera derribada (si falta el modelo, solo la columna desde el casco sencillo)
     this.crashFx = new CrashFx(scene, undefined, laatReady() ? undefined : { x: CRASH.x - 5, y: terrainHeight(CRASH.x - 5, CRASH.z) + 2.6, z: CRASH.z });
+    this.canyonObjects = scene.children.filter((o) => !before.has(o) && !skyObjects.has(o));
+    physics.forEachCollider((c) => { if (!collidersBefore.has(c.handle)) this.canyonColliders.push(c.handle); });
+    physics.forEachRigidBody((b) => { if (!bodiesBefore.has(b.handle)) this.canyonBodies.push(b.handle); });
+  }
+
+  /**
+   * Borra el cañón entero (para pasar a la arena): quita del dibujo todas sus piezas, libera su memoria y quita sus cuerpos sólidos.
+   * El cielo, el sol y las luces se quedan. Para volver al cañón se recarga el juego.
+   */
+  disposeCanyon(physics: RAPIER.World) {
+    if (!this.canyon) return;
+    this.canyon = false;
+    for (const o of this.canyonObjects) {
+      o.removeFromParent();
+      o.traverse((c) => {
+        const m = c as THREE.Mesh;
+        m.geometry?.dispose();
+        const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
+        for (const mat of mats) mat.dispose(); // las texturas se comparten con la arena: no se borran
+      });
+    }
+    this.canyonObjects = [];
+    for (const h of this.canyonBodies) { const b = physics.getRigidBody(h); if (b) physics.removeRigidBody(b); }
+    for (const h of this.canyonColliders) { const c = physics.getCollider(h); if (c) physics.removeCollider(c, false); }
+    this.canyonBodies = [];
+    this.canyonColliders = [];
+    this.crashFx = null;
+    this.wallBlocks = null;
   }
 
   /** Fuerza de la ráfaga de viento y arena (0 a 1). */
-  get gust() { return this.atmosphere.gust; }
+  get gust() { return this.canyon ? this.atmosphere.gust : 0; }
 
   setQuality(q: Quality) {
     const cfg = QUALITY[q];
@@ -78,11 +118,13 @@ export class World {
       (this.sun.shadow as unknown as { map: unknown }).map = null;
     }
     (this.scene.fog as THREE.Fog).far = cfg.viewDistance;
-    this.crashFx?.setQuality(q);
-    this.scatter.setQuality(q);
-    this.ledges.setQuality(q);
-    this.wallBlocks?.setQuality(q);
-    this.landmarks.setQuality(q);
+    if (this.canyon) {
+      this.crashFx?.setQuality(q);
+      this.scatter.setQuality(q);
+      this.ledges.setQuality(q);
+      this.wallBlocks?.setQuality(q);
+      this.landmarks.setQuality(q);
+    }
     setDroidMetal(q !== 'low'); // brillo metálico de los droides (en baja, mate)
     setWorldBump(q !== 'low');
     setWorldRich(q !== 'low'); // suelo de arena roja y roca en lajas (en baja se queda el de siempre) // el relieve de las texturas se apaga en calidad baja
@@ -92,6 +134,7 @@ export class World {
   tick(dt: number) {
     this.time += dt;
     this.skyMat.uniforms.time.value = this.time;
+    if (!this.canyon) return;
     this.atmosphere.tick(dt);
     this.skyLife.update(dt);
     this.crashFx?.tick(dt);
@@ -101,8 +144,10 @@ export class World {
   /** El cielo y la luz del sol acompañan al jugador. */
   follow(p: THREE.Vector3) {
     this.sky.position.copy(p);
-    this.atmosphere.follow(p);
-    this.scatter.follow(p);
+    if (this.canyon) {
+      this.atmosphere.follow(p);
+      this.scatter.follow(p);
+    }
     this.sun.target.position.copy(p);
     this.sun.position.copy(p).addScaledVector(SUN_DIR, 80);
     this.fill.target.position.copy(p);

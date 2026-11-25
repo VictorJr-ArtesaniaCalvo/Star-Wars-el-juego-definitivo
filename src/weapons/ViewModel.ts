@@ -134,6 +134,12 @@ export class ViewModel {
   private cold = new THREE.Color(0x000000);
   private hot = new THREE.Color(0x9a2408); // con el modelo con textura (más claro) el rojo del calor es más suave
 
+  /** Cambia de dónde viene el sol (al pasar a la arena). */
+  setSun(sunDir: THREE.Vector3) {
+    this.sunLight.position.copy(sunDir).normalize();
+    this.fillLight.position.set(-sunDir.x, 0.25, -sunDir.z).normalize();
+  }
+
   constructor(_camera: THREE.Camera, sunDir: THREE.Vector3 = new THREE.Vector3(0.5, 0.45, 0.7)) {
     const camera = this.cam;
     // Luz de la capa: la misma que el escenario (cielo, rebote del suelo, sol y relleno)

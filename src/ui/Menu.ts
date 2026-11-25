@@ -1,4 +1,5 @@
 import type { Quality, Settings } from '../core/Settings';
+import { ARENA_ROUND } from '../world/arena/layout';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -6,6 +7,8 @@ export interface MenuActions {
   onPlay: () => void;
   onQuit: () => void;
   onGoRound: (round: number) => void;
+  /** Modo de pruebas: empezar (o, en pausa, saltar) directamente en la arena. */
+  onArena: () => void;
   /** Se toca el control de música (arranca la música para oírla) */
   onMusicTouch?: () => void;
   /** Se suelta el control de efectos (suena un disparo de muestra) */
@@ -105,6 +108,12 @@ export class Menu {
     showRound();
     quick.forEach((q) => q.addEventListener('click', () => { settings.set({ testRound: Number(q.dataset.r) }); showRound(); }));
     $('btnGoRound').addEventListener('click', () => actions.onGoRound(settings.data.testRound));
+    // empezar directamente en la arena: la ronda elegida, o la primera de la arena si es anterior
+    $('btnArena').addEventListener('click', () => {
+      if (settings.data.testRound < ARENA_ROUND) settings.set({ testRound: ARENA_ROUND });
+      showRound();
+      actions.onArena();
+    });
     $('roundMinus').addEventListener('click', () => { settings.set({ testRound: Math.max(1, settings.data.testRound - 1) }); showRound(); });
     $('roundPlus').addEventListener('click', () => { settings.set({ testRound: Math.min(60, settings.data.testRound + 1) }); showRound(); });
   }

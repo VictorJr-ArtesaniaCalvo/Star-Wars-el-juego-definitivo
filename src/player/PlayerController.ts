@@ -1,6 +1,6 @@
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { InputCommand, PlayerState } from '../sim/types';
-import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from '../world/terrain';
+import { groundHeight, walkable } from '../world/zone';
 
 const RADIUS = 0.35;
 const HALF_STAND = 0.575; // altura total de pie: 1,85 m (la estatura del clon comando)
@@ -28,7 +28,7 @@ export class PlayerController {
     private physics: RAPIER.World,
     public state: PlayerState,
   ) {
-    state.y = terrainHeight(state.x, state.z) + 0.05;
+    state.y = groundHeight(state.x, state.z) + 0.05;
     this.body = physics.createRigidBody(
       rapier.RigidBodyDesc.kinematicPositionBased().setTranslation(state.x, state.y + this.half + RADIUS, state.z),
     );
@@ -67,7 +67,7 @@ export class PlayerController {
 
   /** Coloca al jugador en un punto del mapa (para pruebas y, más adelante, reapariciones). */
   teleport(x: number, z: number) {
-    const y = terrainHeight(x, z) + 0.05;
+    const y = groundHeight(x, z) + 0.05;
     this.body.setTranslation({ x, y: y + this.half + RADIUS, z }, true);
     this.state.x = x; this.state.y = y; this.state.z = z;
     this.vy = 0;
@@ -108,10 +108,13 @@ export class PlayerController {
     let nx = t.x + m.x, ny = t.y + m.y, nz = t.z + m.z;
 
     // Límite del mapa.
-    nx = Math.max(-CANYON_HALF_W, Math.min(CANYON_HALF_W, nx));
-    nz = Math.max(-CANYON_HALF_L, Math.min(CANYON_HALF_L, nz));
+    if (!walkable(nx, nz)) {
+      if (walkable(nx, t.z)) nz = t.z;
+      else if (walkable(t.x, nz)) nx = t.x;
+      else { nx = t.x; nz = t.z; }
+    }
     // Red de seguridad: nunca por debajo del suelo.
-    const floor = terrainHeight(nx, nz) + this.half + RADIUS - 0.5;
+    const floor = groundHeight(nx, nz) + this.half + RADIUS - 0.5;
     if (ny < floor) { ny = floor + 0.6; this.vy = 0; }
 
     this.body.setNextKinematicTranslation({ x: nx, y: ny, z: nz });

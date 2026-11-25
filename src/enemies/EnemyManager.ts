@@ -3,9 +3,10 @@ import type RAPIER from '@dimforge/rapier3d-compat';
 import type { EnemyKind, GameState } from '../sim/types';
 import type { Effects } from '../weapons/Effects';
 import type { Obstacle } from '../world/rocks';
-import { terrainHeight } from '../world/terrain';
+import { groundHeight } from '../world/zone';
+import { DOOR, type Door } from '../world/arena/layout';
 import { Droid, KINDS } from './Droid';
-import type { BrainContext, BrainParams } from './DroidBrain';
+import { resetYukaObstacles, type BrainContext, type BrainParams } from './DroidBrain';
 
 // Reserva de droides de cada tipo (el total a la vez lo limitan las oleadas, para cuidar el móvil)
 const POOL: Record<EnemyKind, number> = { b1: 14, b2: 5, droideka: 4 };
@@ -79,7 +80,7 @@ export class EnemyManager {
 
   /** ¿Hay sitio libre en ese punto (sin rocas ni muros)? */
   private free(x: number, z: number) {
-    const y = terrainHeight(x, z) + 1.35;
+    const y = groundHeight(x, z) + 1.35;
     let blocked = false;
     this.physics.intersectionsWithShape({ x, y, z }, { x: 0, y: 0, z: 0, w: 1 }, this.spawnShape, () => {
       blocked = true;
@@ -111,12 +112,40 @@ export class EnemyManager {
     return d;
   }
 
+  /**
+   * ARENA: hace aparecer un droide dentro del túnel de una puerta; sale andando hacia la arena.
+   * Devuelve null si no hay droide libre o si el jugador está metido en ese túnel (para no aparecer a su lado).
+   */
+  spawnAtDoor(kind: EnemyKind, params: BrainParams, door: Door): Droid | null {
+    const d = this.droids.find((x) => x.kind === kind && !x.state.active);
+    if (!d) return null;
+    const T = this.ctx.player();
+    const mouthX = door.x, mouthZ = door.z;
+    if (Math.hypot(T.x - mouthX, T.z - mouthZ) < 9) return null;
+    let x = 0, z = 0;
+    for (let i = 0; i < 16; i++) {
+      const s = 5 + Math.random() * 8, lat = (Math.random() * 2 - 1) * (DOOR.width / 2 - 1.2);
+      x = door.x + door.out[0] * s - door.out[1] * lat;
+      z = door.z + door.out[1] * s + door.out[0] * lat;
+      if (this.free(x, z)) break;
+    }
+    d.activate(x, z, params, this.ctx);
+    return d;
+  }
+
   /** Hace aparecer un droide en un punto concreto (para pruebas). */
   spawnAt(kind: EnemyKind, params: BrainParams, x: number, z: number): Droid | null {
     const d = this.droids.find((q) => q.kind === kind && !q.state.active);
     if (!d) return null;
     d.activate(x, z, params, this.ctx);
     return d;
+  }
+
+  /** Al cambiar de zona: los droides esquivan los obstáculos de la nueva y olvidan las coberturas de la anterior. */
+  changeZone() {
+    resetYukaObstacles();
+    for (const d of this.droids) d.brain.refreshObstacles();
+    this.ctx.claimed.clear();
   }
 
   clear() {

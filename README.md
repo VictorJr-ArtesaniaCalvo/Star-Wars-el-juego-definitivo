@@ -32,6 +32,10 @@ Tomas: 1 · negro con «GEONOSIS» (viento y disparos lejanos) · 2 · desde la 
 - La partida empieza donde estaba el comando, detrás de una caja de la República en el borde del cráter (cobertura sólida del mapa, `COBERTURA` en el guion).
 - Modo de pruebas: botones 1–6 para ver la cinemática desde una toma concreta.
 
+## Arena de Geonosis
+
+Al superar la ronda 7 el combate pasa a la arena (fundido a negro): entras por la puerta sur con la vida y las granadas repuestas y los droides entran por las puertas norte, este y oeste (a veces, por sorpresa, solo por una o dos). En el modo de pruebas, «EMPEZAR EN LA ARENA».
+
 ## Controles
 
 | | Moverse | Mirar | Disparar apuntando | Disparar desde la cadera | Apuntar | Saltar | Agacharse | Pausa |

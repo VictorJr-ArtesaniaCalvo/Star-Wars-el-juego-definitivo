@@ -85,6 +85,16 @@ Materiales: casi todo es `MeshLambertMaterial` modificado con `onBeforeCompile` 
 - **Viento** al 60 % del volumen anterior (`WIND_VOLUME` en `AudioEngine.ts` y el viento de la cinemática en `CineSounds.ts`).
 - Todas las pruebas automáticas pasan (ver §8).
 
+## 4 bis. Arena de Geonosis (fase 2)
+
+- **Flujo**: `WaveManager` llama a `onEnterArena(8)` al acabar la ronda 7 en el cañón → `Game.enterArena`: fundido (`#zoneFade`, 1,6 s), en negro `World.disposeCanyon` (quita del dibujo y de la física todo lo que creó el cañón, salvo cielo y luces; se apuntó al construirlo), `buildArenaWorld` (dibujo + cuerpos sólidos + coberturas), `setZone('arena')`, sol de la arena (`ARENA_SUN`, se cambia `SUN_DIR` en su sitio para que cielo y luces lo sigan), vida 100 y 4 granadas, jugador en `ARENA_ENTRY` (puerta sur), fundido de vuelta y `waves.start(8)`.
+- **Zona** (`src/world/zone.ts`): `groundHeight`, `walkable` (suelo ovalado y túneles), `standable` (sitios para que se pare un droide: solo el óvalo), `clampInside`, `zoneObstacles`. Lo usan jugador, droides (`Droid`, `DroidBrain`, `EnemyManager`) y kits médicos. En el cañón devuelven lo de siempre.
+- **Volver al cañón**: no se reconstruye; se recarga la página (`reloadForCanyon`) y la cinemática no se repite (`sessionStorage` `geonosis.cineSeen`). Reintentar en modo de pruebas con ronda ≥ 8 no recarga.
+- **Droides en la arena**: `EnemyManager.spawnAtDoor` los hace aparecer dentro del túnel (5–13 m) y salen andando; no aparece en un túnel si estás a menos de 9 m de su boca. `WaveManager.pickDoors`: puertas de la oleada (`ENEMY_DOORS`: norte, este, oeste) y oleadas sorpresa (`SURPRISE_CHANCE` 0,25, nunca seguidas ni en la 8).
+- **Forma y aspecto**: ver CLAUDE.md. Todo ajustable en `layout.ts` (medidas, coberturas, surco) y `ARENA_COLORS` (arena.ts). Restos de droides: modelos reales en postura de caídos, «congelados» como piezas fijas (versión ligera).
+- **Rendimiento medido aquí**: ~145.000 triángulos de la arena (cañón en Media ≈ 175.000); montarla tarda ~1–1,4 s en este ordenador (en el iPhone quizá 2–3 s, en negro). Sus sombras van pintadas (no proyecta sombras en tiempo real; los droides sí). No medido en iPhone.
+- **Fotos sin el juego**: `npm run dev` y abrir `/tools/arena-preview/index.html?arena` (`?color` = prueba de color antigua, sin nada = maqueta gris); `#vista` elige cámara (inicio, palco, sur, oeste, puerta, restos, surco, pelicula1, pelicula2, general, arriba).
+
 ## 5. Problemas pendientes y cosas a medias
 
 - **Cajas y barriles de la República son provisionales** (generados por código). Víctor quiere sustituirlos por sus modelos gratuitos (Sci-Fi Weapon Case Pack, 3 Sci-Fi Barrels, Sci-fi Crate Pack) cuando los suba a `assets/models`. Esa carpeta aún no existe en el repositorio. Hay que conseguir también sus licencias para `CRÉDITOS.md`.
@@ -133,8 +143,8 @@ Materiales: casi todo es `MeshLambertMaterial` modificado con `onBeforeCompile` 
 ## 7. Próximos pasos (en este orden, pedidos por Víctor)
 
 1. **Cinemática inicial**: HECHA (primera versión). Esperando que Víctor la revise en el iPhone y pida cambios (se ajusta en `src/cinematic/script.ts`). Luego: voces (archivos en `public/audio/voces/`, ver LEEME.txt) y modelo/texturas del clon comando a partir de sus imágenes (sustituir la clase `Commando` de `actors.ts`, que es provisional).
-2. **Zona de la cueva y la arena** (nueva zona del mapa o del juego): preguntar a Víctor su diseño (cómo se llega, qué hay, droides, cobertura), referencias y si es zona jugable nueva o un segundo escenario.
-3. **Cinemática de transición** entre las zonas.
+2. **Arena de Geonosis**: HECHA y en el juego (ver abajo «Arena»). Pendiente que Víctor la pruebe en el iPhone.
+3. **Cinemática de transición** entre las zonas (ahora es un fundido a negro provisional) y **nave droide** en el surco de impacto de la arena.
 
 Antes de empezar cada una: proponer el plan sin tecnicismos y esperar el visto bueno.
 

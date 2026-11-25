@@ -26,5 +26,6 @@ declare module 'yuka' {
   export class ObstacleAvoidanceBehavior {
     constructor(obstacles: GameEntity[]);
     weight: number;
+    obstacles: GameEntity[];
   }
 }

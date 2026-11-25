@@ -20,7 +20,7 @@ import { Hud } from '../ui/Hud';
 import { Menu } from '../ui/Menu';
 import { b1Params, b2Params, droidekaParams, WaveManager } from '../waves/WaveManager';
 import { SPAWN } from '../world/defenseZone';
-import { setWallDetail, terrainHeight } from '../world/terrain';
+import { setWallDetail } from '../world/terrain';
 import { Blaster, BLASTER } from '../weapons/Blaster';
 import { GRENADE, GrenadeSystem } from '../weapons/Grenade';
 import { MEDKIT, MedkitSystem } from '../weapons/Medkits';
@@ -34,8 +34,17 @@ import { loadCommandoModel, loadTrooperModel } from '../player/commandoModel';
 import { HandTuner } from '../ui/HandTuner';
 import { VoiceTuner } from '../ui/VoiceTuner';
 import { COMANDO } from '../cinematic/script';
+import { currentZone, groundHeight, setZone } from '../world/zone';
+import { buildArenaWorld } from '../world/arena/ArenaWorld';
+import { ARENA_ENTRY, ARENA_ROUND, ARENA_SUN } from '../world/arena/layout';
 
-type Mode = 'menu' | 'cinematic' | 'playing' | 'paused' | 'gameover';
+type Mode = 'menu' | 'cinematic' | 'playing' | 'paused' | 'gameover' | 'transition';
+/** Fundido a negro al cambiar de zona (segundos): bajar, texto en negro, subir. */
+const ZONE_FADE_OUT = 1.6;
+const ZONE_HOLD = 2.2;
+const ZONE_FADE_IN = 1.6;
+/** Recuerda entre recargas (en la misma apertura de la app) que la cinemática ya se ha visto. */
+const CINE_SEEN_KEY = 'geonosis.cineSeen';
 // Apuntar: acerca la vista y afina la puntería; desde la cadera se mueve más rápido pero el disparo se abre.
 const FOV_HIP = 72;
 const FOV_ADS = 42;
@@ -72,7 +81,7 @@ export class Game {
     close: () => this.closeHandTuner(),
   });
   /** La cinemática inicial ya se ha visto en esta apertura de la app (no se repite al reintentar ni al volver a jugar). */
-  private cineSeen = false;
+  private cineSeen = (() => { try { return sessionStorage.getItem(CINE_SEEN_KEY) === '1'; } catch { return false; } })();
 
   private state: GameState = { players: [], enemies: [], round: 0, kills: 0 };
   private enemies!: EnemyManager;
@@ -125,6 +134,7 @@ export class Game {
       onCinematic: (shot) => { if (this.mode === 'menu' || this.mode === 'gameover') this.startRun(true, shot); },
       onQuit: () => this.quitToMenu(),
       onGoRound: (round) => this.jumpToRound(round),
+      onArena: () => (this.mode === 'paused' ? this.jumpToRound(this.settings.data.testRound) : this.mode === 'menu' || this.mode === 'gameover' ? this.startRun(true) : undefined),
       onMusicTouch: () => this.audio.startMusic(), // un toque del jugador: ya puede sonar (iOS)
       onSfxPreview: () => this.audio.previewSfx(),
     });
@@ -174,6 +184,7 @@ export class Game {
       appear: (kind, x, y, z) => { if (kind === 'b1' || kind === 'b2') this.audio.droidAppear(x, y, z); },
     });
     this.waves = new WaveManager(this.enemies, {
+      onEnterArena: (round) => this.enterArena(round),
       onBanner: (title, sub, sec) => this.hud.showBanner(title, sub, sec),
       onRoundCleared: () => {
         const p = this.state.players[0];
@@ -251,12 +262,16 @@ export class Game {
    */
   private startRun(fromMenu = false, cineShot?: number) {
     const s = this.settings.data;
+    const arenaStart = s.testRound >= ARENA_ROUND && cineShot === undefined;
+    // El cañón se borró al pasar a la arena: para volver a él se recarga el juego (el menú vuelve a salir; la cinemática no se repite).
+    if (currentZone() === 'arena' && !arenaStart) { this.reloadForCanyon(); return; }
     this.testMode = s.invincible || s.testRound > 1;
     this.enemies.clear();
     this.effects.clear();
     const p = this.state.players[0];
     p.health = 100;
-    this.localPlayer.teleport(SPAWN.x, SPAWN.z);
+    if (currentZone() === 'arena') this.localPlayer.teleport(ARENA_ENTRY.x, ARENA_ENTRY.z);
+    else this.localPlayer.teleport(SPAWN.x, SPAWN.z);
     this.yaw = 0;
     this.pitch = 0;
     this.wantCrouch = false;
@@ -284,12 +299,95 @@ export class Game {
     this.hud.setHealth(p.health);
     const wantCine = cineShot !== undefined || (fromMenu && !this.cineSeen && !this.testMode);
     if (wantCine) {
-      this.cineSeen = true;
+      this.markCineSeen();
       this.beginCinematic(cineShot ?? 0);
+      return;
+    }
+    // Modo de pruebas: empezar directamente en la arena (fundido, se borra el cañón y se monta la arena)
+    if (arenaStart && currentZone() === 'canyon') {
+      this.menu.hide();
+      this.audio.start();
+      this.audio.startMusic();
+      this.enterArena(s.testRound);
       return;
     }
     this.waves.start(s.testRound);
     this.resume();
+  }
+
+  private markCineSeen() {
+    this.cineSeen = true;
+    try { sessionStorage.setItem(CINE_SEEN_KEY, '1'); } catch { /* sin almacenamiento: no pasa nada */ }
+  }
+
+  /** Vuelve a cargar el juego para tener otra vez el cañón (se borró al pasar a la arena). */
+  private reloadForCanyon() {
+    this.markCineSeen();
+    window.location.reload();
+  }
+
+  /**
+   * PASO A LA ARENA (provisional, sin cinemática): fundido suave a negro con el nombre de la arena; en negro se borra el cañón entero
+   * y se monta la arena; entras por la puerta sur con la vida y las granadas repuestas, y vuelve la imagen con la ronda siguiente.
+   */
+  private enterArena(round: number) {
+    if (currentZone() === 'arena') return;
+    this.mode = 'transition';
+    this.input.touch?.reset();
+    this.hud.hideBanner();
+    this.hud.setVisible(false, false);
+    const fade = document.getElementById('zoneFade')!;
+    fade.hidden = false;
+    fade.style.transitionDuration = `${ZONE_FADE_OUT}s`;
+    void fade.offsetWidth;
+    fade.classList.add('on');
+    window.setTimeout(() => {
+      fade.classList.add('text');
+      // dos imágenes en negro antes del trabajo pesado (si no, el iPhone no llega a pintar el negro)
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const t0 = performance.now();
+        this.waves.stop();
+        this.enemies.clear();
+        this.effects.clear();
+        this.medkits.clear();
+        this.grenadeSys.clear();
+        this.world.disposeCanyon(this.physics);
+        const arena = buildArenaWorld(this.scene, RAPIER, this.physics);
+        setZone('arena', arena.obstacles);
+        this.enemies.changeZone();
+        SUN_DIR.set(ARENA_SUN.x, ARENA_SUN.y, ARENA_SUN.z).normalize();
+        this.viewModel.setSun(SUN_DIR);
+        this.world.setQuality(this.settings.data.quality);
+        // vida llena y granadas repuestas
+        const p = this.state.players[0];
+        p.health = 100;
+        p.grenades = GRENADE.perGame;
+        this.hud.setHealth(p.health);
+        this.hud.setGrenades(p.grenades);
+        this.weapon = 'blaster';
+        this.swapT = 0;
+        this.hud.setWeapon('blaster');
+        this.localPlayer.teleport(ARENA_ENTRY.x, ARENA_ENTRY.z);
+        this.yaw = ARENA_ENTRY.yaw;
+        this.pitch = 0;
+        this.wantCrouch = false;
+        this.physics.step();
+        this.syncCamera(1);
+        this.renderFrame();
+        const spent = (performance.now() - t0) / 1000;
+        console.info(`Arena montada: ${Math.round(arena.triangles)} triángulos en ${Math.round(arena.buildMs)} ms`);
+        window.setTimeout(() => {
+          fade.style.transitionDuration = `${ZONE_FADE_IN}s`;
+          fade.classList.remove('text');
+          fade.classList.remove('on');
+          this.mode = 'menu'; // para que resume() haga todo el arranque
+          this.resume();
+          this.hud.fadeIn();
+          this.waves.start(round);
+          window.setTimeout(() => { fade.hidden = true; }, ZONE_FADE_IN * 1000 + 100);
+        }, Math.max(300, (ZONE_HOLD - spent) * 1000));
+      }));
+    }, ZONE_FADE_OUT * 1000);
   }
 
   /** Cinemática inicial: sin controles ni HUD; la música empieza ya y sigue en la partida. */
@@ -359,6 +457,8 @@ export class Game {
   /** Desde la pausa: salta directamente a otra ronda (vida y granadas al máximo). Cuenta como partida de pruebas. */
   private jumpToRound(round: number) {
     if (this.mode !== 'paused') return;
+    // a una ronda del cañón desde la arena: hay que recargar; a una de la arena desde el cañón: se pasa a la arena
+    if (round < ARENA_ROUND && currentZone() === 'arena') { this.reloadForCanyon(); return; }
     this.testMode = true;
     this.enemies.clear();
     this.effects.clear();
@@ -373,6 +473,12 @@ export class Game {
     this.hud.setHealth(p.health);
     this.hud.setGrenades(p.grenades);
     this.hud.setTestTag(true);
+    if (round >= ARENA_ROUND && currentZone() === 'canyon') {
+      this.menu.hide();
+      this.enterArena(round);
+      return;
+    }
+    if (currentZone() === 'arena') this.localPlayer.teleport(ARENA_ENTRY.x, ARENA_ENTRY.z);
     this.waves.start(round);
     this.resume();
   }
@@ -524,6 +630,7 @@ export class Game {
 
   private pause() {
     if (this.mode === 'cinematic') { this.cine.hold(true); this.audio.suspend(); return; }
+    if (this.mode === 'transition') return;
     if (this.mode !== 'playing') return;
     this.mode = 'paused';
     this.audio.suspend();
@@ -773,7 +880,7 @@ export class Game {
 
   /** Solo para pruebas: altura del terreno en un punto. */
   debugHeight(x: number, z: number) {
-    return terrainHeight(x, z);
+    return groundHeight(x, z);
   }
 
   /** Solo para pruebas: dibuja el mapa visto desde arriba (arriba = hacia el enemigo). */

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { terrainHeight } from '../world/terrain';
+import { groundHeight } from '../world/zone';
 
 // Kits médicos: algunos droides los sueltan al morir. Se recogen pasando por encima y curan.
 export const MEDKIT = {
@@ -83,7 +83,7 @@ export class MedkitSystem {
   drop(x: number, z: number, heal: number) {
     const k = this.pool.find((q) => !q.active) ?? [...this.pool].sort((a, b) => a.life - b.life)[0];
     k.active = true; k.life = MEDKIT.life; k.heal = heal;
-    k.group.position.set(x, terrainHeight(x, z), z);
+    k.group.position.set(x, groundHeight(x, z), z);
     k.group.rotation.y = Math.random() * 6.28;
     k.group.visible = true;
   }

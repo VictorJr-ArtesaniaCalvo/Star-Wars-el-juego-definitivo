@@ -32,5 +32,11 @@ Guion en `src/cinematic/script.ts` (todo ajustable). Tomas: 1 GEONOSIS · 2A nav
   - ⏳ No hecho: texturas del droideka (va con color por vértice), brazos del B1 sin textura, materiales completos (relieve, rugosidad, metal) y cielo HDRI, y revisar sombras y contraluces junto a la cañonera nueva.
 - Cajas y barriles de la República provisionales (generados por código), a la espera de los modelos de Víctor.
 
-## Siguiente paso
-**Fase 2: la arena de Geonosis.** Antes de empezar, preguntar a Víctor el diseño (cómo se llega, qué hay, droides, coberturas, referencias), si es una zona nueva o un segundo escenario, y la cinemática de transición. Proponer el plan y esperar su visto bueno.
+## Fase 2: la arena de Geonosis (en el juego, en pruebas)
+- **Cómo se llega**: al completar la **ronda 7** (cañón), fundido a negro suave con «ARENA DE GEONOSIS», el cañón se borra entero y se monta la arena; entras por la **puerta sur** con vida llena y 4 granadas; sigue la **ronda 8**. Sin cinemática de transición todavía. Número en `ARENA_ROUND` (`src/world/arena/layout.ts`).
+- **Droides**: entran por las puertas **norte, este y oeste** (por la sur, la tuya, nunca); 1 de cada 4 oleadas aprox. es «sorpresa» (solo 1 o 2 puertas, con aviso). Usan las coberturas de la arena.
+- **Arena**: suelo ovalado de 64 × 83 m, muro bajo, gradas ocres de roca modelada con escaleras, columnas orgánicas que nacen de las gradas, palco de bulbos sobre la puerta este, puertas en arco con túnel, reja y polvo; 3 pilares en el centro, 8 rocas, 8 montones de droides destruidos, 8 cuerpos sueltos, un droideka roto y un surco de impacto al norte (para la futura nave droide). Sombras y oscurecidos pintados al cargar. ~145.000 triángulos.
+- **Modo de pruebas**: botón «EMPEZAR EN LA ARENA» y ronda rápida «8 · Arena».
+- **Volver al cañón** (reintentar una partida normal o ir a una ronda < 8 desde la arena): el juego se recarga y sale el menú (la cinemática no se repite).
+- Archivos: `src/world/arena/` (layout = medidas, arena.ts = formas y luz, look.ts = materiales, wrecks.ts = droides destruidos, ArenaWorld.ts = cuerpos sólidos y coberturas), `src/world/zone.ts` (suelo, límites y coberturas de la zona actual). Página de fotos sin el juego: `tools/arena-preview/index.html?arena` (con `npm run dev`).
+- ⏳ Pendiente: que Víctor la pruebe en el iPhone (FPS, tamaño, diversión), cinemática de transición, nave droide en el surco, fase de detalles y fase de vida (geonosianos volando, polvo).

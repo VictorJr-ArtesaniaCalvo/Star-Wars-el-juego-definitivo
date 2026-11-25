@@ -334,3 +334,11 @@ h1.red { color: #ff7a60; }
 #handTuner .ht-out, #voiceTuner .ht-out { width: 100%; height: 70px; font-size: 10px; margin-top: 4px; color: #000; user-select: text; -webkit-user-select: text; }
 #handTuner .ht-sub, #voiceTuner .ht-sub { margin: 8px 0 2px; color: #ffcf9a; letter-spacing: 2px; font-size: 11px; border-top: 1px solid rgba(255,200,140,.25); padding-top: 6px; }
 #voiceTuner { z-index: 40; }
+
+/* ---------- Paso a la arena: fundido a negro suave con el nombre de la zona ---------- */
+#zoneFade { position: fixed; inset: 0; z-index: 9; background: #000; opacity: 0; pointer-events: none; transition: opacity 1.6s ease-in-out; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#zoneFade.on { opacity: 1; }
+#zoneTitle, #zoneSub { opacity: 0; transition: opacity .9s ease; text-align: center; }
+#zoneFade.text #zoneTitle, #zoneFade.text #zoneSub { opacity: 1; }
+#zoneTitle { font-size: clamp(26px, 6vw, 54px); font-weight: 300; letter-spacing: .4em; text-indent: .4em; color: #ffd9ad; text-shadow: 0 0 18px rgba(255, 150, 70, .35); }
+#zoneSub { margin-top: 14px; font-size: clamp(13px, 2.2vw, 18px); letter-spacing: .18em; color: rgba(255, 235, 210, .8); }

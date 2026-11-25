@@ -2,6 +2,12 @@ import type { EnemyManager } from '../enemies/EnemyManager';
 import type { BrainParams } from '../enemies/DroidBrain';
 import type { EnemyKind } from '../sim/types';
 import { SIZE_CHANGE } from '../enemies/sizes';
+import { currentZone } from '../world/zone';
+import { ARENA_ROUND, DOORS, ENEMY_DOORS, type Door } from '../world/arena/layout';
+
+/** En la arena, de vez en cuando una oleada entra solo por una o dos puertas (nunca dos seguidas ni la primera de la arena). */
+const SURPRISE_CHANCE = 0.25;
+const DOOR_NAMES: Record<string, string> = { norte: 'norte', este: 'este', oeste: 'oeste' };
 
 export type WavePhase = 'idle' | 'intro' | 'fighting' | 'clear';
 
@@ -92,6 +98,8 @@ export function b1Params(round: number): BrainParams {
 export interface WaveEvents {
   onBanner: (title: string, sub: string, seconds: number) => void;
   onRoundCleared: (round: number) => void;
+  /** Se ha completado la última ronda del cañón: hay que pasar a la arena y luego llamar a start(round). */
+  onEnterArena?: (round: number) => void;
 }
 
 // Controla las rondas: aviso, aparición escalonada de droides y fin de ronda.
@@ -103,6 +111,10 @@ export class WaveManager {
   private spawnTimer = 0;
   private sinceKill = 0;
   private prevRemaining = 0;
+  /** Puertas por las que entran los droides en esta oleada (arena). */
+  private doors: Door[] = [];
+  private lastSurprise = false;
+  private doorTurn = 0;
 
   constructor(
     private enemies: EnemyManager,
@@ -116,6 +128,8 @@ export class WaveManager {
 
   start(round: number) {
     this.round = round;
+    this.lastSurprise = false;
+    this.doorTurn = 0;
     this.beginIntro();
   }
 
@@ -133,12 +147,32 @@ export class WaveManager {
     this.queue = this.buildQueue(this.round);
     this.prevRemaining = this.queue.length;
     this.spawnTimer = 0;
-    const sub =
+    let sub =
       this.round === B2_FROM ? '¡Llegan los droides B2! Resisten más disparos'
       : this.round === DROIDEKA_FROM ? '¡Llegan los droidekas! Escudos: usa las granadas'
       : this.round === 1 ? 'Vienen por los dos extremos del cañón'
       : '¡Vigila tu espalda!';
+    if (currentZone() === 'arena') sub = this.pickDoors() ?? sub;
     this.ev.onBanner(`RONDA ${this.round}`, sub, INTRO_TIME);
+  }
+
+  /**
+   * ARENA: elige por qué puertas entra esta oleada. Normalmente por las tres (norte, este y oeste); a veces, por sorpresa,
+   * solo por una o dos. Devuelve el aviso que se enseña (o null si no hay nada especial que avisar).
+   */
+  private pickDoors(): string | null {
+    const all = DOORS.filter((d) => (ENEMY_DOORS as readonly string[]).includes(d.name));
+    const first = this.round === ARENA_ROUND;
+    const surprise = !first && !this.lastSurprise && Math.random() < SURPRISE_CHANCE;
+    this.lastSurprise = surprise;
+    if (!surprise) {
+      this.doors = all;
+      return first ? 'Entran por las puertas norte, este y oeste' : null;
+    }
+    const shuffled = [...all].sort(() => Math.random() - 0.5);
+    this.doors = shuffled.slice(0, Math.random() < 0.5 ? 1 : 2);
+    const names = this.doors.map((d) => DOOR_NAMES[d.name]);
+    return names.length === 1 ? `¡Atención! Todos entran por la puerta ${names[0]}` : `¡Atención! Entran por las puertas ${names[0]} y ${names[1]}`;
   }
 
   /** Lista de droides de la ronda, mezclados; los pesados nunca salen los primeros. */
@@ -185,7 +219,13 @@ export class WaveManager {
         if (i >= 0) {
           const kind = this.queue[i];
           const params = kind === 'b2' ? b2Params(this.round) : kind === 'droideka' ? droidekaParams(this.round) : b1Params(this.round);
-          if (this.enemies.spawn(kind, params, Math.random() < rearShare(this.round), this.round)) this.queue.splice(i, 1);
+          if (currentZone() === 'arena') {
+            // por turnos entre las puertas de esta oleada; si en una no se puede (estás tú en el túnel), prueba la siguiente
+            for (let k = 0; k < this.doors.length; k++) {
+              const door = this.doors[(this.doorTurn + k) % this.doors.length];
+              if (this.enemies.spawnAtDoor(kind, params, door)) { this.queue.splice(i, 1); this.doorTurn = (this.doorTurn + k + 1) % this.doors.length; break; }
+            }
+          } else if (this.enemies.spawn(kind, params, Math.random() < rearShare(this.round), this.round)) this.queue.splice(i, 1);
         }
         this.spawnTimer = Math.max(0.7, 1.6 - 0.05 * this.round);
       }
@@ -201,6 +241,12 @@ export class WaveManager {
 
     if (this.phase === 'clear' && this.timer <= 0) {
       this.round++;
+      // última ronda del cañón superada: se pasa a la arena (el juego hace el fundido y vuelve a llamar a start)
+      if (this.round >= ARENA_ROUND && currentZone() === 'canyon' && this.ev.onEnterArena) {
+        this.phase = 'idle';
+        this.ev.onEnterArena(this.round);
+        return;
+      }
       this.beginIntro();
     }
   }

@@ -75,6 +75,9 @@
     <button id="btnSkip" aria-label="Omitir cinemática">OMITIR ▸▸</button>
   </div>
 
+  <!-- Paso de una zona a otra (provisional, sin cinemática): fundido a negro con el nombre de la zona -->
+  <div id="zoneFade" hidden><div id="zoneTitle">ARENA DE GEONOSIS</div><div id="zoneSub">Los droides os han rodeado. Resiste.</div></div>
+
   <!-- Menú de inicio / pausa -->
   <div id="menu">
     <div class="panel">
@@ -130,8 +133,9 @@
           </div>
         </div>
         <div id="quickRounds" class="quick">
-          <button data-r="1">1</button><button data-r="4">4 · B2</button><button data-r="7">7 · Deka</button><button data-r="10">10</button><button data-r="15">15</button><button data-r="20">20</button>
+          <button data-r="1">1</button><button data-r="4">4 · B2</button><button data-r="7">7 · Deka</button><button data-r="8">8 · Arena</button><button data-r="10">10</button><button data-r="15">15</button><button data-r="20">20</button>
         </div>
+        <button id="btnArena" class="big go">EMPEZAR EN LA ARENA</button>
         <button id="btnGoRound" class="big go" hidden>IR A LA RONDA <span id="goRoundNum">1</span> AHORA</button>
         <p class="hint" id="testHint">Elige la ronda y pulsa JUGAR. Durante la partida, en pausa, puedes saltar a otra ronda sin reiniciar.</p>
         <div class="row"><span>Ver una toma de la cinemática</span></div>

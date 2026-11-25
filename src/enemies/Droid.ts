@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { EnemyKind, EnemyState } from '../sim/types';
-import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from '../world/terrain';
+import { groundHeight, walkable } from '../world/zone';
 import { createB1, poseB1, type B1Bones } from './B1Rig';
 import { createB2, poseB2, type B2Bones } from './B2Rig';
 import { withLightFloor } from '../world/lightFill';
@@ -142,7 +142,7 @@ export class Droid {
   activate(x: number, z: number, params: BrainParams, ctx: BrainContext) {
     const s = this.state;
     const k = KINDS[this.kind];
-    s.x = x; s.z = z; s.y = terrainHeight(x, z);
+    s.x = x; s.z = z; s.y = groundHeight(x, z);
     s.health = k.health;
     s.shield = k.shield;
     this.shieldFlash = 0;
@@ -271,12 +271,14 @@ export class Droid {
     if (this.out.dx !== 0 || this.out.dz !== 0) {
       // El cuerpo sólido ajusta el movimiento para no atravesar rocas, muros ni a otros droides.
       const nx0 = s.x + this.out.dx, nz0 = s.z + this.out.dz;
-      const dy = terrainHeight(nx0, nz0) - s.y;
+      const dy = groundHeight(nx0, nz0) - s.y;
       this.controller.computeColliderMovement(this.collider, { x: this.out.dx, y: dy, z: this.out.dz });
       const m = this.controller.computedMovement();
-      s.x = Math.max(-CANYON_HALF_W + 1, Math.min(CANYON_HALF_W - 1, s.x + m.x));
-      s.z = Math.max(-CANYON_HALF_L + 1, Math.min(CANYON_HALF_L - 1, s.z + m.z));
-      s.y = terrainHeight(s.x, s.z);
+      // nunca fuera de la zona de juego (en la arena: el suelo ovalado y los túneles de las puertas)
+      if (walkable(s.x + m.x, s.z + m.z, 0.3)) { s.x += m.x; s.z += m.z; }
+      else if (walkable(s.x + m.x, s.z, 0.3)) s.x += m.x;
+      else if (walkable(s.x, s.z + m.z, 0.3)) s.z += m.z;
+      s.y = groundHeight(s.x, s.z);
       this.syncBody();
       this.t += dt * (Math.hypot(m.x, m.z) / Math.max(dt, 1e-4)) * 2.2;
       if (this.dekaRig) this.roll += Math.hypot(m.x, m.z) / 0.5; // la rueda gira al rodar

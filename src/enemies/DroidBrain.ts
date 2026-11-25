@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { GameEntity, ObstacleAvoidanceBehavior, SeekBehavior, Vector3 as YVec, Vehicle } from 'yuka';
-import { OBSTACLES, type Obstacle } from '../world/rocks';
-import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from '../world/terrain';
+import type { Obstacle } from '../world/rocks';
+import { clampInside, groundHeight, standable, zoneObstacles } from '../world/zone';
 import type { Effects } from '../weapons/Effects';
 
 // Todo lo que el cerebro de un droide necesita saber del mundo.
@@ -52,7 +52,7 @@ const MIN_PROGRESS = 5; // cada salto debe acercarle al menos esto
 let yukaObstacles: GameEntity[] | null = null;
 function getYukaObstacles() {
   if (yukaObstacles) return yukaObstacles;
-  yukaObstacles = OBSTACLES.filter((o) => o.radius >= 0.7).map((o) => {
+  yukaObstacles = zoneObstacles().filter((o) => o.radius >= 0.7).map((o) => {
     const e = new GameEntity();
     e.position.set(o.x, 0, o.z);
     e.boundingRadius = o.radius + 0.25;
@@ -61,6 +61,8 @@ function getYukaObstacles() {
   return yukaObstacles;
 }
 export function resetYukaObstacles() { yukaObstacles = null; }
+/** Obstáculos de la zona actual para el esquive (se vuelven a leer al cambiar de zona). */
+export const yukaObstaclesNow = () => getYukaObstacles();
 
 type Mode = 'advance' | 'cover' | 'hold';
 
@@ -112,6 +114,9 @@ export class DroidBrain {
     this.vehicle.steering.add(this.avoid);
   }
 
+  /** Al cambiar de zona: esquiva los obstáculos de la nueva. */
+  refreshObstacles() { this.avoid.obstacles = getYukaObstacles(); }
+
   reset(x: number, z: number, params: BrainParams, ctx: BrainContext) {
     this.release(ctx);
     this.params = params;
@@ -143,8 +148,7 @@ export class DroidBrain {
     const l = Math.hypot(dx, dz) || 1;
     dx /= l; dz /= l;
     const s = Math.random() < 0.5 ? 1 : -1;
-    const px = Math.max(-CANYON_HALF_W + 2, Math.min(CANYON_HALF_W - 2, x - dz * s * 9));
-    const pz = Math.max(-CANYON_HALF_L + 2, Math.min(CANYON_HALF_L - 2, z + dx * s * 9));
+    const [px, pz] = clampInside(x - dz * s * 9, z + dx * s * 9, 2);
     this.seek.target.set(px, 0, pz);
     this.vehicle.velocity.set(0, 0, 0);
     this.mode = 'advance';
@@ -156,7 +160,7 @@ export class DroidBrain {
   /** ¿Se vería al jugador desde ese punto del suelo? */
   private losFrom(x: number, z: number, ctx: BrainContext, T: { x: number; y: number; z: number; crouching: boolean }) {
     const R = ctx.rapier;
-    const oy = terrainHeight(x, z) + 1.4;
+    const oy = groundHeight(x, z) + 1.4;
     const tx = T.x, ty = T.y + (T.crouching ? 0.6 : 1.2), tz = T.z;
     this.dir.set(tx - x, ty - oy, tz - z);
     const len = this.dir.length();
@@ -183,7 +187,7 @@ export class DroidBrain {
 
     // Candidatas: las mejores coberturas (las que más acercan al jugador sin dar un salto largo).
     const cands: Array<{ o: Obstacle; score: number }> = [];
-    for (const o of OBSTACLES) {
+    for (const o of zoneObstacles()) {
       if (o.radius < 0.9 || ctx.claimed.has(o) || this.bad.has(o)) continue;
       const dOT = Math.hypot(o.x - T.x, o.z - T.z);
       const progress = dT - dOT;
@@ -206,7 +210,7 @@ export class DroidBrain {
       let bestD = Infinity, fx = 0, fz = 0, ok = false;
       for (const a of [a0 + Math.PI / 2, a0 - Math.PI / 2, a0 + 0.9, a0 - 0.9, a0 + 2.2, a0 - 2.2, a0 + 1.5, a0 - 1.5]) {
         const px = o.x + Math.cos(a) * off(o), pz = o.z + Math.sin(a) * off(o);
-        if (Math.abs(px) > CANYON_HALF_W - 1.5 || Math.abs(pz) > CANYON_HALF_L - 1.5) continue;
+        if (!standable(px, pz, 0.5)) continue;
         if (near && !this.losFrom(px, pz, ctx, T)) continue;
         const d = Math.hypot(px - P.x, pz - P.z);
         if (d < bestD) { bestD = d; fx = px; fz = pz; ok = true; }
@@ -219,7 +223,7 @@ export class DroidBrain {
       const toT = Math.atan2(T.x - P.x, T.z - P.z) + (Math.random() * 2 - 1) * 1.1;
       const d = 8 + Math.random() * (MAX_HOP - 8);
       const px = P.x + Math.sin(toT) * d, pz = P.z + Math.cos(toT) * d;
-      if (Math.abs(px) > CANYON_HALF_W - 2 || Math.abs(pz) > CANYON_HALF_L - 2) continue;
+      if (!standable(px, pz, 1)) continue;
       if (dT - Math.hypot(px - T.x, pz - T.z) < MIN_PROGRESS || Math.hypot(px - T.x, pz - T.z) < HOLD_DIST) continue;
       if (this.losFrom(px, pz, ctx, T)) { tx = px; tz = pz; found = true; open = true; }
     }
@@ -250,7 +254,7 @@ export class DroidBrain {
       const d = this.holdDist + rnd(-1.5, 2.5);
       px = T.x + Math.sin(a) * d;
       pz = T.z + Math.cos(a) * d;
-      if (Math.abs(px) > CANYON_HALF_W - 2 || Math.abs(pz) > CANYON_HALF_L - 2) continue;
+      if (!standable(px, pz, 1)) continue;
       if (this.losFrom(px, pz, ctx, T)) found = true;
     }
     if (!found) this.holdDist = Math.max(7, this.holdDist - 2.5);
