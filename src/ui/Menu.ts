@@ -12,6 +12,8 @@ export interface MenuActions {
   onSfxPreview?: () => void;
   /** «Ver cinemática inicial» (desde la toma `shot`, 0 = el principio) y después a jugar */
   onCinematic?: (shot: number) => void;
+  /** Abre el panel de ajuste de las manos en primera persona (modo de pruebas) */
+  onTuneHands?: () => void;
 }
 
 // Menú de inicio y de pausa, con los ajustes y el panel oculto de pruebas.
@@ -27,6 +29,7 @@ export class Menu {
     this.btnPlay.addEventListener('click', actions.onPlay);
     this.btnQuit.addEventListener('click', actions.onQuit);
     $('btnCine').addEventListener('click', () => actions.onCinematic?.(0));
+    $('btnTuneHands').addEventListener('click', () => actions.onTuneHands?.());
     document.querySelectorAll<HTMLButtonElement>('#cineShots button').forEach((b) => b.addEventListener('click', () => actions.onCinematic?.(Number(b.dataset.s) - 1)));
     $('btnCredits').addEventListener('click', () => ($('creditsScreen').hidden = false));
     $('btnCreditsBack').addEventListener('click', () => ($('creditsScreen').hidden = true));

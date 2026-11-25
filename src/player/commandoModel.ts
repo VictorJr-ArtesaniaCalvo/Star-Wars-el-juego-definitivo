@@ -133,36 +133,62 @@ export function aimBone(bone: THREE.Object3D, child: THREE.Object3D, dir: THREE.
 }
 
 // ---------- Brazos en primera persona ----------
-/** Huesos cuyos vértices se ven en primera persona: brazo, antebrazo, muñeca y dedos (no hombreras ni cuerpo). */
-const ARM_BONE = /^(left|right)(arm|elbow|wrist)$|finger|thumb/;
+// Cada mano se coloca en un punto de agarre del arma (posición y giro en el sistema del arma), así se mueve siempre con ella.
+// El antebrazo sale de la mano hacia su esquina de abajo con un ángulo fijo (el codo, donde se corta el brazo, queda fuera de la vista)
+// y los dedos se cierran alrededor del arma hasta tocarla (se calcula una vez, cuando cambian los ajustes).
 
-/** Brazos en primera persona: tamaño (1 = real) y desplazamiento respecto a los ojos (m: x derecha, y arriba, z hacia atrás). */
-export const FP_ARMS = {
-  escala: 1.3, x: 0.06, y: 0, z: -0.16,
-  /** Hacia dónde apunta cada mano (de la muñeca a los nudillos), vista desde la cámara: x derecha, y arriba, z hacia atrás. */
-  manoDerecha: [-0.55, -0.35, -0.75] as [number, number, number],
-  manoIzquierda: [0.45, 0.05, -0.9] as [number, number, number],
-  /** Cuánto se cierran los dedos sobre el arma (rad por falange) y el pulgar. */
-  dedos: 0.95, pulgar: 0.5, ejeDedos: 'x' as 'x' | 'z',
+/** Huesos cuyos vértices se ven: antebrazo, muñeca y dedos (ni la parte de arriba del brazo ni los hombros). */
+const ARM_BONE = /^(left|right)(elbow|wrist)$|finger|thumb/;
+
+export interface HandSetup {
+  /** Centro de la palma en el arma (unidades del arma: x derecha, y arriba, z hacia atrás; la boca del cañón está en z = −0,45). */
+  pos: [number, number, number];
+  /** Giro extra de la mano sobre su postura de partida (grados, en ejes del arma). */
+  rot: [number, number, number];
+  /** Cuánto se cierran los dedos (0 = estirados, 1 = puño) y el pulgar. Se paran al tocar el arma. */
+  dedos: number;
+  pulgar: number;
+  /** Índice (mano derecha): cierre aparte, para dejarlo junto al gatillo. */
+  indice: number;
+  /** De dónde viene el antebrazo (grados): `lado` 0 = desde atrás, + derecha / − izquierda; `abajo` 0 = horizontal, 90 = desde abajo. */
+  lado: number;
+  abajo: number;
+}
+
+/** Ajustes de los brazos en primera persona (los cambia en directo el panel de ajuste del modo de pruebas). */
+export const FP_HANDS = {
+  /** Tamaño de los brazos (1 = el real del comando). */
+  tamano: 0.95,
+  /** Largo del antebrazo (1 = el real). Como en los juegos de disparos, se alarga para que entre en diagonal desde la esquina; la mano no se deforma. */
+  largo: 1.6,
+  derecha: { pos: [0.075, -0.15, 0.19], rot: [0, 0, 0], dedos: 0.85, pulgar: 0.6, indice: 0.12, lado: 40, abajo: 45 } as HandSetup,
+  izquierda: { pos: [-0.04, -0.22, -0.3], rot: [0, 0, 25], dedos: 0.85, pulgar: 0.35, indice: 0.85, lado: -58, abajo: 32 } as HandSetup,
 };
+/** Sube cada vez que cambian los ajustes (los dedos se recalculan). */
+export const FP_STATE = { version: 0, corteVisible: false, debug: [] as string[] };
 
 export interface FirstPersonArms {
   root: THREE.Group;
-  /** Lleva las manos a los dos agarres del arma (puntos en el mundo). */
-  solve(gripR: THREE.Vector3, gripL: THREE.Vector3): void;
+  /**
+   * Coloca las dos manos en sus agarres. `gun` = el arma (su sistema define los agarres); `camera` = la cámara de los brazos;
+   * `hits` dice si un tramo (de a a b, en el mundo) toca el arma.
+   */
+  solve(gun: THREE.Object3D, camera: THREE.Camera, hits: (a: THREE.Vector3, b: THREE.Vector3) => boolean): void;
 }
 
-/**
- * Los brazos del comando para la vista en primera persona: una copia del modelo de la que solo se dibujan brazos y guantes,
- * colocada para que sus ojos coincidan con la cámara (`eye` = altura de los ojos). Las manos se llevan al arma con IK.
- */
+/** Postura de partida de cada mano en el sistema del arma: hacia dónde apuntan los dedos (f) y hacia dónde mira la palma (n). */
+const BASE = {
+  r: { f: new THREE.Vector3(0, -0.3, -1).normalize(), n: new THREE.Vector3(-1, 0, 0) }, // mano derecha: palma hacia la empuñadura, dedos hacia delante
+  l: { f: new THREE.Vector3(1, 0, -0.3).normalize(), n: new THREE.Vector3(0, 1, 0) }, // mano izquierda: palma arriba bajo el cañón, dedos hacia la derecha
+};
+
 export function createFirstPersonArms(height: number, eye: number): FirstPersonArms {
   const rig = createCommandoRig(height);
   for (const m of rig.meshes) {
     const mat = m.material as THREE.MeshLambertMaterial;
     mat.fog = false;
     const bones = m.skeleton.bones;
-    const keepBone = bones.map((b) => ARM_BONE.test(key(b.name)));
+    const keepBone = bones.map((bn) => ARM_BONE.test(key(bn.name)));
     const si = m.geometry.attributes.skinIndex as THREE.BufferAttribute, sw = m.geometry.attributes.skinWeight as THREE.BufferAttribute;
     const main = (v: number) => {
       let best = 0, w = -1;
@@ -181,29 +207,146 @@ export function createFirstPersonArms(height: number, eye: number): FirstPersonA
     m.visible = keep.length > 0;
     m.castShadow = false;
   }
-  // Como en todos los juegos en primera persona, los brazos se colocan para la vista y no donde irían en el cuerpo:
-  // algo más grandes y adelantados, para que las manos lleguen al arma que se ve en pantalla.
-  const F = FP_ARMS;
-  rig.root.scale.setScalar(F.escala);
-  rig.root.position.set(F.x, -eye * F.escala + F.y, F.z);
+  rig.root.position.set(0, -eye, 0);
   const b = rig.bones;
-  const _p = new THREE.Vector3();
-  const fingers = Object.keys(b).filter((k) => /finger[123][lr]$/.test(k));
-  const thumbs = Object.keys(b).filter((k) => /thumb[123][lr]$/.test(k));
-  const camDir = (v: [number, number, number]) => new THREE.Vector3(...v).normalize().transformDirection(rig.root.parent!.matrixWorld);
+
+  // --- Sistema propio de cada mano (en el sistema de su hueso de muñeca, en la postura de origen): dedos (f), pulgar (t) y palma (n) ---
+  rig.reset();
+  type Hand = {
+    side: 'r' | 'l'; arm: THREE.Bone; elbow: THREE.Bone; wrist: THREE.Bone;
+    basisInv: THREE.Quaternion; palm: THREE.Vector3;
+    fingers: THREE.Bone[][]; thumb: THREE.Bone[]; index: THREE.Bone[];
+    cache: Map<THREE.Bone, THREE.Quaternion> | null; version: number;
+  };
+  const chain = (name: string, s: string) => [1, 2, 3].map((i) => b[`${name}${i}${s}`]).concat([b[`${name}3${s}end`]]).filter(Boolean);
+  const makeHand = (s: 'r' | 'l'): Hand => {
+    const side = s === 'r' ? 'right' : 'left';
+    const wrist = b[`${side}wrist`];
+    const inv = new THREE.Matrix4().copy(wrist.matrixWorld).invert();
+    const loc = (bn: THREE.Bone) => bn.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+    const mid = loc(b[`middlefinger1${s}`]), tip = loc(b[`middlefinger3${s}end`] ?? b[`middlefinger3${s}`]);
+    const f = mid.clone().normalize(); // hacia los nudillos
+    // la palma: hacia donde se doblan los dedos en reposo (en la postura de origen ya están algo curvados)
+    const n = tip.clone().sub(mid); n.addScaledVector(f, -n.dot(f)).normalize().negate(); // (medido: en este modelo la punta del dedo queda hacia el dorso)
+    const t = new THREE.Vector3().crossVectors(n, f); // tercer eje (sistema de ejes bien orientado; el pulgar cae donde le toca)
+    const basis = new THREE.Matrix4().makeBasis(t, n, f);
+    const basisInv = new THREE.Quaternion().setFromRotationMatrix(basis).invert();
+    const palm = mid.clone().multiplyScalar(0.55); // centro de la palma
+    return {
+      side: s, arm: b[`${side}arm`], elbow: b[`${side}elbow`], wrist, basisInv, palm,
+      fingers: ['indexfinger', 'middlefinger', 'ringfinger', 'littlefinger'].map((nm) => chain(nm, s)),
+      thumb: chain('thumb', s), index: chain('indexfinger', s), cache: null, version: -1,
+    };
+  };
+  const hands = [makeHand('r'), makeHand('l')];
+
+  const _m = new THREE.Matrix4();
+  const _v = new THREE.Vector3(), _s = new THREE.Vector3();
+
+
+  /** Cierra los dedos de una mano alrededor del arma: cada falange gira hacia la palma hasta tocar el arma (o hasta su máximo). */
+  const curl = (h: Hand, setup: HandSetup, hits: (a: THREE.Vector3, b: THREE.Vector3) => boolean) => {
+    if (h.side === 'r') FP_STATE.debug.length = 0;
+    const palmN = new THREE.Vector3(0, 1, 0);
+    const wq = h.wrist.getWorldQuaternion(new THREE.Quaternion());
+    // palma en el mundo: el eje n del sistema de la mano
+    palmN.set(0, 1, 0).applyQuaternion(new THREE.Quaternion().copy(h.basisInv).invert()).applyQuaternion(wq).normalize();
+    const MAX = [1.25, 1.5, 1.1];
+    const pos = (bn: THREE.Bone) => bn.getWorldPosition(new THREE.Vector3());
+    const bend = (ch: THREE.Bone[], amount: number, contact: boolean, thumb = false) => {
+      const log: string[] = [];
+      for (let i = 0; i < Math.min(3, ch.length - 1); i++) {
+        const max = amount * (thumb ? [0.6, 0.9, 0.8][i] : MAX[i]);
+        let a = 0, why = 'max';
+        for (a = 0; a < max; a += 0.06) {
+          const dir = pos(ch[i + 1]).sub(pos(ch[i])).normalize();
+          const axis = new THREE.Vector3().crossVectors(dir, palmN); // los dedos se cierran hacia donde mira la palma
+          if (axis.lengthSq() < 1e-6) break;
+          axis.normalize();
+          turnWorld(ch[i], axis, 0.06);
+          if (contact) {
+            let touch = false;
+            for (let k = i; k < ch.length - 1 && !touch; k++) touch = hits(pos(ch[k]), pos(ch[k + 1]));
+            if (touch) { turnWorld(ch[i], axis, -0.06); why = 'toca'; break; }
+          }
+        }
+        log.push(`${a.toFixed(2)}${why === 'toca' ? '*' : ''}`);
+      }
+      FP_STATE.debug.push(`${h.side} ${ch[0].name}: ${log.join(' ')}`);
+    };
+    for (const ch of h.fingers) {
+      const isIndex = ch[0] === h.index[0];
+      bend(ch, isIndex && h.side === 'r' ? setup.indice : setup.dedos, !(isIndex && h.side === 'r'));
+    }
+    bend(h.thumb, setup.pulgar, true, true);
+    const cache = new Map<THREE.Bone, THREE.Quaternion>();
+    for (const ch of [...h.fingers, h.thumb]) for (const bn of ch) cache.set(bn, bn.quaternion.clone());
+    h.cache = cache;
+  };
+
   return {
     root: rig.root,
-    solve(gripR, gripL) {
+    solve(gun, camera, hits) {
       rig.reset();
-      const W = (x: number, y: number, z: number) => rig.root.localToWorld(_p.set(x, y, z)).clone();
-      reach(b.rightarm, b.rightelbow, b.rightwrist, gripR, W(0.6, eye - 0.7, 0.2)); // codo derecho abajo y afuera
-      reach(b.leftarm, b.leftelbow, b.leftwrist, gripL, W(-0.3, eye - 0.8, -0.2)); // codo izquierdo abajo
-      // manos: orientadas sobre el arma y con los dedos cerrados
-      if (b.middlefinger1r) aimBone(b.rightwrist, b.middlefinger1r, camDir(F.manoDerecha));
-      if (b.middlefinger1l) aimBone(b.leftwrist, b.middlefinger1l, camDir(F.manoIzquierda));
-      for (const k of fingers) { const bn = b[k]; if (F.ejeDedos === 'x') bn.rotateX(F.dedos); else bn.rotateZ(k.endsWith('r') ? -F.dedos : F.dedos); }
-      for (const k of thumbs) b[k].rotateX(F.pulgar);
+      rig.root.scale.setScalar(FP_HANDS.tamano);
+      rig.root.updateMatrixWorld(true);
+      gun.updateMatrixWorld(true);
+      const gunQ = gun.getWorldQuaternion(new THREE.Quaternion());
+      FP_STATE.corteVisible = false;
+      for (const h of hands) {
+        const setup = h.side === 'r' ? FP_HANDS.derecha : FP_HANDS.izquierda;
+        // antebrazo alargado (a lo largo de su hueso); la muñeca vuelve a su sitio de origen dentro del antebrazo
+        h.elbow.scale.set(1, FP_HANDS.largo, 1);
+        h.wrist.matrixAutoUpdate = false;
+        h.wrist.matrix.compose(h.wrist.position, h.wrist.quaternion, h.wrist.scale);
+        h.arm.updateMatrixWorld(true);
+        const base = BASE[h.side];
+        // 1) giro de la mano: postura de partida (dedos f, palma n en el arma) + giro extra, todo en el sistema del arma
+        const nD = base.n.clone(), fD = base.f.clone();
+        fD.addScaledVector(nD, -fD.dot(nD)).normalize(); // dedos perpendiculares a la palma
+        const t = new THREE.Vector3().crossVectors(nD, fD);
+        _m.makeBasis(t, nD, fD);
+        const qBase = new THREE.Quaternion().setFromRotationMatrix(_m);
+        const qExtra = new THREE.Quaternion().setFromEuler(new THREE.Euler(...setup.rot.map((d) => THREE.MathUtils.degToRad(d)) as [number, number, number], 'XYZ'));
+        const qWrist = gunQ.clone().multiply(qExtra).multiply(qBase).multiply(h.basisInv);
+        // 2) dónde va la muñeca: el centro de la palma en el agarre
+        const grip = gun.localToWorld(_v.set(...setup.pos)).clone();
+        h.arm.getWorldScale(_s); // escala del brazo sin el alargamiento (la mano mantiene su tamaño)
+        const wristPos = grip.clone().sub(h.palm.clone().multiply(_s).applyQuaternion(qWrist));
+        // 3) codo: sale de la muñeca hacia su esquina de abajo, con el largo real del antebrazo
+        const L2 = h.elbow.getWorldPosition(new THREE.Vector3()).distanceTo(h.wrist.getWorldPosition(new THREE.Vector3()));
+        const L1 = h.arm.getWorldPosition(new THREE.Vector3()).distanceTo(h.elbow.getWorldPosition(new THREE.Vector3()));
+        const lado = THREE.MathUtils.degToRad(setup.lado), abajo = THREE.MathUtils.degToRad(setup.abajo);
+        const back = new THREE.Vector3(Math.sin(lado) * Math.cos(abajo), -Math.sin(abajo), Math.cos(lado) * Math.cos(abajo)).transformDirection(camera.matrixWorld);
+        const elbowPos = wristPos.clone().addScaledVector(back, L2);
+        // hombro (no se ve): en la misma línea, algo doblado, para que el codo quede justo donde queremos
+        const shoulder = elbowPos.clone().addScaledVector(back, L1 * 0.98).addScaledVector(new THREE.Vector3(0, -1, 0).transformDirection(camera.matrixWorld), L1 * 0.2);
+        h.arm.position.copy(h.arm.parent!.worldToLocal(shoulder.clone()));
+        h.arm.updateMatrixWorld(true);
+        reach(h.arm, h.elbow, h.wrist, wristPos, elbowPos);
+        // 4) giro del antebrazo sobre su eje para acompañar a la mano (evita que la muñeca se retuerza)
+        const axis = h.wrist.getWorldPosition(new THREE.Vector3()).sub(h.elbow.getWorldPosition(new THREE.Vector3())).normalize();
+        const wrNow = h.wrist.getWorldQuaternion(new THREE.Quaternion());
+        const delta = qWrist.clone().multiply(wrNow.invert()); // giro que le falta a la muñeca
+        const proj = axis.x * delta.x + axis.y * delta.y + axis.z * delta.z; // la parte de ese giro alrededor del antebrazo
+        const ang = 2 * Math.atan2(proj, delta.w);
+        turnWorld(h.elbow, axis, Math.atan2(Math.sin(ang), Math.cos(ang)) * 0.6);
+        // muñeca: en su sitio, con su giro y su tamaño normal (se anula el alargamiento del antebrazo para que la mano no se deforme)
+        const wp = h.wrist.getWorldPosition(new THREE.Vector3());
+        const want = new THREE.Matrix4().compose(wp, qWrist, _s);
+        h.wrist.matrix.copy(new THREE.Matrix4().copy(h.elbow.matrixWorld).invert().multiply(want));
+        h.wrist.updateMatrixWorld(true);
+        // 5) dedos: se recalculan solo si cambiaron los ajustes; si no, se reponen los de antes
+        if (h.version !== FP_STATE.version || !h.cache) { curl(h, setup, hits); h.version = FP_STATE.version; }
+        else for (const [bn, q] of h.cache) bn.quaternion.copy(q);
+        // ¿se ve el corte del brazo? (el codo dentro de la imagen)
+        const ndc = elbowPos.clone().project(camera);
+        if (ndc.z < 1 && ndc.z > -1 && Math.abs(ndc.x) < 1 && Math.abs(ndc.y) < 1) FP_STATE.corteVisible = true;
+      }
       rig.root.updateMatrixWorld(true);
     },
   };
 }
+
+// Para pruebas: ajustes y estado de los brazos accesibles desde la consola del navegador
+(globalThis as unknown as { __fp: unknown }).__fp = { FP_HANDS, FP_STATE };

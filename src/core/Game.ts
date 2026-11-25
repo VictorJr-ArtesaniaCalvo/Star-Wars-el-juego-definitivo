@@ -27,9 +27,11 @@ import { MEDKIT, MedkitSystem } from '../weapons/Medkits';
 import { Effects } from '../weapons/Effects';
 import { ViewModel, loadBlasterModel } from '../weapons/ViewModel';
 import { World } from '../world/World';
+import { SUN_DIR } from '../world/sky';
 import { QUALITY, Settings, type Quality } from './Settings';
 import { Cinematic } from '../cinematic/Cinematic';
 import { loadCommandoModel } from '../player/commandoModel';
+import { HandTuner } from '../ui/HandTuner';
 import { COMANDO } from '../cinematic/script';
 
 type Mode = 'menu' | 'cinematic' | 'playing' | 'paused' | 'gameover';
@@ -59,6 +61,11 @@ export class Game {
   private waves!: WaveManager;
   private testMode = false;
   private cine!: Cinematic;
+  private tuner = new HandTuner({
+    toggleAim: () => { this.adsToggled = !this.adsToggled; },
+    look: (d) => { this.pitch = d * 0.75; },
+    close: () => this.closeHandTuner(),
+  });
   /** La cinemática inicial ya se ha visto en esta apertura de la app (no se repite al reintentar ni al volver a jugar). */
   private cineSeen = false;
 
@@ -108,6 +115,7 @@ export class Game {
     this.input = new InputManager(canvas, document.getElementById('touch')!);
     this.menu = new Menu(this.settings, {
       onPlay: () => (this.mode === 'paused' ? this.resume() : this.startRun(true)),
+      onTuneHands: () => this.openHandTuner(),
       onCinematic: (shot) => { if (this.mode === 'menu' || this.mode === 'gameover') this.startRun(true, shot); },
       onQuit: () => this.quitToMenu(),
       onGoRound: (round) => this.jumpToRound(round),
@@ -130,7 +138,7 @@ export class Game {
     window.addEventListener('pagehide', () => this.pause());
     window.addEventListener('blur', () => this.pause());
     document.addEventListener('pointerlockchange', () => {
-      if (!document.pointerLockElement && !this.input.hasTouch && !this.input.gamepadActive) this.pause();
+      if (!document.pointerLockElement && !this.input.hasTouch && !this.input.gamepadActive && !this.tuner.open) this.pause();
     });
   }
 
@@ -167,7 +175,7 @@ export class Game {
       },
     });
     this.scene.add(this.camera);
-    this.viewModel = new ViewModel(this.camera);
+    this.viewModel = new ViewModel(this.camera, SUN_DIR);
     this.cine = new Cinematic({ scene: this.scene, camera: this.camera, renderer: this.renderer, audio: this.audio, effects: this.effects, onEnd: () => this.endCinematic() });
     this.cine.voices.preload(Cinematic.voiceIds()); // las voces que existan (public/audio/voces); si no hay, solo subtítulos
     this.physics.step();
@@ -310,6 +318,22 @@ export class Game {
     this.resume();
     this.hud.fadeIn();
     this.syncCamera(1);
+  }
+
+  /** Modo de pruebas: panel para ajustar las manos en directo (sin droides mientras está abierto). */
+  private openHandTuner() {
+    if (this.mode === 'menu' || this.mode === 'gameover') this.startRun();
+    else if (this.mode === 'paused') this.resume();
+    this.waves.stop();
+    this.enemies.clear();
+    this.hud.hideBanner();
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.tuner.show();
+  }
+
+  private closeHandTuner() {
+    this.tuner.hide();
+    this.waves.start(Math.max(1, this.waves.round));
   }
 
   /** La app vuelve a primer plano durante la cinemática: sigue donde estaba. */
@@ -489,7 +513,7 @@ export class Game {
     this.menu.hide();
     this.hud.setVisible(true, this.input.hasTouch);
     this.acc = 0;
-    if (!this.input.hasTouch) this.lockPointer();
+    if (!this.input.hasTouch && !this.tuner.open) this.lockPointer();
   }
 
   private pause() {
@@ -606,8 +630,21 @@ export class Game {
     }
 
     if (this.dirty) {
-      if (this.composer) this.composer.render(); else this.renderer.render(this.scene, this.camera);
+      this.renderFrame();
       this.dirty = false;
+    }
+  }
+
+  /** Dibuja el escenario y, encima, la capa de los brazos y el arma (que así nunca atraviesan paredes ni rocas). */
+  private renderFrame() {
+    if (this.composer) this.composer.render(); else this.renderer.render(this.scene, this.camera);
+    if (this.mode === 'playing' || this.mode === 'paused') {
+      this.viewModel.syncCamera(this.camera);
+      const r = this.renderer;
+      r.autoClear = false;
+      r.clearDepth();
+      r.render(this.viewModel.scene, this.viewModel.cam);
+      r.autoClear = true;
     }
   }
 
@@ -624,6 +661,7 @@ export class Game {
     }
     this.camera.rotation.set(this.pitch, this.yaw, 0);
     this.world.follow(this.camera.position);
+    this.viewModel.syncCamera(this.camera);
   }
 
   private eyePos(out: THREE.Vector3) {

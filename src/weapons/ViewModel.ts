@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildArms, type ArmsVariant } from './arms';
-import { commandoModelReady, createFirstPersonArms, type FirstPersonArms } from '../player/commandoModel';
+import { commandoModelReady, createFirstPersonArms, FP_STATE, type FirstPersonArms } from '../player/commandoModel';
 import { EYE_STAND } from '../player/PlayerController';
 
 // El bláster que se ve en pantalla. Va pegado a la cámara. El modelo 3D (public/models/blaster.bin + blaster-color.jpg) es el «E-5 Blaster Rifle»
@@ -9,8 +9,8 @@ interface BlasterModel { geo: THREE.BufferGeometry; map: THREE.Texture | null; m
 let blasterModel: BlasterModel | null = null;
 /** El modelo del bláster (para ponérselo en las manos al comando de la cinemática), o null si no cargó. */
 export const blasterModelData = () => blasterModel;
-export const BLASTER_COLOR_BOOST = 2.2;
-const BLASTER_BRIGHT = 2.2;
+export const BLASTER_COLOR_BOOST = 2.2 * 0.9;
+const BLASTER_BRIGHT = 2.2 * 0.9; // el negro del arma un 10 % más oscuro
 // Posición del arma en pantalla: desde la cadera (abajo a la derecha) y apuntando (centrada, un poco más arriba)
 const HIP = { x: 0.23, y: -0.2, z: -0.58, scale: 0.54, adsLift: 0.065 };
 
@@ -49,16 +49,22 @@ export async function loadBlasterModel(url: string): Promise<boolean> {
   }
 }
 
+export { FP_STATE };
+
 export class ViewModel {
   readonly group = new THREE.Group();
   readonly muzzle = new THREE.Object3D();
   private body: THREE.MeshLambertMaterial;
   private arms: THREE.Mesh | null = null;
   private modelArms: FirstPersonArms | null = null;
-  private gripR = new THREE.Object3D();
-  private gripL = new THREE.Object3D();
-  private _r = new THREE.Vector3();
-  private _l = new THREE.Vector3();
+  /** Capa propia: brazos y arma se dibujan en su propia escena, después del escenario y siempre por encima (no atraviesan paredes ni rocas). */
+  readonly scene = new THREE.Scene();
+  /** Cámara de esa capa: sigue a la del juego, con el plano cercano muy pegado (los antebrazos van muy cerca de los ojos). */
+  readonly cam = new THREE.PerspectiveCamera(72, 1, 0.01, 10);
+  private sunLight = new THREE.DirectionalLight(0xffe9b0, 3.9);
+  private fillLight = new THREE.DirectionalLight(0x9a6038, 0.9);
+  private gun: THREE.Mesh | null = null;
+  private rc = new THREE.Raycaster();
   private kick = 0;
   private flashSprite: THREE.Sprite;
   private grenade = new THREE.Group();
@@ -68,13 +74,19 @@ export class ViewModel {
   private cold = new THREE.Color(0x000000);
   private hot = new THREE.Color(0x9a2408); // con el modelo con textura (más claro) el rojo del calor es más suave
 
-  constructor(camera: THREE.Camera) {
+  constructor(_camera: THREE.Camera, sunDir: THREE.Vector3 = new THREE.Vector3(0.5, 0.45, 0.7)) {
+    const camera = this.cam;
+    // Luz de la capa: la misma que el escenario (cielo, rebote del suelo, sol y relleno)
+    this.scene.add(new THREE.HemisphereLight(0xa99bbb, 0xa65e38, 1.5), this.cam, this.sunLight, this.sunLight.target, this.fillLight, this.fillLight.target);
+    this.sunLight.position.copy(sunDir).normalize();
+    this.fillLight.position.set(-sunDir.x, 0.25, -sunDir.z).normalize();
     if (blasterModel) {
       // El gris oscuro de la textura se aclara un poco para que no se pierda con la luz cálida de Geonosis.
       this.body = new THREE.MeshLambertMaterial({ map: blasterModel.map, color: blasterModel.map ? 0xffffff : 0x3b3f45, fog: false });
       if (blasterModel.map) this.body.color.setScalar(BLASTER_BRIGHT);
       this.hot.set(0x5a1503);
-      this.group.add(new THREE.Mesh(blasterModel.geo, this.body));
+      this.gun = new THREE.Mesh(blasterModel.geo, this.body);
+      this.group.add(this.gun);
       this.muzzle.position.set(...blasterModel.muzzle);
     } else {
       this.body = new THREE.MeshLambertMaterial({ color: 0x3b3f45, fog: false });
@@ -94,10 +106,7 @@ export class ViewModel {
     // Brazos: los del modelo del clon comando (si cargó); si no, los de formas sencillas (propuesta A)
     if (commandoModelReady()) {
       this.modelArms = createFirstPersonArms(1.85, EYE_STAND);
-      camera.add(this.modelArms.root);
-      this.gripR.position.set(0.03, -0.215, 0.27); // mango (mano derecha), en el sistema del arma
-      this.gripL.position.set(0.0, -0.225, -0.2); // empuñadura delantera (mano izquierda)
-      this.group.add(this.gripR, this.gripL);
+      camera.add(this.modelArms.root); // los agarres de cada mano están en FP_HANDS (sistema del arma)
     } else this.setArms('A');
     // Destello azul al disparar (dura una fracción de segundo)
     const fc = document.createElement('canvas'); fc.width = fc.height = 64;
@@ -136,6 +145,38 @@ export class ViewModel {
 
   shot() { this.kick = 1; }
 
+  /** Pone las manos en sus agarres (también lo usa el panel de ajuste). */
+  solveHands() {
+    if (!this.modelArms) return;
+    this.cam.updateMatrixWorld(true);
+    const gun = this.gun ?? this.group;
+    const dir = new THREE.Vector3();
+    const hits = (a: THREE.Vector3, b: THREE.Vector3) => {
+      if (!this.gun) return false;
+      const len = dir.subVectors(b, a).length();
+      if (len < 1e-5) return false;
+      this.rc.set(a, dir.divideScalar(len));
+      this.rc.far = len;
+      return this.rc.intersectObject(this.gun, false).length > 0;
+    };
+    this.modelArms.solve(gun, this.cam, hits);
+  }
+
+  /** La capa del arma sigue a la cámara del juego (posición, giro, campo de visión y proporción). */
+  syncCamera(camera: THREE.PerspectiveCamera) {
+    camera.updateMatrixWorld();
+    camera.matrixWorld.decompose(this.cam.position, this.cam.quaternion, this.cam.scale);
+    if (this.cam.fov !== camera.fov || this.cam.aspect !== camera.aspect) { this.cam.fov = camera.fov; this.cam.aspect = camera.aspect; this.cam.updateProjectionMatrix(); }
+    this.cam.updateMatrixWorld(true);
+    // las luces direccionales se colocan junto a la cámara (solo importa su dirección)
+    for (const l of [this.sunLight, this.fillLight]) {
+      const d = l.position.clone().sub(l.target.position).normalize();
+      l.target.position.copy(this.cam.position);
+      l.position.copy(this.cam.position).add(d);
+      l.target.updateMatrixWorld();
+    }
+  }
+
   /** Esconde el arma por debajo de la imagen: en cuanto se actualice, sube a su sitio (al empezar tras la cinemática). */
   lowerNow() {
     this.bRaise = 0;
@@ -164,10 +205,7 @@ export class ViewModel {
     if (this.modelArms) {
       // las manos siguen al arma (al apuntar, al disparar, al cambiar de arma)
       this.modelArms.root.visible = this.group.visible;
-      if (this.group.visible) {
-        this.group.parent!.updateMatrixWorld(true);
-        this.modelArms.solve(this.gripR.getWorldPosition(this._r), this.gripL.getWorldPosition(this._l));
-      }
+      if (this.group.visible) this.solveHands();
     }
     // El arma se pone al rojo con el calor.
     this.body.emissive.copy(this.cold).lerp(this.hot, Math.max(0, heat - 0.35) / 0.65);
