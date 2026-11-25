@@ -15,7 +15,7 @@ const BLASTER_BRIGHT = 2.2 * 0.9; // el negro del arma un 10 % más oscuro
 // Posición del arma en pantalla: desde la cadera (abajo a la derecha) y apuntando (centrada, un poco más arriba)
 /** Posición del arma en pantalla (respecto a los ojos, en m: x derecha, y arriba, z hacia atrás), tamaño y cuánto sube al apuntar.
  *  Se puede cambiar en directo con el panel de ajuste del modo de pruebas. */
-export const HIP = { x: 0.23, y: -0.2, z: -0.58, scale: 0.54, adsLift: 0.065 };
+export const HIP = { x: 0.26, y: -0.184, z: -0.624, scale: 0.905, adsLift: 0.102 }; // valores de Víctor (panel de ajuste)
 
 /**
  * Descarga el modelo del arma del jugador. Primero el DC-17m (public/models/dc17m.glb, «DC-17m» de goreduku, CC-BY 4.0, ver CRÉDITOS.md):
