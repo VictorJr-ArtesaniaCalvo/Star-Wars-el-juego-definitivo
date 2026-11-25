@@ -59,7 +59,7 @@ export async function loadLaat(url: string): Promise<boolean> {
 }
 
 // ---------- Colocación ----------
-const SCALE = 0.7; // la LAAT real mide 17,4 m de envergadura: aquí debe dejar sitio al jugador
+const SCALE = 17.69 / 15.84; // tamaño real: la LAAT mide 17,69 m de largo (el modelo, 15,84 m); se amplía por igual, también el ala arrancada
 const CUT = 2.15; // el ala se cortó a esta distancia del eje (ver tools/convert-laat.mjs)
 const NOSE = new THREE.Vector3(7.92, -2.2, 0.25); // punta del morro (en el modelo)
 const WING_TIP = new THREE.Vector3(-1.33, -1.39, -8.7); // punta del ala entera
