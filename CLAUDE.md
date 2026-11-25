@@ -14,6 +14,8 @@ Detalle técnico completo en **NOTAS.md** (estructura, decisiones, cómo probar)
 - Escenario: cañón con paredes en capas, rocas, agujas, castillo y nave núcleo lejanos, cañonera LAAT estrellada **a tamaño real** (17,69 m) enterrada en un cráter agrandado con surco de arrastre.
 - Jugador: clon comando de 1,85 m. Aparece en el borde norte del cráter, mirando al norte, con una caja de cobertura delante.
 - Modelos reales: B1, B2, droideka, LAAT, clon comando (Abel, CC-BY-NC), clon de fase I (Admiral Tributon), arma DC-17m (goreduku) y E-5 de respaldo.
+- Altura de los droides (pedida por Víctor, de los pies a lo alto de la cabeza): B1 1,93 m, B2 1,93 m, droideka 1,83 m desplegado (en bola, en proporción). Un solo sitio: `src/enemies/sizes.ts`.
+- Viento de fondo al 60 % (partida y cinemática): `WIND_VOLUME` en `src/audio/AudioEngine.ts`.
 - Menú oculto de pruebas (5 toques en el título): ronda, invencible, FPS, ver cada toma de la cinemática, **panel de manos/arma** y **panel del filtro de radio**, ambos con «Copiar valores».
 
 ## Cinemática inicial (unos 31 s, funcionando pero provisional)

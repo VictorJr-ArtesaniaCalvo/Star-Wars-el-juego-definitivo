@@ -4,6 +4,9 @@ import { synthesizeAll, type SoundId, type SynthSet } from './Synth';
 export type Sfx = 'b1' | 'b2' | 'droideka';
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+
+/** Volumen del viento de fondo (1 = el de antes). Víctor lo pidió al 60 %: sonaba altísimo. */
+const WIND_VOLUME = 0.6;
 /** La música ya está igualada de volumen; esto la deja por debajo de los efectos con el control a la mitad. */
 const MUSIC_BASE = 0.7;
 
@@ -147,7 +150,7 @@ export class AudioEngine {
 
   /** El viento suena más fuerte durante las ráfagas de tormenta de arena (`k` de 0 a 1). */
   setWindLevel(k: number) {
-    if (this.wind && this.windId !== undefined) this.wind.volume(0.2 + 0.3 * k, this.windId);
+    if (this.wind && this.windId !== undefined) this.wind.volume((0.2 + 0.3 * k) * WIND_VOLUME, this.windId);
   }
 
   /** Arranca el ambiente. Debe llamarse tras un toque del jugador (iOS no deja sonar antes). */
@@ -156,7 +159,7 @@ export class AudioEngine {
     if (this.paused) this.resume();
     if (!this.started) {
       this.started = true;
-      this.wind.volume(0.2);
+      this.wind.volume(0.2 * WIND_VOLUME);
       this.windId = this.wind.play();
     } else if (this.windId !== undefined && !this.wind.playing(this.windId)) {
       this.windId = this.wind.play();

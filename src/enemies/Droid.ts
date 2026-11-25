@@ -9,14 +9,19 @@ import { withDroidWear } from './droidWear';
 import { makeBlob } from '../world/contact';
 import { createDroideka, dekaBounds, poseDroideka, refoldDeka, type DekaBones } from './DroidekaRig';
 import { DroidBrain, type BrainContext, type BrainParams } from './DroidBrain';
+import { DROID_SCALE, SIZE_CHANGE } from './sizes';
 
 const CORPSE_TIME = 2.2;
 
-/** Cuerpo y resistencia de cada tipo de droide. */
+/** Cuerpo y resistencia de cada tipo de droide (las medidas del cuerpo siguen al tamaño de su modelo, ver sizes.ts). */
+const body = (kind: EnemyKind, height: number, radius: number, chest: number) => {
+  const k = SIZE_CHANGE[kind];
+  return { height: height * k, radius: radius * k, chest: chest * k };
+};
 export const KINDS: Record<EnemyKind, { height: number; radius: number; chest: number; health: number; shield: number }> = {
-  b1: { height: 1.9, radius: 0.28, chest: 1.25, health: 60, shield: 0 },
-  b2: { height: 2.35, radius: 0.42, chest: 1.8, health: 180, shield: 0 },
-  droideka: { height: 1.71, radius: 0.475, chest: 1.045, health: 100, shield: 150 }, // un 5 % más pequeño que antes
+  b1: { ...body('b1', 1.9, 0.28, 1.25), health: 60, shield: 0 },
+  b2: { ...body('b2', 2.35, 0.42, 1.8), health: 180, shield: 0 },
+  droideka: { ...body('droideka', 1.71, 0.475, 1.045), health: 100, shield: 150 },
 };
 const DEKA_ANIM = 0.8; // segundos que tarda el droideka en desplegarse (y en plegarse)
 const UNFOLD_TIME = 2.4; // segundos que tarda un B1 en desplegarse al aparecer
@@ -72,12 +77,12 @@ export class Droid {
       const r = createDroideka(this.mat);
       this.group = r.mesh;
       this.dekaRig = r.bones;
-      this.group.scale.setScalar(0.95); // el droideka es un 5 % más pequeño
     } else {
       const r = createB2(this.mat);
       this.group = r.mesh;
       this.b2Rig = r.bones;
     }
+    this.group.scale.setScalar(DROID_SCALE[this.kind]); // a su altura real (sizes.ts)
     // metal sutil según el tipo: el B1 beige con brillo ligero, el B2 gris azulado oscuro con más brillo y el droideka gris cálido
     if (this.kind === 'b2') { this.mat.color.multiply(new THREE.Color(0.66, 0.76, 0.95)); this.mat.specular.set(0x5a6678); this.mat.shininess = 42; }
     else if (this.kind === 'droideka') { this.mat.specular.set(0x4a443c); this.mat.shininess = 30; }

@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { laatData } from '../world/laat';
 import { withLightFloor } from '../world/lightFill';
 import { createB1, poseB1, type B1Bones } from '../enemies/B1Rig';
+import { DROID_SCALE } from '../enemies/sizes';
 import { withDroidWear } from '../enemies/droidWear';
 import { terrainHeight } from '../world/terrain';
 import { createCommandoRig, createTrooperRig, reach, turnWorld, aimBone, trooperModelReady, type CommandoRig, type TrooperModel } from '../player/commandoModel';
@@ -619,6 +620,7 @@ export class B1Walkers {
       const { mesh, bones } = createB1(mat);
       mesh.geometry = bones.lods[1]; // se ven lejos: la versión ligera
       mesh.rotation.y = Math.PI; // el modelo mira a −Z: se gira para que avance hacia +Z
+      mesh.scale.setScalar(DROID_SCALE.b1); // a su altura real, como en la partida
       this.group.add(mesh);
       this.list.push({ mesh, bones, x, z, phase: Math.random() * 6, speed: 1.1 + Math.random() * 0.25 });
     }

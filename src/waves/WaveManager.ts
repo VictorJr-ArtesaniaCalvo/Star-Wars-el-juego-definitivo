@@ -1,6 +1,7 @@
 import type { EnemyManager } from '../enemies/EnemyManager';
 import type { BrainParams } from '../enemies/DroidBrain';
 import type { EnemyKind } from '../sim/types';
+import { SIZE_CHANGE } from '../enemies/sizes';
 
 export type WavePhase = 'idle' | 'intro' | 'fighting' | 'clear';
 
@@ -46,9 +47,10 @@ export function b2Params(round: number): BrainParams {
     interval: 0.34,
     coverTime: [1.0, 2.0],
     sfx: 'b2' as const,
-    muzzleY: 1.36, // dispara desde la mano derecha, con el antebrazo extendido hacia delante
-    muzzleFwd: 1.0,
-    muzzleSide: 0.47,
+    // dispara desde la mano derecha, con el antebrazo extendido hacia delante (medidas que siguen al tamaño del modelo)
+    muzzleY: 1.36 * SIZE_CHANGE.b2,
+    muzzleFwd: 1.0 * SIZE_CHANGE.b2,
+    muzzleSide: 0.47 * SIZE_CHANGE.b2,
   };
 }
 
@@ -65,9 +67,9 @@ export function droidekaParams(round: number): BrainParams {
     coverTime: [3, 5],
     deployTime: 0.8,
     sfx: 'droideka' as const,
-    muzzleY: 0.75, // los cañones del modelo real, más bajos y adelantados que los del de formas sencillas
-    muzzleFwd: 1.25,
-    muzzleSide: 0.52, // salen de las manos (a ±0,52 m del centro) y se alternan: un disparo por cada mano
+    muzzleY: 0.75 * SIZE_CHANGE.droideka, // los cañones del modelo real, más bajos y adelantados que los del de formas sencillas
+    muzzleFwd: 1.25 * SIZE_CHANGE.droideka,
+    muzzleSide: 0.52 * SIZE_CHANGE.droideka, // salen de las manos y se alternan: un disparo por cada mano
     muzzleAlt: true,
   };
 }
@@ -82,8 +84,8 @@ export function b1Params(round: number): BrainParams {
     cooldown: [Math.max(0.8, 2.1 - 0.06 * r), Math.max(1.4, 3.4 - 0.1 * r)],
     burst: [2, 3],
     sfx: 'b1' as const,
-    muzzleY: 1.15, // el rifle va a la altura del pecho, algo adelantado
-    muzzleFwd: 0.65,
+    muzzleY: 1.15 * SIZE_CHANGE.b1, // el rifle va a la altura del pecho, algo adelantado
+    muzzleFwd: 0.65 * SIZE_CHANGE.b1,
   };
 }
 
