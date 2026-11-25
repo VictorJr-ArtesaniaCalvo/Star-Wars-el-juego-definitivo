@@ -3,9 +3,9 @@ import type { InputCommand, PlayerState } from '../sim/types';
 import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from '../world/terrain';
 
 const RADIUS = 0.35;
-const HALF_STAND = 0.55; // altura total de pie: 1,80 m
+const HALF_STAND = 0.575; // altura total de pie: 1,85 m (la estatura del clon comando)
 const HALF_CROUCH = 0.2; // altura total agachado: 1,10 m
-export const EYE_STAND = 1.65;
+export const EYE_STAND = 1.7; // ojos a 1,70 m (15 cm por debajo de lo alto del casco)
 export const EYE_CROUCH = 0.92;
 const SPEED_WALK = 6;
 const SPEED_CROUCH = 2.6;
