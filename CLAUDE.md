@@ -15,7 +15,7 @@ Detalle técnico completo en **NOTAS.md** (estructura, decisiones, cómo probar)
 - Jugador: clon comando de 1,85 m. Aparece en el borde norte del cráter, mirando al norte, con una caja de cobertura delante.
 - Modelos reales: B1, B2, droideka, LAAT, clon comando (Abel, CC-BY-NC), clon de fase I (Admiral Tributon), arma DC-17m (goreduku) y E-5 de respaldo.
 - Altura de los droides (pedida por Víctor, de los pies a lo alto de la cabeza): B1 1,93 m, B2 1,93 m, droideka 1,83 m desplegado (en bola, en proporción). Un solo sitio: `src/enemies/sizes.ts`.
-- Viento de fondo al 60 % (partida y cinemática): `WIND_VOLUME` en `src/audio/AudioEngine.ts`.
+- Viento de fondo bajado dos veces al 60 % (36 % del original; partida y cinemática): `WIND_VOLUME` en `src/audio/AudioEngine.ts`.
 - Menú oculto de pruebas (5 toques en el título): ronda, invencible, FPS, ver cada toma de la cinemática, **panel de manos/arma** y **panel del filtro de radio**, ambos con «Copiar valores».
 
 ## Cinemática inicial (unos 31 s, funcionando pero provisional)
@@ -33,10 +33,10 @@ Guion en `src/cinematic/script.ts` (todo ajustable). Tomas: 1 GEONOSIS · 2A nav
 - Cajas y barriles de la República provisionales (generados por código), a la espera de los modelos de Víctor.
 
 ## Fase 2: la arena de Geonosis (en el juego, en pruebas)
-- **Cómo se llega**: al completar la **ronda 7** (cañón), fundido a negro suave con «ARENA DE GEONOSIS», el cañón se borra entero y se monta la arena; entras por la **puerta sur** con vida llena y 4 granadas; sigue la **ronda 8**. Sin cinemática de transición todavía. Número en `ARENA_ROUND` (`src/world/arena/layout.ts`).
+- **Cómo se llega**: al completar la **ronda 7** (cañón), fundido a negro suave con «ARENA DE GEONOSIS», el cañón se borra entero y se monta la arena; apareces **en la puerta sur** (a la entrada del túnel, mirando a la arena) con vida llena y 4 granadas; sigue la **ronda 8**. Sin cinemática de transición todavía. Número en `ARENA_ROUND` (`src/world/arena/layout.ts`).
 - **Droides**: entran por las puertas **norte, este y oeste** (por la sur, la tuya, nunca); 1 de cada 4 oleadas aprox. es «sorpresa» (solo 1 o 2 puertas, con aviso). Usan las coberturas de la arena.
-- **Arena**: suelo ovalado de 64 × 83 m, muro bajo, gradas ocres de roca modelada con escaleras, columnas orgánicas que nacen de las gradas, palco de bulbos sobre la puerta este, puertas en arco con túnel, reja y polvo; 3 pilares en el centro, 8 rocas, 8 montones de droides destruidos, 8 cuerpos sueltos, un droideka roto y un surco de impacto al norte (para la futura nave droide). Sombras y oscurecidos pintados al cargar. ~145.000 triángulos.
+- **Arena**: suelo ovalado de 64 × 83 m, muro bajo, gradas ocres de roca modelada con escaleras, columnas orgánicas que nacen de las gradas, palco de bulbos sobre la puerta este, puertas en arco con túnel, reja y polvo; 3 pilares en el centro, 11 rocas, 6 restos de chapa y un surco de impacto al norte (para la futura nave droide). **Sin droides destruidos** (Víctor los quitó). Sombras y oscurecidos pintados al cargar. ~105.000 triángulos.
 - **Modo de pruebas**: botón «EMPEZAR EN LA ARENA» y ronda rápida «8 · Arena».
 - **Volver al cañón** (reintentar una partida normal o ir a una ronda < 8 desde la arena): el juego se recarga y sale el menú (la cinemática no se repite).
-- Archivos: `src/world/arena/` (layout = medidas, arena.ts = formas y luz, look.ts = materiales, wrecks.ts = droides destruidos, ArenaWorld.ts = cuerpos sólidos y coberturas), `src/world/zone.ts` (suelo, límites y coberturas de la zona actual). Página de fotos sin el juego: `tools/arena-preview/index.html?arena` (con `npm run dev`).
+- Archivos: `src/world/arena/` (layout = medidas, arena.ts = formas y luz, look.ts = materiales, ArenaWorld.ts = cuerpos sólidos y coberturas), `src/world/zone.ts` (suelo, límites y coberturas de la zona actual). Página de fotos sin el juego: `tools/arena-preview/index.html?arena` (con `npm run dev`).
 - ⏳ Pendiente: que Víctor la pruebe en el iPhone (FPS, tamaño, diversión), cinemática de transición, nave droide en el surco, fase de detalles y fase de vida (geonosianos volando, polvo).

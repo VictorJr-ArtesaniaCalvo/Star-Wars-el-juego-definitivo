@@ -5,16 +5,11 @@ import { buildArenaGreybox } from '../../src/world/arena/greybox';
 import { buildArena } from '../../src/world/arena/arena';
 import { loadWorldTextures, setWorldBump, setWorldRich } from '../../src/world/materials';
 import { buildSky } from '../../src/world/sky';
-import { loadB1Model } from '../../src/enemies/B1Rig';
-import { loadB2Model } from '../../src/enemies/B2Rig';
-import { loadDekaModel } from '../../src/enemies/DroidekaRig';
 
 // ?color → prueba de colores con las texturas del cañón; ?arena → versión con materiales, luz y profundidad; sin nada → maqueta gris
 const ARENA_MODE = new URLSearchParams(location.search).has('arena');
 const COLOR_MODE = ARENA_MODE || new URLSearchParams(location.search).has('color');
 if (COLOR_MODE) { await loadWorldTextures('/'); setWorldRich(true); setWorldBump(true); }
-// los restos de la batalla usan los modelos de los droides
-if (ARENA_MODE) await Promise.all([loadB1Model('/models/b1.bin'), loadB2Model('/models/b2.bin'), loadDekaModel('/models/droideka.bin')]);
 import { ARENA_SPAWN, DOORS } from '../../src/world/arena/layout';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -87,7 +82,7 @@ const VIEWS: Record<string, { p: [number, number, number]; t: [number, number, n
   oeste: { p: [ARENA_SPAWN.x, EYE, ARENA_SPAWN.z], t: [-34, 5, 0], fov: 70, name: 'Mirando al oeste: puerta oeste (lado en sombra)' },
   puerta: { p: [0, EYE, 35], t: [0, 2, 0], fov: 70, name: 'Desde la puerta sur hacia el centro (lo que ven los droides)' },
   pelicula2: { p: [-3, 25, 56], t: [5, 3, -17], fov: 60, name: 'Desde las gradas del sur (como la foto 2)' },
-  restos: { p: [5.5, EYE, 10.5], t: [11.5, 0.3, 5.8], fov: 60, name: 'Montón de droides destruidos (cobertura)' },
+  restos: { p: [3, EYE, -8], t: [8.5, 0.5, -13.5], fov: 60, name: 'Restos de chapa (cobertura)' },
   surco: { p: [-6, EYE, -4], t: [6, -0.5, -22], fov: 65, name: 'Surco de impacto al norte del centro' },
   pelicula1: { p: [-35, 42, -42], t: [34, 6, 4], fov: 60, name: 'Desde lo alto del noroeste hacia el palco (como la foto 1)' },
 };

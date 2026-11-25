@@ -7,12 +7,11 @@ import {
   doorAngle, floorHeight, ovalAngle, ovalDist, ovalPoint, type Door,
 } from './layout';
 import { DECAL_UV, arenaMaterial, decalMaterial, dustMaterial, lookBase, type Look } from './look';
-import { buildWrecks } from './wrecks';
 
 // ARENA DE GEONOSIS — versión con materiales, luz y profundidad (en pruebas).
 // La arquitectura geonosiana parece excavada y modelada en la roca: bordes redondeados, sin juntas de ladrillo; torre del palco de formas
 // orgánicas apiladas; columnas de roca con abultamientos que nacen de las gradas; puertas en arco con túnel, reja y polvo; un surco de
-// impacto en la arena y restos de la batalla (droides destruidos). Todo el oscurecimiento (huecos, rincones, bases) y las sombras del sol
+// impacto en la arena y restos de chapa de la batalla. Todo el oscurecimiento (huecos, rincones, bases) y las sombras del sol
 // se calculan UNA vez al cargar y quedan pintados en el color de cada vértice: al jugar no cuestan nada.
 
 const TAU = Math.PI * 2;
@@ -24,7 +23,7 @@ const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /** Qué pieza es cada cosa: su aspecto (material) y su color. */
 type Part = 'floor' | 'pebbles' | 'seats' | 'risers' | 'wall' | 'steps' | 'frame' | 'tunnel' | 'tunnelEnd' | 'cliff' | 'column' | 'rock' | 'rubble'
-  | 'pillar' | 'palco' | 'post' | 'gate' | 'scrap' | 'dark';
+  | 'pillar' | 'palco' | 'post' | 'gate' | 'scrap' | 'plates' | 'dark';
 const PARTS: Record<Part, { look: Look; side?: THREE.Side; noSun?: boolean }> = {
   floor: { look: 'sand' },
   pebbles: { look: 'rock' },
@@ -44,6 +43,7 @@ const PARTS: Record<Part, { look: Look; side?: THREE.Side; noSun?: boolean }> = 
   post: { look: 'sculpt' },
   gate: { look: 'plain' },
   scrap: { look: 'plain' },
+  plates: { look: 'plain', side: THREE.DoubleSide },
   dark: { look: 'plain', noSun: true },
 };
 
@@ -72,6 +72,7 @@ export const ARENA_COLORS = {
   post: 0x8a6a4c,
   gate: 0x3a312a, // reja de metal oscuro
   scrap: 0x6e665c, // chatarra quemada en el montón del surco
+  plates: 0x77726a, // restos de chapa de las coberturas (metal gris sucio y quemado)
   dark: 0x140c08,
 };
 /** Tono de las zonas a la sombra del sol: oscuro y algo frío (violáceo). */
@@ -693,6 +694,24 @@ function buildRocks(parts: Parts) {
       };
       const a = rockGeometry(rng); a.scale(2.3, 1.7, 1.8); a.translate(0, 0.55, 0); place(a);
       const b = rockGeometry(rng); b.scale(1.2, 1.0, 1.1); b.translate(1.9, 0.3, 1.1); place(b);
+    } else if (c.kind === 'chapa') {
+      // restos de chapa de la batalla: dos planchas grandes dobladas y clavadas en la arena, una tumbada encima y un tubo
+      const place = (g: THREE.BufferGeometry) => {
+        g.applyMatrix4(new THREE.Matrix4().makeRotationY(c.rot).setPosition(c.x, floorHeight(c.x, c.z), c.z));
+        contactAO(g, floorHeight(c.x, c.z), 0.5, 0.6);
+        parts.add('plates', g);
+      };
+      const bent = (w: number, h: number, bend: number) => {
+        const g = new THREE.BoxGeometry(w, h, 0.12, 6, 3, 1);
+        const p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setZ(i, p.getZ(i) + bend * (x / w) ** 2 * 2 + (rng() - 0.5) * 0.05); }
+        g.computeVertexNormals();
+        return g;
+      };
+      const a = bent(2.6, 1.5, 0.5); a.rotateX(-0.25); a.translate(-0.3, 0.6, 0); place(a);
+      const b = bent(1.8, 1.2, -0.4); b.rotateY(1.2); b.rotateZ(0.2); b.translate(1.2, 0.45, 0.5); place(b);
+      const top = bent(2.0, 1.3, 0.3); top.rotateX(-Math.PI / 2 + 0.15); top.rotateY(0.4); top.translate(0.1, 1.15, 0.45); place(top);
+      const tube = new THREE.CylinderGeometry(0.35, 0.35, 2.2, 10, 1, true); tube.rotateZ(Math.PI / 2); tube.rotateY(-0.6); tube.translate(-0.9, 0.3, 1.0); place(tube);
     } else if (c.kind === 'monticulo') {
       // chatarra clavada en el montón de arena del final del surco
       for (let i = 0; i < 6; i++) {
@@ -705,14 +724,13 @@ function buildRocks(parts: Parts) {
   }
 }
 
-/** Huella de cada obstáculo bajo (pilares, rocas, montones, droideka) para las sombras del sol y el oscurecimiento del suelo. */
+/** Huella de cada obstáculo bajo (pilares, rocas, restos de chapa) para las sombras del sol y el oscurecimiento del suelo. */
 function blockers() {
   const out: Array<{ x: number; z: number; r: number; h: number }> = [];
   for (const p of PILLARS) out.push({ x: p.x, z: p.z, r: PILLAR.radius, h: PILLAR.height + 0.5 });
   for (const c of COVERS) {
     if (c.kind === 'roca') out.push({ x: c.x, z: c.z, r: 1.9, h: 1.9 }, { x: c.x + Math.cos(c.rot) * 1.9 + Math.sin(c.rot) * 1.1, z: c.z - Math.sin(c.rot) * 1.9 + Math.cos(c.rot) * 1.1, r: 1.0, h: 1.1 });
-    else if (c.kind === 'pila') out.push({ x: c.x, z: c.z, r: 1.4, h: 0.9 });
-    else if (c.kind === 'deka') out.push({ x: c.x, z: c.z, r: 1.1, h: 1.1 });
+    else if (c.kind === 'chapa') out.push({ x: c.x, z: c.z, r: 1.5, h: 1.4 });
   }
   return out;
 }
@@ -905,7 +923,7 @@ function partColor(part: Part, x: number, y: number, z: number, out: THREE.Color
       out.lerp(new THREE.Color(C.sandTrodden), 0.5 * tr);
       // hollín y arena removida en el surco de impacto
       const fh = floorHeight(x, z);
-      if (fh < -0.02) out.lerp(new THREE.Color(C.soot), Math.min(0.75, -fh * 1.6));
+      if (fh < -0.02) out.lerp(new THREE.Color(C.soot), Math.min(0.4, -fh * 0.9)); // suave: arena quemada, no una franja negra
       return;
     }
     case 'pebbles': out.set(C.pebbles).multiplyScalar(0.8 + 0.4 * ((Math.sin(x * 12.9 + z * 78.2) * 43758.5) % 1 + 1) % 1); return;
@@ -932,6 +950,13 @@ function partColor(part: Part, x: number, y: number, z: number, out: THREE.Color
     case 'post': out.set(C.post); return;
     case 'gate': out.set(C.gate); return;
     case 'scrap': out.set(C.scrap); return;
+    case 'plates': {
+      // metal sucio: más oscuro y pardo abajo (arena pegada), con manchas de quemado
+      out.set(C.plates).multiplyScalar(0.75 + 0.25 * smooth(0, 1.2, y));
+      const burn = Math.max(0, Math.sin(x * 2.3 + z * 1.7) * Math.sin(z * 2.9 - x * 0.8));
+      out.multiplyScalar(1 - 0.5 * burn);
+      return;
+    }
     case 'dark': out.set(C.dark); return;
   }
 }
@@ -952,15 +977,9 @@ function floorAO(x: number, z: number, small: Array<{ x: number; z: number; r: n
   return Math.max(0.35, ao);
 }
 
-/** Cuerpos de droides derrotados sueltos por la arena (además de los montones). */
-const BODIES = [
-  { x: -8, z: -19, rot: 0.6 }, { x: 14, z: -2.5, rot: 2.1 }, { x: -15, z: 12, rot: -1.0 }, { x: 9, z: 22, rot: 0.3 },
-  { x: -21, z: -12, rot: 1.7 }, { x: 20, z: -15, rot: -2.4 }, { x: -2, z: 24, rot: 2.8 }, { x: -9, z: 3.5, rot: -0.4 },
-];
-
 export interface ArenaBuild { group: THREE.Group; triangles: number; bakeMs: number }
 
-/** Monta la arena con materiales, luz y profundidad. Los modelos de los droides deben estar cargados (para los restos). */
+/** Monta la arena con materiales, luz y profundidad. */
 export function buildArena(): ArenaBuild {
   const t0 = performance.now();
   const group = new THREE.Group();
@@ -1017,22 +1036,6 @@ export function buildArena(): ArenaBuild {
     group.add(m);
     triangles += (g.index ? g.index.count : p.count) / 3;
   }
-
-  // restos de la batalla: montones de droides, cuerpos sueltos y el droideka roto (con las sombras del sol y la base oscurecida)
-  const wrecks = buildWrecks(COVERS.filter((c) => c.kind === 'pila'), BODIES, COVERS.find((c) => c.kind === 'deka') ?? null);
-  for (const m of wrecks.meshes) {
-    const g = m.geometry, p = g.attributes.position, n = g.attributes.normal, c = g.attributes.color;
-    for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-      let k = 1 - 0.45 * (1 - smooth(0, 0.45, y - floorHeight(x, z)));
-      const s = sun.shadow(x, y, z, n.getX(i), n.getY(i), n.getZ(i));
-      k *= 1 - 0.45 * s;
-      c.setXYZ(i, c.getX(i) * k, c.getY(i) * k, c.getZ(i) * k * (1 + 0.15 * s));
-    }
-    c.needsUpdate = true;
-    group.add(m);
-  }
-  triangles += wrecks.triangles;
 
   buildDecals(group);
   // suelo de debajo de todo (tapa las juntas entre la arena, el muro y los túneles)

@@ -61,9 +61,9 @@ export class CineSounds {
     const wind = this.track(ctx.createBufferSource());
     wind.buffer = this.noiseBuffer(ctx); wind.loop = true; wind.playbackRate.value = 2.2;
     const whp = ctx.createBiquadFilter(); whp.type = 'bandpass'; whp.frequency.value = 600; whp.Q.value = 0.5;
-    const wng = ctx.createGain(); wng.gain.value = 0.3; // al 60 % (antes 0,5), como el viento de la partida
+    const wng = ctx.createGain(); wng.gain.value = 0.18; // bajado dos veces al 60 % (0,5 → 0,3 → 0,18), como el viento de la partida
     const lfo = this.track(ctx.createOscillator()); lfo.frequency.value = 0.35;
-    const lfoG = ctx.createGain(); lfoG.gain.value = 0.15; // las ráfagas, también al 60 %
+    const lfoG = ctx.createGain(); lfoG.gain.value = 0.09; // las ráfagas, igual
     lfo.connect(lfoG).connect(wng.gain);
     wind.connect(whp).connect(wng).connect(master);
     for (const s of [rumble, whine, wind]) s.start(t0, Math.random() * 2);

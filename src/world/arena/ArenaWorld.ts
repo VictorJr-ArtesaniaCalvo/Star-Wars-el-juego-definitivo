@@ -74,12 +74,9 @@ export function buildArenaWorld(scene: THREE.Scene, rapier: typeof RAPIER, physi
       const [bx, bz] = local(c, 1.9, 1.1);
       fixed(rapier.ColliderDesc.cuboid(1.0, 0.65, 0.9).setTranslation(bx, y0 + 0.55, bz).setRotation(yawQuat(c.rot)));
       obstacles.push({ x: c.x, z: c.z, radius: 2.2, height: 1.9 }, { x: bx, z: bz, radius: 1.1, height: 1.2 });
-    } else if (c.kind === 'pila') {
-      fixed(rapier.ColliderDesc.cuboid(1.3, 0.45, 0.8).setTranslation(c.x, y0 + 0.4, c.z).setRotation(yawQuat(c.rot)));
-      obstacles.push({ x: c.x, z: c.z, radius: 1.5, height: 0.9 });
-    } else if (c.kind === 'deka') {
-      fixed(rapier.ColliderDesc.ball(0.9).setTranslation(c.x, y0 + 0.55, c.z));
-      obstacles.push({ x: c.x, z: c.z, radius: 1.1, height: 1.2 });
+    } else if (c.kind === 'chapa') {
+      fixed(rapier.ColliderDesc.cuboid(1.5, 0.7, 1.0).setTranslation(c.x, y0 + 0.65, c.z).setRotation(yawQuat(c.rot)));
+      obstacles.push({ x: c.x, z: c.z, radius: 1.6, height: 1.4 });
     } else if (c.kind === 'monticulo') {
       obstacles.push({ x: c.x, z: c.z, radius: 2.4, height: 1.1 }); // el montón de arena ya es parte del suelo
     }

@@ -392,7 +392,7 @@ function buildCover(parts: Parts, c: Cover, rng: () => number) {
     b.scale(1.2, 1.0, 1.1);
     b.translate(1.9, 0.3, 1.1);
     place(b, 'rock');
-  } else if (c.kind === 'pila') {
+  } else if (c.kind === 'chapa') {
     const s = 1.2;
     place(box(s, s, s, -0.65, s / 2, 0), 'crate');
     place(box(s, s, s, 0.65, s / 2, 0.05, 0.12), 'crate');

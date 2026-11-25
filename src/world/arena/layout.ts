@@ -41,17 +41,17 @@ export const PILLAR = { height: 7.5, radius: 0.5, baseRadius: 0.8 };
 /** Punto de referencia junto a los pilares (para las fotos de la maqueta). */
 export const ARENA_SPAWN = { x: 0, z: 5, yaw: 0 };
 
-/** Dónde apareces en la partida: entras por la puerta sur, nada más cruzarla, mirando al norte (hacia los pilares). */
-export const ARENA_ENTRY = { x: 0, z: ARENA_B - 3.5, yaw: 0 };
+/** Dónde apareces en la partida: en la puerta sur (la única por la que no salen droides), a la entrada del túnel, mirando al norte. */
+export const ARENA_ENTRY = { x: 0, z: ARENA_B + 2.5, yaw: 0 };
 
 /** Puertas por las que entran los droides (por la sur entras tú: de ahí no salen enemigos). */
 export const ENEMY_DOORS = ['norte', 'este', 'oeste'] as const;
 
 /**
- * Coberturas. Rocas caídas de las gradas y restos de la batalla: montones de droides destruidos, un droideka roto y el montón de
- * arena y chatarra al final del surco de impacto. Repartidas para que haya protección frente a las 4 puertas.
+ * Coberturas. Rocas caídas de las gradas, restos de chapa de la batalla y el montón de arena y chatarra al final del surco de impacto.
+ * Repartidas para que haya protección frente a las puertas. (Sin droides destruidos: Víctor los quitó.)
  */
-export type CoverKind = 'roca' | 'pila' | 'deka' | 'monticulo';
+export type CoverKind = 'roca' | 'chapa' | 'monticulo';
 export interface Cover { kind: CoverKind; x: number; z: number; rot: number }
 export const COVERS: Cover[] = [
   // rocas caídas de las gradas
@@ -63,17 +63,17 @@ export const COVERS: Cover[] = [
   { kind: 'roca', x: -16.1, z: 24.1, rot: 0.1 },
   { kind: 'roca', x: -18.4, z: -20.7, rot: 2.1 },
   { kind: 'roca', x: 18.4, z: 20.7, rot: 3.0 },
-  // montones de droides destruidos (donde estaban las cajas y los restos provisionales)
-  { kind: 'pila', x: 8.5, z: -13.5, rot: 0.2 },
-  { kind: 'pila', x: -6.9, z: 14.9, rot: -0.4 },
-  { kind: 'pila', x: 11.5, z: 5.8, rot: 0.9 },
-  { kind: 'pila', x: -11.5, z: -5.8, rot: -0.2 },
-  { kind: 'pila', x: 3.5, z: -31, rot: 0.5 },
-  { kind: 'pila', x: -3.5, z: 31, rot: -0.6 },
-  { kind: 'pila', x: 24, z: 3.5, rot: 1.3 },
-  { kind: 'pila', x: -24, z: -3.5, rot: -1.8 },
-  // droideka roto, al sur de tu posición
-  { kind: 'deka', x: 3.4, z: 13.8, rot: -0.3 },
+  // restos de chapa (donde estaban los montones de droides)
+  { kind: 'chapa', x: 8.5, z: -13.5, rot: 0.2 },
+  { kind: 'chapa', x: -6.9, z: 14.9, rot: -0.4 },
+  { kind: 'roca', x: 11.5, z: 5.8, rot: 0.9 },
+  { kind: 'chapa', x: -11.5, z: -5.8, rot: -0.2 },
+  { kind: 'chapa', x: 3.5, z: -31, rot: 0.5 },
+  { kind: 'roca', x: -3.5, z: 31, rot: -0.6 },
+  { kind: 'chapa', x: 24, z: 3.5, rot: 1.3 },
+  { kind: 'chapa', x: -24, z: -3.5, rot: -1.8 },
+  // roca al sur del centro (donde estaba el droideka roto)
+  { kind: 'roca', x: 3.4, z: 13.8, rot: -0.3 },
   // arena y chatarra amontonadas al final del surco de impacto
   { kind: 'monticulo', x: -2.6, z: -11.2, rot: 0 },
 ];

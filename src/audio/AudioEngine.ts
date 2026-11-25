@@ -5,8 +5,8 @@ export type Sfx = 'b1' | 'b2' | 'droideka';
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
-/** Volumen del viento de fondo (1 = el de antes). Víctor lo pidió al 60 %: sonaba altísimo. */
-const WIND_VOLUME = 0.6;
+/** Volumen del viento de fondo (1 = el primero). Víctor lo bajó al 60 % y luego otra vez al 60 % (0,6 × 0,6): sonaba estridente. */
+const WIND_VOLUME = 0.36;
 /** La música ya está igualada de volumen; esto la deja por debajo de los efectos con el control a la mitad. */
 const MUSIC_BASE = 0.7;
 
