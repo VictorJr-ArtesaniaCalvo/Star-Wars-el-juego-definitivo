@@ -162,7 +162,7 @@ export const FP_HANDS = {
   /** Largo del antebrazo (1 = el real). Como en los juegos de disparos, se alarga para que entre en diagonal desde la esquina; la mano no se deforma. */
   largo: 1.6,
   derecha: { pos: [0.075, -0.15, 0.19], rot: [0, 0, 0], dedos: 0.85, pulgar: 0.6, indice: 0.12, lado: 40, abajo: 45 } as HandSetup,
-  izquierda: { pos: [-0.04, -0.22, -0.3], rot: [0, 0, 25], dedos: 0.85, pulgar: 0.35, indice: 0.85, lado: -58, abajo: 32 } as HandSetup,
+  izquierda: { pos: [-0.04, -0.22, -0.3], rot: [0, 0, 0], dedos: 0.85, pulgar: 0.35, indice: 0.85, lado: -58, abajo: 32 } as HandSetup,
 };
 /** Sube cada vez que cambian los ajustes (los dedos se recalculan). */
 export const FP_STATE = { version: 0, corteVisible: false, debug: [] as string[] };
@@ -226,8 +226,28 @@ export function createFirstPersonArms(height: number, eye: number): FirstPersonA
     const loc = (bn: THREE.Bone) => bn.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
     const mid = loc(b[`middlefinger1${s}`]), tip = loc(b[`middlefinger3${s}end`] ?? b[`middlefinger3${s}`]);
     const f = mid.clone().normalize(); // hacia los nudillos
-    // la palma: hacia donde se doblan los dedos en reposo (en la postura de origen ya están algo curvados)
-    const n = tip.clone().sub(mid); n.addScaledVector(f, -n.dot(f)).normalize().negate(); // (medido: en este modelo la punta del dedo queda hacia el dorso)
+    // La palma: el lado contrario a la placa de armadura del dorso del guante (las piezas blancas, con textura, que mueve la muñeca).
+    // Si no se encontrara la placa, se usa hacia dónde se doblan los dedos en reposo.
+    const plate = new THREE.Vector3(), pv = new THREE.Vector3();
+    let count = 0;
+    for (const m of rig.meshes) {
+      if (!(m.material as THREE.MeshLambertMaterial).map || !m.geometry.index) continue;
+      const si = m.geometry.attributes.skinIndex as THREE.BufferAttribute, sw = m.geometry.attributes.skinWeight as THREE.BufferAttribute;
+      const wi = m.skeleton.bones.indexOf(wrist);
+      if (wi < 0) continue;
+      for (const i of new Set(m.geometry.index.array as ArrayLike<number> as number[])) {
+        let best = 0, bw = -1;
+        for (let k = 0; k < 4; k++) { const w = sw.getComponent(i, k); if (w > bw) { bw = w; best = si.getComponent(i, k); } }
+        if (best !== wi) continue;
+        m.getVertexPosition(i, pv);
+        plate.add(pv.applyMatrix4(m.matrixWorld).applyMatrix4(inv));
+        count++;
+      }
+    }
+    const n = new THREE.Vector3();
+    if (count > 10) n.copy(plate.divideScalar(count)).negate();
+    else n.copy(tip).sub(mid);
+    n.addScaledVector(f, -n.dot(f)).normalize();
     const t = new THREE.Vector3().crossVectors(n, f); // tercer eje (sistema de ejes bien orientado; el pulgar cae donde le toca)
     const basis = new THREE.Matrix4().makeBasis(t, n, f);
     const basisInv = new THREE.Quaternion().setFromRotationMatrix(basis).invert();
