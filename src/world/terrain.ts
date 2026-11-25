@@ -59,35 +59,122 @@ function terrace(t: number) {
  * sinuoso por donde vino arrastrándose (con bordes de tierra removida) y un montón de arena empujada contra el morro.
  * `scorch` marca el suelo quemado y `sand` la arena clara removida (se aclara el color del suelo).
  */
-export function crashField(x: number, z: number) {
+export function crashField(x: number, z: number) { return crashBowl(x, z, CRASH_SIZE, CRASH_WIDTH, true); }
+
+/** El cráter de antes (para la nave pequeña): solo sirve para que rocas, lajas y restos se repartan exactamente igual que antes. */
+export function crashFieldOriginal(x: number, z: number) { return crashBowl(x, z, 1, 1, false); }
+
+/**
+ * Cráter, surco y montón de arena. `k` = tamaño a lo largo respecto al original (1 = el hecho para la nave a escala 0,7) y `kw` a lo ancho.
+ * Con la nave a tamaño real crece lo mismo que ella a lo largo y la mitad a lo ancho (y algo más hondo).
+ * `newFurrow`: el fondo del surco no va aquí sino en `furrowCut` (bajada continua hacia la nave); aquí solo quedan sus bordes de tierra removida.
+ */
+function crashBowl(x: number, z: number, k: number, kw: number, newFurrow: boolean) {
   const dx = x - CRASH.x;
   const dz = z - CRASH.z;
   const u = dx * CY - dz * SY; // a lo largo de la nave (+ hacia el morro)
   const v = dx * SY + dz * CY; // de lado
-  const e = Math.hypot(u / 11, v / 7);
-  let h = -1.2 * (1 - smoothstep(0.35, 1.0, e));
-  h += 0.85 * Math.exp(-(((e - 1.12) / 0.2) ** 2));
+  const deep = 1 + (k - 1) * 0.4; // la profundidad crece menos que el tamaño
+  const e = Math.hypot(u / (11 * k), v / (7 * kw));
+  let h = -1.2 * deep * (1 - smoothstep(0.35, 1.0, e));
+  h += 0.85 * deep * Math.exp(-(((e - 1.12) / 0.2) ** 2));
   let scorch = 1 - smoothstep(0.6, 1.5, e);
   let sand = 0;
   const back = -u;
-  if (back > 0 && back < 40) {
+  const L = newFurrow ? FURROW.largo : 40; // largo del surco
+  if (back > 0 && back < L) {
     // el surco serpentea un poco y es más profundo y ancho junto a la nave
-    const m = smoothstep(0, 5, back) * (1 - smoothstep(28, 40, back));
-    const w = 2.3 + 0.35 * Math.sin(back * 0.21);
+    const m = smoothstep(0, 5 * k, back) * (1 - smoothstep(L * 0.7, L, back));
+    const w = (2.3 + 0.35 * Math.sin(back * 0.21)) * kw;
     const av = Math.abs(v - 0.9 * Math.sin(back * 0.11));
-    const depth = 1.3 * (1 - back / 40) + 0.2;
+    const depth = (1.3 * (1 - back / L) + 0.2) * deep;
     const rough = Math.sin(back * 0.9 + v * 1.7) * Math.sin(v * 1.3 - back * 0.4); // tierra removida: bordes irregulares
-    const berm = Math.exp(-(((av - w * 1.3) / 0.55) ** 2));
-    h += m * (-depth * (1 - smoothstep(0.55, 1.0, av / w)) + (0.55 + 0.14 * rough) * berm);
-    scorch = Math.max(scorch, 0.6 * m * (1 - smoothstep(0.8, 1.6, av / w)));
-    sand = Math.max(sand, 0.85 * m * Math.exp(-(((av - w * 1.3) / 0.95) ** 2)));
+    const berm = Math.exp(-(((av - w * 1.3) / (0.55 * kw)) ** 2));
+    const mb = newFurrow ? smoothstep(0, 5, back) * (1 - smoothstep(L * 0.85, L, back)) : m;
+    h += (newFurrow ? 0 : -m * depth * (1 - smoothstep(0.55, 1.0, av / w))) + mb * (0.55 + 0.14 * rough) * deep * berm;
+    scorch = Math.max(scorch, 0.6 * mb * (1 - smoothstep(0.8, 1.6, av / w)));
+    sand = Math.max(sand, 0.85 * mb * Math.exp(-(((av - w * 1.3) / (0.95 * kw)) ** 2)));
   }
   // arena empujada contra el morro: un montón ancho justo delante de la punta (que queda un poco más abajo)
-  const pu = (u - 9) / 2.0, pv = (v + 1.1) / 3.2;
+  const pu = (u - 9 * (1 + (k - 1) * 0.55)) / (2.0 * k), pv = (v + 1.1) / (3.2 * kw);
   const pile = Math.exp(-(pu * pu + pv * pv));
-  h += 1.1 * pile;
+  h += 1.1 * deep * pile;
   sand = Math.max(sand, Math.min(1, pile * 1.3));
   return { h, scorch, sand };
+}
+
+/** Largo del surco con la nave a tamaño real, y cuánto se hunde su fondo al llegar a la cola de la nave (m). */
+const FURROW = { start: 6, end: -1.6, largo: 37 }; // el largo lo limita la pared oeste del cañón (a unos 40 m)
+let furrowStartH: number | null = null;
+/**
+ * Fondo del surco de arrastre: baja sin parar desde donde empieza (a ras de suelo) hasta la cola de la nave,
+ * como si la nave se hubiera ido enterrando poco a poco al arrastrarse.
+ */
+function furrowCut(x: number, z: number, h: number) {
+  const L = FURROW.largo;
+  const dx = x - CRASH.x, dz = z - CRASH.z;
+  const back = -(dx * CY - dz * SY), v = dx * SY + dz * CY;
+  if (back <= 0 || back >= L) return h;
+  const w = (2.3 + 0.35 * Math.sin(back * 0.21)) * CRASH_WIDTH;
+  const av = Math.abs(v - 0.9 * Math.sin(back * 0.11));
+  const across = 1 - smoothstep(0.55, 1.0, av / w);
+  if (across <= 0) return h;
+  if (furrowStartH === null) {
+    // suelo donde empieza el surco (en su línea central), un poco hundido
+    const sb = L * 0.97, su = -sb, sv = 0.9 * Math.sin(sb * 0.11);
+    const sx = CRASH.x + su * CY + sv * SY, sz = CRASH.z - su * SY + sv * CY;
+    furrowStartH = baseHeight(sx, sz) + crashField(sx, sz).h - 0.15;
+  }
+  // fondo: de la altura del inicio a FURROW.end junto a la nave, siempre bajando
+  const k = smoothstep(FURROW.start, L * 0.97, back);
+  const floor = FURROW.end + (furrowStartH - FURROW.end) * k;
+  const fade = 1 - smoothstep(L * 0.93, L, back); // al empezar se funde con el suelo
+  return h + across * fade * (floor - h);
+}
+
+// ---- Postura de la cañonera estrellada (la comparten el terreno y el modelo) ----
+/** Escala de la nave: tamaño real (la LAAT mide 17,69 m de largo; el modelo, 15,84 m). */
+export const CRASH_SHIP_SCALE = 17.69 / 15.84;
+/** Cuánto ha crecido el cráter: lo mismo que la nave respecto a la escala de antes (0,7). */
+const CRASH_SIZE = CRASH_SHIP_SCALE / 0.7;
+/** A lo ancho crece la mitad. */
+const CRASH_WIDTH = 1 + (CRASH_SIZE - 1) / 2;
+/**
+ * Inclinación (la de siempre: morro abajo 0,2 rad ≈ 11° y ladeo de 0,05 rad ≈ 3°), dónde queda la panza bajo el centro de la nave
+ * (m respecto al suelo llano) y cuánto se mete la panza en la arena donde toca el suelo.
+ */
+export const CRASH_POSE = { pitch: -0.2, roll: -0.05, bellyCenter: -1.3, bellySink: 0.35 };
+const BELLY_Y = -3.1; // altura de la panza en el modelo
+let crashM: THREE.Matrix4 | null = null, crashInv: THREE.Matrix4 | null = null;
+const bellyN = new THREE.Vector3(), bellyP = new THREE.Vector3();
+/** Matriz que coloca el modelo de la cañonera estrellada (casco entero). */
+export function crashMatrix(): THREE.Matrix4 {
+  if (crashM) return crashM;
+  const px = CRASH.x, pz = CRASH.z - 1.2;
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(CRASH_POSE.roll, CRASH.yaw, CRASH_POSE.pitch, 'YXZ'));
+  const S = new THREE.Vector3(CRASH_SHIP_SCALE, CRASH_SHIP_SCALE, CRASH_SHIP_SCALE);
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(px, 0, pz), q, S);
+  const c = new THREE.Vector3(0, BELLY_Y, 0).applyMatrix4(m);
+  m.compose(new THREE.Vector3(px, CRASH_POSE.bellyCenter - c.y, pz), q, S);
+  crashM = m;
+  crashInv = m.clone().invert();
+  bellyP.set(0, BELLY_Y, 0).applyMatrix4(m);
+  bellyN.set(0, 1, 0).applyQuaternion(q);
+  return m;
+}
+const tmpV = new THREE.Vector3();
+/**
+ * Huella de la nave: bajo el casco el suelo baja hasta quedar `bellySink` por encima de la panza (la panza queda metida en la arena).
+ * Donde la panza queda por encima del suelo (la cola, levantada por la inclinación) el suelo no se toca.
+ */
+function hullImprint(x: number, z: number, h: number) {
+  crashMatrix();
+  const belly = bellyP.y - (bellyN.x * (x - bellyP.x) + bellyN.z * (z - bellyP.z)) / bellyN.y; // altura de la panza en ese punto
+  const target = belly + CRASH_POSE.bellySink;
+  if (target >= h) return h;
+  tmpV.set(x, belly, z).applyMatrix4(crashInv!); // punto en el marco del modelo
+  const w = smoothstep(-7.6, -6.5, tmpV.x) * (1 - smoothstep(7.4, 8.6, tmpV.x)) * (1 - smoothstep(1.6, 2.9, Math.abs(tmpV.z)));
+  return h + w * (target - h);
 }
 
 /** Cuánto «se hunde» un punto respecto a su entorno a distancia r (0 a 1): valles y esquinas interiores dan más, las superficies planas o convexas dan 0. */
@@ -186,7 +273,8 @@ function wallDistance(x: number, z: number) {
 // - Llano alrededor de tu posición; las dunas y el relieve crecen poco a poco al alejarse.
 // - El suelo del cañón sube suavemente hacia los dos extremos.
 // - Paredes en terrazas y una meseta alta alrededor.
-export function terrainHeight(x: number, z: number): number {
+/** Altura del suelo sin el accidente (cráter, surco y huella de la nave). */
+function baseHeight(x: number, z: number): number {
   const ax = Math.abs(x);
   const az = Math.abs(z);
   const flat = smoothstep(8, 26, Math.hypot(x, z));
@@ -207,7 +295,11 @@ export function terrainHeight(x: number, z: number): number {
     if (wallDetail) { const side = Math.sign(x) || 1; h += terraceVar(wd / wallSpan(side, z), z, side) * wallTop(side, z); }
     else h += terrace(wd / WALL_SPAN) * WALL_H;
   }
-  return h + crashField(x, z).h;
+  return h;
+}
+
+export function terrainHeight(x: number, z: number): number {
+  return hullImprint(x, z, furrowCut(x, z, baseHeight(x, z) + crashField(x, z).h));
 }
 
 // Colores de las capas de roca de las paredes (como los estratos del Gran Cañón).

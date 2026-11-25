@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { COBERTURA } from '../cinematic/script';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type RAPIER from '@dimforge/rapier3d-compat';
-import { CRASH, crashField, makeRng, terrainHeight } from './terrain';
+import { CRASH, crashFieldOriginal, makeRng, terrainHeight } from './terrain';
 import { laatData } from './laat';
 import { slabRockTexture } from './materials';
 import { bakeSunShadow } from './sunShadow';
@@ -249,7 +249,7 @@ export class Wreckage {
     const props: THREE.BufferGeometry[] = []; // cajas y barriles
     const up = new THREE.Vector3(0, 1, 0);
     const q = new THREE.Quaternion(), e = new THREE.Euler(), m = new THREE.Matrix4(), one = new THREE.Vector3(1, 1, 1);
-    const free = (x: number, z: number) => Math.hypot(x - SPAWN.x, z - SPAWN.z) > 2.8 && crashField(x, z).h > -1.0;
+    const free = (x: number, z: number) => Math.hypot(x - SPAWN.x, z - SPAWN.z) > 2.8 && crashFieldOriginal(x, z).h > -1.0;
 
     /** Coloca una copia de la geometría y, si se pide, un cuerpo sólido. */
     const place = (list: THREE.BufferGeometry[], src: THREE.BufferGeometry, x: number, y: number, z: number, yaw: number, rx: number, rz: number, s: number, solid?: 'hull' | { hx: number; hy: number; hz: number; oy: number; tilt?: number }) => {

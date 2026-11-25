@@ -75,10 +75,14 @@ export interface Toma {
 }
 
 // ---------- Lugares fijos ----------
-/** Donde está agachado el comando, en el borde del cráter junto al inicio. Al acabar la cinemática la partida empieza aquí, de pie y mirando al norte. */
-export const COMANDO = { x: -4.35, z: 4.1 };
-/** Caja de la República tras la que se cubre (es una cobertura de verdad del mapa, sólida también en la partida). `giro` en radianes. */
-export const COBERTURA = { x: -4.3, z: 3.0, giro: 0.08 };
+/**
+ * Zona de aparición: el comando está en el borde norte del cráter (1,5 m más allá de su parte más alta), al este de la punta del ala apoyada,
+ * mirando al norte (por donde llegan los droides en la ronda 1) y con la nave a su espalda. Ahí termina la cinemática y ahí empieza
+ * la partida, también al reintentar.
+ */
+export const COMANDO = { x: 4.0, z: -14.0 };
+/** Caja de la República tras la que se cubre, justo delante de él y de cara al norte (cobertura sólida del mapa). `giro` en radianes. */
+export const COBERTURA = { x: 4.0, z: -15.2, giro: 0 };
 
 /** Vuelo de la cañonera durante la toma 2: gira alrededor de un punto con la puerta mirando hacia él. Ángulos de MAYOR a MENOR. */
 export const VUELO = { centro: [0, -2] as [number, number], radio: 46, altura: 32, giroDesde: 60, giroHasta: 36, alabeo: 10 };
@@ -130,7 +134,7 @@ export const TOMAS: Toma[] = [
   {
     nombre: '3 · La cañonera estrellada',
     duracion: 4,
-    camara: { tipo: 'orbita', centro: [0.3, 1.6, -1.9], radio: 11, radioHasta: 9.5, altura: 2.6, giroDesde: 205, giroHasta: 250 },
+    camara: { tipo: 'orbita', centro: [0.3, 1.4, -3.1], radio: 15, radioHasta: 13, altura: 3.2, giroDesde: 205, giroHasta: 250 },
     angulo: 55,
     temblor: 0.08,
     eventos: [
@@ -158,8 +162,8 @@ export const TOMAS: Toma[] = [
     actores: ['comando'],
     camara: {
       tipo: 'recorrido',
-      desde: { pos: [-2.4, 2.2, 1.0], mira: [-4.6, 1.3, 4.1] },
-      hasta: { pos: [-2.75, 2.25, 1.45], mira: [-4.6, 1.35, 4.1] },
+      desde: { pos: [5.95, 2.2, -17.1], mira: [3.75, 1.3, -14.0] },
+      hasta: { pos: [5.6, 2.25, -16.65], mira: [3.75, 1.35, -14.0] },
     },
     angulo: 30,
     temblor: 0.06,
@@ -188,8 +192,8 @@ export const TOMAS: Toma[] = [
     actores: ['comando'],
     camara: {
       tipo: 'recorrido',
-      desde: { pos: [-3.4, 1.9, 7.3], mira: [-4.35, 1.3, 3.2] },
-      hasta: { pos: [-4.35, 1.85, 4.62], mira: [-4.35, 1.6, -1] },
+      desde: { pos: [4.95, 1.9, -10.8], mira: [4.0, 1.3, -14.9] },
+      hasta: { pos: [4.0, 1.85, -13.48], mira: [4.0, 1.6, -19.1] },
     },
     angulo: 60,
     temblor: 0.04,

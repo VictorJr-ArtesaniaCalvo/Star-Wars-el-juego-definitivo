@@ -4,7 +4,7 @@ import { Builder, place } from './builder';
 import { slabGeometry } from './scatter';
 import { beadedSpire } from './landmarks';
 import { METAL_WALL_SPOTS } from './wreckage';
-import { CANYON_HALF_L, CANYON_HALF_W, crashField, floorHalfWidth, makeRng, terrainHeight, WORLD_SEED } from './terrain';
+import { CANYON_HALF_L, CANYON_HALF_W, crashFieldOriginal, crashMatrix, floorHalfWidth, makeRng, terrainHeight, WORLD_SEED } from './terrain';
 
 const ROCK = 0x8a4a30;
 const ROCK_DARK = 0x6a4b3c; // roca oscura marrón (se sigue viendo su textura)
@@ -18,6 +18,8 @@ const PEBBLES = [0x8a5236, 0x6e4630, 0x946040, 0x6a5646, 0xa06a44];
 /** Obstáculo del mapa: lo usan los droides para esquivar y para buscar cobertura. */
 export interface Obstacle { x: number; z: number; radius: number; height: number }
 export const OBSTACLES: Obstacle[] = [];
+/** Hueco mínimo (m) entre el morro de la cañonera estrellada y el borde de cualquier roca. */
+const NOSE_GAP = 3;
 
 // Deformación repetible: el mismo punto siempre se mueve igual (así la roca no se "abre").
 function hash(x: number, y: number, z: number, seed: number) {
@@ -153,15 +155,20 @@ export function buildRocks(b: Builder) {
 
   /** Color de una roca suelta según la zona: por manchas, algunas son oscuras y otras más claras. */
   const rockTone = (x: number, z: number) => { const v = Math.sin(x * 0.11 + z * 0.07) * Math.sin(z * 0.09 - x * 0.05); return v > 0.3 ? ROCK_DARK : v < -0.45 ? ROCK_PALE : ROCK; };
+  // Delante del morro de la cañonera estrellada no puede haber rocas encima (ahora la nave y su montón de arena son más grandes):
+  // si alguna cae ahí, se aparta en línea recta desde el morro lo justo para dejar hueco.
+  const nose = new THREE.Vector3(7.92, -2.2, 0.25).applyMatrix4(crashMatrix());
   const boulder = (x: number, z: number, r: number) => {
     const s = new THREE.Vector3(r * range(0.8, 1.3), r * range(0.55, 0.9), r * range(0.8, 1.3));
+    const dn = Math.hypot(x - nose.x, z - nose.z), need = Math.max(s.x, s.z) + NOSE_GAP;
+    if (dn < need) { x = nose.x + ((x - nose.x) / dn) * need; z = nose.z + ((z - nose.z) / dn) * need; }
     const floor = onFloor(x, z);
     if (floor) OBSTACLES.push({ x, z, radius: Math.max(s.x, s.z) * 0.95, height: s.y * 1.6 });
     b.addHull(boulderGeometry(seed++, r < 1.5 ? 0 : 1), place(x, terrainHeight(x, z) + s.y * 0.3, z, range(0, 6.28), 0, 0, s), rockTone(x, z), range(0.75, 1.1), floor);
   };
 
   // Sitios libres: ni la zona de defensa ni el cráter ni el surco de la nave.
-  const clear = (x: number, z: number) => Math.hypot(x + 2.5, z - 3.2) > 15 && crashField(x, z).h > -0.25;
+  const clear = (x: number, z: number) => Math.hypot(x + 2.5, z - 3.2) > 15 && crashFieldOriginal(x, z).h > -0.25;
 
   // --- Suelo del cañón: delante y detrás por igual, para que no haya línea de tiro limpia ---
   for (let n = 0; n < 130; ) {
@@ -239,7 +246,7 @@ export function buildRocks(b: Builder) {
   }
   for (let n = 0; n < 420; ) {
     const x = range(-HW - 2, HW + 2), z = range(-HL, HL);
-    if (Math.hypot(x + 2.5, z - 3.2) < 3 || crashField(x, z).h < -0.4) continue;
+    if (Math.hypot(x + 2.5, z - 3.2) < 3 || crashFieldOriginal(x, z).h < -0.4) continue;
     const sz = range(0.07, 0.24);
     b.addDecor(new THREE.OctahedronGeometry(sz).scale(1.15, 0.6, 0.95), place(x, terrainHeight(x, z) + sz * 0.25, z, range(0, 6.28), range(0, 3), range(0, 3)), PEBBLES[Math.floor(rng() * PEBBLES.length)], range(0.75, 1.15), 1);
     n++;

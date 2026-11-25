@@ -1,4 +1,5 @@
 import { Builder, place } from './builder';
+import { COMANDO } from '../cinematic/script';
 import { buildGunship } from './gunship';
 import { laatReady } from './laat';
 import { terrainHeight } from './terrain';
@@ -6,7 +7,8 @@ import { terrainHeight } from './terrain';
 // Zona a defender: centrada en (0,0). La nave se estrelló en el centro y dejó un cráter.
 // Los enemigos llegan desde los dos extremos del cañón (-Z y +Z).
 // Todas las coberturas bajas miden ~1,15 m: de pie asomas, agachado quedas cubierto.
-export const SPAWN = { x: -2.5, z: 3.2 };
+/** Donde empieza la partida (y la cinemática deja al comando): la misma posición que `COMANDO` del guion de la cinemática. */
+export const SPAWN = COMANDO;
 export const COVER_HEIGHT = 1.15;
 
 const WHITE = 0xd9d6cc;

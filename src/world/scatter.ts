@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CANYON_HALF_L, CANYON_HALF_W, crashField, makeRng, terrainHeight } from './terrain';
+import { CANYON_HALF_L, CANYON_HALF_W, crashFieldOriginal, makeRng, terrainHeight } from './terrain';
 import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, rockJointsTexture, rockTexture, slabRockTexture, slabsTexture, strataTexture } from './materials';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { Quality } from '../core/Settings';
@@ -116,7 +116,7 @@ export class Scatter {
     const pos = new THREE.Vector3(), q = new THREE.Quaternion(), e = new THREE.Euler(), m4 = new THREE.Matrix4(), up = new THREE.Vector3(0, 1, 0), nrm = new THREE.Vector3();
     for (let n = 0, tries = 0; n < target && tries < target * 12; tries++) {
       const x = range(-HW, HW), z = range(-HL, HL);
-      if (Math.hypot(x + 2.5, z - 3.2) < 2.5 || crashField(x, z).h < -0.5) continue;
+      if (Math.hypot(x + 2.5, z - 3.2) < 2.5 || crashFieldOriginal(x, z).h < -0.5) continue;
       const wall = smooth(20, 38, Math.abs(x));
       const p = 0.1 + 0.85 * near(x, z) + 0.45 * wall;
       if (rng() > p) continue;
@@ -201,7 +201,7 @@ export class Scatter {
         const x = (cx + rnd()) * CELL, z = (cz + rnd()) * CELL;
         const d = Math.hypot(x - p.x, z - p.z);
         if (d > R || Math.abs(x) > CANYON_HALF_W + 3 || Math.abs(z) > CANYON_HALF_L) continue;
-        if (crashField(x, z).h < -0.5) continue;
+        if (crashFieldOriginal(x, z).h < -0.5) continue;
         const s = (0.04 + rnd() * rnd() * 0.12) * smooth(R, R * 0.7, d); // las del borde del círculo se encogen
         if (s < 0.02) continue;
         this.tmp.position.set(x, terrainHeight(x, z) + s * 0.25, z);
@@ -242,7 +242,7 @@ export class Ledges {
       const nearWall = rng() < 0.6;
       const x = nearWall ? (rng() < 0.5 ? -1 : 1) * range(22, CANYON_HALF_W - 3) : range(-CANYON_HALF_W + 6, CANYON_HALF_W - 6);
       const z = range(-CANYON_HALF_L + 8, CANYON_HALF_L - 8);
-      if (Math.hypot(x + 2.5, z - 3.2) < 20 || crashField(x, z).h < -0.25) continue;
+      if (Math.hypot(x + 2.5, z - 3.2) < 20 || crashFieldOriginal(x, z).h < -0.25) continue;
       if (placed.some(([px, pz]) => Math.hypot(px - x, pz - z) < 14)) continue;
       placed.push([x, z]);
       const yaw = range(0, Math.PI * 2);

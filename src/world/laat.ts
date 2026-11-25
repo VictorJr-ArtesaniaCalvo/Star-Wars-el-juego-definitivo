@@ -3,7 +3,7 @@ import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Builder } from './builder';
 import { GUNSHIP_FIRES, GUNSHIP_FX, GUNSHIP_LIGHTS } from './crashFx';
-import { CRASH, terrainHeight } from './terrain';
+import { CRASH_SHIP_SCALE, crashMatrix, terrainHeight } from './terrain';
 
 // Cañonera LAAT derribada. El modelo 3D (public/models/laat.bin) se genera con tools/convert-laat.mjs a partir del glTF
 // «LAAT - Low Altitude Assault Transport» de Mind Mulch for The Masses (CC-BY 4.0, ver CRÉDITOS.md).
@@ -59,16 +59,12 @@ export async function loadLaat(url: string): Promise<boolean> {
 }
 
 // ---------- Colocación ----------
-const SCALE = 17.69 / 15.84; // tamaño real: la LAAT mide 17,69 m de largo (el modelo, 15,84 m); se amplía por igual, también el ala arrancada
+const SCALE = CRASH_SHIP_SCALE; // tamaño real: la LAAT mide 17,69 m de largo (el modelo, 15,84 m); se amplía por igual, también el ala arrancada
 const CUT = 2.15; // el ala se cortó a esta distancia del eje (ver tools/convert-laat.mjs)
 const NOSE = new THREE.Vector3(7.92, -2.2, 0.25); // punta del morro (en el modelo)
 const WING_TIP = new THREE.Vector3(-1.33, -1.39, -8.7); // punta del ala entera
 
 const mat4 = (fn: (m: THREE.Matrix4) => void) => { const m = new THREE.Matrix4(); fn(m); return m; };
-/** Posición + giros (Y: dirección, X: alabeo sobre el eje del morro, Z: cabeceo) + escala, con el mismo orden que `place`. */
-function placeM(x: number, y: number, z: number, ry: number, rx: number, rz: number, s: number) {
-  return new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'YXZ')), new THREE.Vector3(s, s, s));
-}
 
 function worldPoints(geo: THREE.BufferGeometry, m: THREE.Matrix4, keep: (x: number, y: number, z: number) => boolean) {
   const p = geo.attributes.position as THREE.BufferAttribute;
@@ -124,24 +120,18 @@ export function buildLaatWreck(b: Builder) {
   GUNSHIP_LIGHTS.length = 0;
   GUNSHIP_FX.smoke.length = 0; GUNSHIP_FX.sparks.length = 0; GUNSHIP_FX.flames.length = 0; GUNSHIP_FX.dust.length = 0;
 
-  // --- Colocación del casco: ladeada hacia el enemigo (-Z), con el morro hundido en la arena y el ala entera apoyando la punta ---
-  const px = CRASH.x, pz = CRASH.z - 1.2;
-  const yaw = CRASH.yaw, pitch = -0.2;
-  // El morro queda hundido 0,85 m; el alabeo se ajusta al relieve para que la punta del ala entera se entierre unos 0,45 m
-  const fit = (roll: number) => {
-    let m = placeM(px, 0, pz, yaw, roll, pitch, SCALE);
-    const n = NOSE.clone().applyMatrix4(m);
-    m = placeM(px, terrainHeight(n.x, n.z) - 0.85 - n.y, pz, yaw, roll, pitch, SCALE);
-    const t = WING_TIP.clone().applyMatrix4(m);
-    return { m, sink: terrainHeight(t.x, t.z) - t.y };
-  };
-  let best = fit(-0.05);
-  for (let roll = -0.05; roll >= -0.3; roll -= 0.01) {
-    const f = fit(roll);
-    best = f;
-    if (f.sink >= 0.45) break;
+  // --- Colocación del casco: la inclinación de siempre (morro abajo y algo ladeada hacia el enemigo, −Z), a tamaño real.
+  // La postura la fija el terreno (crashMatrix), que además hunde el suelo bajo la nave para que la panza quede metida en la arena.
+  const M = crashMatrix();
+  if (import.meta.env.DEV) {
+    // comprobación al desarrollar: cuánto se hunden el morro, la punta del ala y la panza
+    const sink = (p: THREE.Vector3) => { p.applyMatrix4(M); return +(terrainHeight(p.x, p.z) - p.y).toFixed(2); };
+    const pos = d.parts.casco.geo.attributes.position as THREE.BufferAttribute;
+    const gaps: number[] = [];
+    for (let i = 0; i < pos.count; i += 2) if (pos.getY(i) < -2.45 && Math.abs(pos.getZ(i)) <= CUT) gaps.push(sink(new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i))));
+    gaps.sort((a, b) => a - b);
+    console.info('LOG LAAT estrellada ' + JSON.stringify({ morro: sink(NOSE.clone()), puntaAla: sink(WING_TIP.clone()), panza: { menos: gaps[0], mediana: gaps[gaps.length >> 1], mas: gaps[gaps.length - 1] } }));
   }
-  const M = best.m;
   const toWorld = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).applyMatrix4(M);
 
   // --- Materiales (textura del autor) y mallas ---
