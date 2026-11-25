@@ -114,6 +114,7 @@ Materiales: casi todo es `MeshLambertMaterial` modificado con `onBeforeCompile` 
 - Los commits terminan con las dos líneas `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>` y `Claude-Session: https://claude.ai/code/session_01QvXPp9w1MwcYr399v3stsn`.
 
 **Forma de trabajar con Víctor**
+- **Ante cualquier duda (qué pieza quitar, dónde poner algo, cómo interpretar una petición), PREGUNTAR ANTES de hacer nada y pasarle fotos (capturas marcadas, por ejemplo en rojo) para que corrija.** Ejemplo: con la puerta de la LAAT se quitó primero la pieza equivocada por no preguntar.
 - Hablarle en español sin tecnicismos. Cuando pida «antes de empezar, dime cómo lo plantearías», proponer y **esperar su visto bueno**; avanzar de una en una; decir qué no se pudo probar (iPhone: FPS, calor, batería) y cómo probarlo en el iPhone.
 - Si algo baja mucho el rendimiento, avisar y proponer alternativa. Si una descarga falla o pide login, no insistir y avisar.
 - Pasarle imágenes de lo hecho (antes y después) y, si lo pide, esperar a su aprobación antes de subir. Subir a la rama publica el juego.
