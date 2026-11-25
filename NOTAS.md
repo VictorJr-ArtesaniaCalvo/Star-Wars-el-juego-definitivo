@@ -1,5 +1,7 @@
 # NOTAS DEL PROYECTO (para ponerse al día en una conversación nueva)
 
+> Resumen breve del estado y de lo pendiente en **CLAUDE.md**. Aquí, el detalle.
+
 Última actualización: 2026-11-25 (cinemática inicial). Rama de trabajo: `claude/star-wars-3d-pwa-game-vo2yxm` (cada subida a esta rama se publica sola en GitHub Pages).
 
 ## 1. Qué es el juego
