@@ -161,8 +161,8 @@ export const FP_HANDS = {
   tamano: 0.95,
   /** Largo del antebrazo (1 = el real). Como en los juegos de disparos, se alarga para que entre en diagonal desde la esquina; la mano no se deforma. */
   largo: 1.6,
-  derecha: { pos: [0.075, -0.15, 0.19], rot: [0, 0, 0], dedos: 0.85, pulgar: 0.6, indice: 0.12, lado: 40, abajo: 45 } as HandSetup,
-  izquierda: { pos: [-0.04, -0.22, -0.3], rot: [0, 0, 0], dedos: 0.85, pulgar: 0.35, indice: 0.85, lado: -58, abajo: 32 } as HandSetup,
+  derecha: { pos: [0.04, -0.2, 0.15], rot: [0, 0, 0], dedos: 0.85, pulgar: 0.6, indice: 0.12, lado: 40, abajo: 45 } as HandSetup,
+  izquierda: { pos: [-0.04, -0.24, -0.32], rot: [0, 0, 0], dedos: 0.85, pulgar: 0.35, indice: 0.85, lado: -58, abajo: 32 } as HandSetup,
 };
 /** Sube cada vez que cambian los ajustes (los dedos se recalculan). */
 export const FP_STATE = { version: 0, corteVisible: false, debug: [] as string[] };

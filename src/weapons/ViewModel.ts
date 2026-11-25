@@ -1,21 +1,75 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildArms, type ArmsVariant } from './arms';
 import { commandoModelReady, createFirstPersonArms, FP_STATE, type FirstPersonArms } from '../player/commandoModel';
 import { EYE_STAND } from '../player/PlayerController';
 
 // El bláster que se ve en pantalla. Va pegado a la cámara. El modelo 3D (public/models/blaster.bin + blaster-color.jpg) es el «E-5 Blaster Rifle»
 // de A308 Digital (CC-BY 4.0, ver CRÉDITOS.md) y se genera con tools/convert-blaster.mjs. Si no se pudiera cargar, se usa uno de cajas.
-interface BlasterModel { geo: THREE.BufferGeometry; map: THREE.Texture | null; muzzle: [number, number, number] }
+interface BlasterModel { geo: THREE.BufferGeometry; map: THREE.Texture | null; muzzle: [number, number, number]; /** cuánto se aclara su textura */ bright: number }
 let blasterModel: BlasterModel | null = null;
 /** El modelo del bláster (para ponérselo en las manos al comando de la cinemática), o null si no cargó. */
 export const blasterModelData = () => blasterModel;
-export const BLASTER_COLOR_BOOST = 2.2 * 0.9;
 const BLASTER_BRIGHT = 2.2 * 0.9; // el negro del arma un 10 % más oscuro
 // Posición del arma en pantalla: desde la cadera (abajo a la derecha) y apuntando (centrada, un poco más arriba)
-const HIP = { x: 0.23, y: -0.2, z: -0.58, scale: 0.54, adsLift: 0.065 };
+/** Posición del arma en pantalla (respecto a los ojos, en m: x derecha, y arriba, z hacia atrás), tamaño y cuánto sube al apuntar.
+ *  Se puede cambiar en directo con el panel de ajuste del modo de pruebas. */
+export const HIP = { x: 0.23, y: -0.2, z: -0.58, scale: 0.54, adsLift: 0.065 };
 
-/** Descarga el modelo del bláster del jugador. Si falla, el arma se dibuja con cajas (modelo de respaldo). Llamarlo antes de crear el ViewModel. */
+/**
+ * Descarga el modelo del arma del jugador. Primero el DC-17m (public/models/dc17m.glb, «DC-17m» de goreduku, CC-BY 4.0, ver CRÉDITOS.md):
+ * sus ~250 piezas se juntan en una sola malla, se gira para que el cañón mire hacia delante (−Z) y se escala al largo del arma de siempre.
+ * Si falla, se usa el E-5 de antes (blaster.bin) y, si tampoco, uno de cajas.
+ */
 export async function loadBlasterModel(url: string): Promise<boolean> {
+  try {
+    const gltf = await new GLTFLoader().loadAsync(url.replace(/[^/]*$/, '') + 'dc17m.glb');
+    gltf.scene.updateMatrixWorld(true);
+    const geos: THREE.BufferGeometry[] = [];
+    let map: THREE.Texture | null = null;
+    gltf.scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const g = m.geometry.clone();
+      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') g.deleteAttribute(k);
+      g.applyMatrix4(m.matrixWorld);
+      geos.push(g.index ? g : g.setIndex([...Array(g.attributes.position.count).keys()]));
+      map ??= (m.material as THREE.MeshStandardMaterial).map ?? null;
+    });
+    const geo = mergeGeometries(geos, false)!;
+    for (const g of geos) g.dispose();
+    // el modelo trae el cañón hacia +X: se gira para que mire a −Z (y la carga lateral queda a la izquierda, como en el arma real)
+    geo.rotateY(Math.PI / 2);
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox!;
+    const s = DC17.largo / (bb.max.z - bb.min.z);
+    geo.translate(-(bb.min.x + bb.max.x) / 2, 0, -bb.min.z);
+    geo.scale(s, s, s);
+    geo.translate(0, 0, DC17.boca);
+    geo.computeBoundingBox();
+    // altura del cañón: el centro de lo que hay en la punta
+    const p = geo.attributes.position as THREE.BufferAttribute;
+    let x0 = 0, y0 = 0, n = 0;
+    for (let i = 0; i < p.count; i++) if (p.getZ(i) < DC17.boca + 0.02) { x0 += p.getX(i); y0 += p.getY(i); n++; }
+    // el cañón en el centro y a la misma altura que el arma de antes (la carga lateral no cuenta para centrarla)
+    geo.translate(n ? -x0 / n : 0, DC17.alturaCanon - (n ? y0 / n : 0), 0);
+    geo.computeBoundingSphere();
+    geo.computeBoundingBox();
+    if (map) { (map as THREE.Texture).colorSpace = THREE.SRGBColorSpace; (map as THREE.Texture).anisotropy = 4; }
+    blasterModel = { geo, map, muzzle: [0, DC17.alturaCanon, DC17.boca], bright: DC17.brillo };
+    return true;
+  } catch (e) {
+    console.warn('No se pudo cargar el DC-17m; se prueba con el bláster de antes.', e);
+  }
+  return loadOldBlaster(url);
+}
+
+/** Medidas del DC-17m en el sistema del arma (las mismas unidades que el arma de antes): largo total, dónde está la boca (z) y a qué altura va el cañón. */
+export const DC17 = { largo: 0.8, boca: -0.45, alturaCanon: 0, /** cuánto se aclara la textura (1 = tal cual) */ brillo: 1.05 };
+
+/** El bláster E-5 de antes (respaldo). */
+async function loadOldBlaster(url: string): Promise<boolean> {
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -34,13 +88,13 @@ export async function loadBlasterModel(url: string): Promise<boolean> {
     let map: THREE.Texture | null = null;
     try {
       map = await new THREE.TextureLoader().loadAsync(url.replace(/[^/]*$/, '') + h.texture);
-      map.flipY = false; // coordenadas de textura con el origen arriba a la izquierda (como en glTF)
+      map.flipY = false;
       map.colorSpace = THREE.SRGBColorSpace;
       map.anisotropy = 4;
     } catch (e) {
       console.warn('No se pudo cargar la textura del bláster; se usa gris liso.', e);
     }
-    blasterModel = { geo, map, muzzle: h.muzzle };
+    blasterModel = { geo, map, muzzle: h.muzzle, bright: BLASTER_BRIGHT };
     return true;
   } catch (e) {
     console.warn('No se pudo cargar el modelo del bláster; se usa el de respaldo.', e);
@@ -83,7 +137,7 @@ export class ViewModel {
     if (blasterModel) {
       // El gris oscuro de la textura se aclara un poco para que no se pierda con la luz cálida de Geonosis.
       this.body = new THREE.MeshLambertMaterial({ map: blasterModel.map, color: blasterModel.map ? 0xffffff : 0x3b3f45, fog: false });
-      if (blasterModel.map) this.body.color.setScalar(BLASTER_BRIGHT);
+      if (blasterModel.map) this.body.color.setScalar(blasterModel.bright);
       this.hot.set(0x5a1503);
       this.gun = new THREE.Mesh(blasterModel.geo, this.body);
       this.group.add(this.gun);
@@ -201,6 +255,7 @@ export class ViewModel {
     this.group.position.x = HIP.x * (1 - zoom * 0.9);
     this.group.position.y = HIP.y + zoom * HIP.adsLift - (1 - this.bRaise) * 0.3;
     this.group.position.z = HIP.z + this.kick * 0.05 * (1 - zoom * 0.5);
+    if (this.group.scale.x !== HIP.scale) this.group.scale.setScalar(HIP.scale);
     this.group.rotation.x = this.kick * 0.07;
     if (this.modelArms) {
       // las manos siguen al arma (al apuntar, al disparar, al cambiar de arma)

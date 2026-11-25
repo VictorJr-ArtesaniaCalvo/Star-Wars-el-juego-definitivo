@@ -1,0 +1,10 @@
+Model Information:
+* title:	DC-17m
+* source:	https://sketchfab.com/3d-models/dc-17m-6845ac2657814aa4a870e8d75f05b42f
+* author:	goreduku (https://sketchfab.com/goreduku)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+This work is based on "DC-17m" (https://sketchfab.com/3d-models/dc-17m-6845ac2657814aa4a870e8d75f05b42f) by goreduku (https://sketchfab.com/goreduku) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

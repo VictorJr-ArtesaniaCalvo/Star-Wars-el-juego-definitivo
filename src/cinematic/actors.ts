@@ -6,7 +6,7 @@ import { createB1, poseB1, type B1Bones } from '../enemies/B1Rig';
 import { withDroidWear } from '../enemies/droidWear';
 import { terrainHeight } from '../world/terrain';
 import { createCommandoRig, reach, turnWorld, aimBone, type CommandoRig } from '../player/commandoModel';
-import { blasterModelData, BLASTER_COLOR_BOOST } from '../weapons/ViewModel';
+import { blasterModelData } from '../weapons/ViewModel';
 
 // «Actores» de la cinemática: solo se ven durante ella y no son parte de la partida (no chocan, no disparan, no piensan).
 //  - La cañonera LAAT en vuelo (el mismo modelo que la estrellada, pero entera y limpia).
@@ -329,14 +329,14 @@ export class CommandoModel {
       bm.geo.computeBoundingBox();
       const bb = bm.geo.boundingBox!, len = bb.max.z - bb.min.z, s = RIFLE_HOLD.largo / len;
       const mat = withLightFloor(new THREE.MeshLambertMaterial({ map: bm.map, color: bm.map ? 0xffffff : 0x3b3f45 }));
-      if (bm.map) mat.color.setScalar(BLASTER_COLOR_BOOST * 0.8);
+      if (bm.map) mat.color.setScalar(bm.bright * 0.8);
       const mesh = new THREE.Mesh(bm.geo, mat);
       mesh.scale.setScalar(s);
       mesh.castShadow = true;
       this.rifle.add(mesh);
       // agarres: los mismos puntos que usan los brazos del jugador (mango y empuñadura delantera)
-      this.gripR.position.set(0.03, -0.215, 0.27).multiplyScalar(s);
-      this.gripL.position.set(0.0, -0.225, -0.2).multiplyScalar(s);
+      this.gripR.position.set(0.02, -0.2, 0.15).multiplyScalar(s); // empuñadura del DC-17m
+      this.gripL.position.set(-0.02, -0.21, -0.32).multiplyScalar(s); // bajo la parte delantera
     } else {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, RIFLE_HOLD.largo), lambert(0x2b2d30));
       this.rifle.add(mesh);

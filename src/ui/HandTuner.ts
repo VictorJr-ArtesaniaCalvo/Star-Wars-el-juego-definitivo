@@ -1,4 +1,5 @@
 import { FP_HANDS, FP_STATE, type HandSetup } from '../player/commandoModel';
+import { HIP } from '../weapons/ViewModel';
 
 // Panel del modo de pruebas para ajustar en directo los brazos en primera persona: posición y giro de cada mano en el arma,
 // cuánto se cierran los dedos, de dónde viene el antebrazo y el tamaño de los brazos. «Copiar valores» copia los números
@@ -35,6 +36,7 @@ export class HandTuner {
   private root: HTMLDivElement;
   private side: 'r' | 'l' = 'l';
   private inputs = new Map<string, { range: HTMLInputElement; num: HTMLSpanElement; field: Field; row: HTMLElement }>();
+  private gunInputs: Array<{ range: HTMLInputElement; num: HTMLSpanElement; key: keyof typeof HIP; step: number }> = [];
   private size!: HTMLInputElement;
   private len!: HTMLInputElement;
   private lenVal!: HTMLSpanElement;
@@ -48,6 +50,9 @@ export class HandTuner {
     d.hidden = true;
     d.innerHTML = `
       <div class="ht-head"><b>AJUSTE DE MANOS</b><button data-a="close">✕</button></div>
+      <div class="ht-sub">ARMA</div>
+      <div class="ht-gun"></div>
+      <div class="ht-sub">MANOS</div>
       <div class="ht-seg"><button data-side="r">Mano derecha</button><button data-side="l">Mano izquierda</button></div>
       <div class="ht-fields"></div>
       <label class="ht-row"><span>Tamaño de los brazos <i class="ht-size"></i></span><input type="range" class="ht-sizeR" min="0.6" max="1.4" step="0.01"></label>
@@ -73,6 +78,24 @@ export class HandTuner {
       });
       fields.appendChild(row);
       this.inputs.set(f.key, { range, num, field: f, row });
+    }
+    // Arma: posición en pantalla y tamaño (las manos la siguen solas)
+    const gunBox = d.querySelector('.ht-gun')!;
+    const GUN: Array<[keyof typeof HIP, string, number, number, number]> = [
+      ['x', 'Arma: lado (derecha +)', -0.2, 0.5, 0.002],
+      ['y', 'Arma: altura (arriba +)', -0.5, 0.1, 0.002],
+      ['z', 'Arma: distancia (más lejos −)', -1.2, -0.2, 0.002],
+      ['scale', 'Arma: tamaño', 0.25, 1.2, 0.005],
+      ['adsLift', 'Arma: cuánto sube al apuntar', -0.1, 0.25, 0.002],
+    ];
+    for (const [k, label, min, max, step] of GUN) {
+      const row = document.createElement('label');
+      row.className = 'ht-row';
+      row.innerHTML = `<span>${label} <i></i></span><input type="range" min="${min}" max="${max}" step="${step}">`;
+      const range = row.querySelector('input')!, num = row.querySelector('i')!;
+      range.addEventListener('input', () => { HIP[k] = Number(range.value); num.textContent = String(round(HIP[k], step)); FP_STATE.version++; });
+      gunBox.appendChild(row);
+      this.gunInputs.push({ range, num, key: k, step });
     }
     this.size = d.querySelector('.ht-sizeR')!;
     this.sizeVal = d.querySelector('.ht-size')!;
@@ -106,6 +129,7 @@ export class HandTuner {
       range.value = String(v);
       num.textContent = String(round(v, field.step));
     }
+    for (const g of this.gunInputs) { g.range.value = String(HIP[g.key]); g.num.textContent = String(round(HIP[g.key], g.step)); }
     this.size.value = String(FP_HANDS.tamano);
     this.sizeVal.textContent = String(round(FP_HANDS.tamano, 0.01));
     this.len.value = String(FP_HANDS.largo);
@@ -114,7 +138,8 @@ export class HandTuner {
 
   private copy(btn: HTMLButtonElement) {
     const r = (h: HandSetup) => ({ pos: h.pos.map((v) => round(v, 0.002)), rot: h.rot.map((v) => round(v, 1)), dedos: round(h.dedos, 0.01), pulgar: round(h.pulgar, 0.01), indice: round(h.indice, 0.01), lado: round(h.lado, 1), abajo: round(h.abajo, 1) });
-    const text = 'MANOS ' + JSON.stringify({ tamano: round(FP_HANDS.tamano, 0.01), largo: round(FP_HANDS.largo, 0.01), derecha: r(FP_HANDS.derecha), izquierda: r(FP_HANDS.izquierda) });
+    const gun = { x: round(HIP.x, 0.002), y: round(HIP.y, 0.002), z: round(HIP.z, 0.002), tamano: round(HIP.scale, 0.005), subeAlApuntar: round(HIP.adsLift, 0.002) };
+    const text = 'MANOS ' + JSON.stringify({ arma: gun, tamano: round(FP_HANDS.tamano, 0.01), largo: round(FP_HANDS.largo, 0.01), derecha: r(FP_HANDS.derecha), izquierda: r(FP_HANDS.izquierda) });
     const out = this.root.querySelector<HTMLTextAreaElement>('.ht-out')!;
     out.value = text;
     const done = () => { btn.textContent = 'Copiado ✓'; setTimeout(() => (btn.textContent = 'Copiar valores'), 1800); };

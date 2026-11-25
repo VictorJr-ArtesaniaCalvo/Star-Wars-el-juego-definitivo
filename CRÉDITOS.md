@@ -22,6 +22,12 @@ para separar un ala (que queda tirada como cobertura), se simplifica (de ~19.000
 Los daños (hollín, humo, chispas y fuego) se simulan encima, sin modificar el modelo. Hay una versión de formas sencillas de respaldo si el archivo falta.
 Se muestra también en la pantalla de créditos del juego (menú → «Créditos y agradecimientos»).
 
+**Bláster DC-17m del jugador** (`public/models/dc17m.glb`): este trabajo se basa en
+«[DC-17m](https://sketchfab.com/3d-models/dc-17m-6845ac2657814aa4a870e8d75f05b42f)» de [goreduku](https://sketchfab.com/goreduku), con licencia
+[CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/) (hay que citar al autor; se permite el uso comercial; ver `public/models/LICENCIA-DC17M.txt`).
+Modelo aportado por el autor del proyecto. Cambios: sus piezas se juntan en una sola malla, se gira y se escala al tamaño del arma en pantalla (en el juego).
+Sustituye al E-5, que queda solo como respaldo si el archivo falla.
+
 **Clon comando** (`public/models/commando.glb`): este trabajo se basa en
 «[Republic Commando](https://sketchfab.com/3d-models/republic-commando-30959b9c2ddb475085eaccdcb00e2dd8)»
 de [Abel](https://sketchfab.com/abel76), con licencia
