@@ -30,8 +30,9 @@ import { World } from '../world/World';
 import { SUN_DIR } from '../world/sky';
 import { QUALITY, Settings, type Quality } from './Settings';
 import { Cinematic } from '../cinematic/Cinematic';
-import { loadCommandoModel } from '../player/commandoModel';
+import { loadCommandoModel, loadTrooperModel } from '../player/commandoModel';
 import { HandTuner } from '../ui/HandTuner';
+import { VoiceTuner } from '../ui/VoiceTuner';
 import { COMANDO } from '../cinematic/script';
 
 type Mode = 'menu' | 'cinematic' | 'playing' | 'paused' | 'gameover';
@@ -61,6 +62,10 @@ export class Game {
   private waves!: WaveManager;
   private testMode = false;
   private cine!: Cinematic;
+  private voiceTuner = new VoiceTuner({
+    retune: () => this.cine.voices.retune(),
+    play: (what) => { this.audio.resume(); this.cine.testVoice(what); },
+  });
   private tuner = new HandTuner({
     toggleAim: () => { this.adsToggled = !this.adsToggled; },
     look: (d) => { this.pitch = d * 0.75; },
@@ -116,6 +121,7 @@ export class Game {
     this.menu = new Menu(this.settings, {
       onPlay: () => (this.mode === 'paused' ? this.resume() : this.startRun(true)),
       onTuneHands: () => this.openHandTuner(),
+      onTuneVoice: () => { this.audio.resume(); this.voiceTuner.show(); },
       onCinematic: (shot) => { if (this.mode === 'menu' || this.mode === 'gameover') this.startRun(true, shot); },
       onQuit: () => this.quitToMenu(),
       onGoRound: (round) => this.jumpToRound(round),
@@ -144,7 +150,7 @@ export class Game {
 
   async init() {
     await RAPIER.init();
-    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`), loadWorldTextures(import.meta.env.BASE_URL), loadParticleAtlas(import.meta.env.BASE_URL), loadCommandoModel(`${import.meta.env.BASE_URL}models/commando.glb`)]);
+    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`), loadWorldTextures(import.meta.env.BASE_URL), loadParticleAtlas(import.meta.env.BASE_URL), loadCommandoModel(`${import.meta.env.BASE_URL}models/commando.glb`), loadTrooperModel('clone', `${import.meta.env.BASE_URL}models/clone/clone.fbx`)]);
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = TICK;
     this.audio.init();

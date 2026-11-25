@@ -1,12 +1,14 @@
 VOCES DE LA CINEMÁTICA INICIAL
 ==============================
 
-Pon aquí los archivos de voz en MP3 con estos nombres exactos. El juego les aplica solo el filtro de radio de casco clon
-(no hace falta tratarlos antes): mejor grabados limpios, sin eco ni música, y con medio segundo como mucho de silencio al principio.
+Los MP3 de esta carpeta se generan con  sh tools/prepare-voices.sh  a partir de las grabaciones originales del iPhone
+(assets/audio/voces/*.m4a): recorta los silencios, iguala el volumen (−16 LUFS) y baja un poco el tono del comandante.
 
-  soldado-1.mp3     SOLDADO (radio):    «Comandante, tenemos una cañonera derribada en el sector siete.»
-  comandante-1.mp3  COMANDANTE (radio): «Parece que nuestros compañeros no han tenido la misma suerte. No podemos bajar, seguimos rumbo.»
-  comando-1.mp3     TÚ (casco):         «Rayos... las comunicaciones están fritas. Tendré que apañármelas solo.»
+  soldado-1.mp3     SOLDADO (radio, toma 2A):     «Comandante, tenemos una cañonera derribada en el sector siete.»   ← t2a_soldado.m4a
+  comandante-1.mp3  COMANDANTE (radio, toma 2B):  «Parece que nuestros compañeros no han tenido la misma suerte. No podemos bajar, seguimos rumbo.»   ← t2b_comandante.m4a
+  comando-1.mp3     TÚ (casco, toma 5):           «Rayos... las comunicaciones están fritas. Tendré que apañármelas solo.»   ← t5_comando.m4a
 
-Si falta alguno, esa frase sale solo con subtítulo (y suena igualmente el clic y la estática de la radio).
+El filtro de radio de casco clon NO está en los archivos: lo pone el juego al reproducirlos (src/audio/Voices.ts, RADIO_FILTERS),
+y se puede ajustar de oído en el modo de pruebas: «AJUSTAR FILTRO DE RADIO (VOCES)».
+Si falta alguno, esa frase sale solo con subtítulo (y suenan igualmente el clic y la estática de la radio).
 Los textos, los nombres de archivo y el momento en que suena cada frase están en src/cinematic/script.ts.

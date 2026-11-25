@@ -8,14 +8,17 @@ import { withLightFloor } from '../world/lightFill';
 // Trae esqueleto (76 huesos) pero ninguna animación: las posturas se hacen girando huesos por código, con ayuda de un «IK de dos huesos»
 // (se dice dónde tiene que quedar la mano o el pie y se calculan solos el hombro y el codo, o la cadera y la rodilla).
 
-let source: THREE.Object3D | null = null;
-let restHeight = 1;
+// También carga el clon normal de fase I (public/models/clone/: «Clone Trooper Phase1 (Shiny) [Updated]» de Admiral Tributon, CC-BY 4.0).
+// Se usa su versión .fbx (la .gltf trae el esqueleto descolocado) con sus texturas en JPG (color, relieve y brillo del visor, sacadas del .usdz).
+// Mismo sistema, otro esqueleto (nombres de huesos tipo Mixamo).
 
-/** Descarga el modelo. Si falla, la cinemática usa el comando provisional de formas sencillas y el jugador los brazos de antes. */
-export async function loadCommandoModel(url: string): Promise<boolean> {
+export type TrooperModel = 'commando' | 'clone';
+const models: Partial<Record<TrooperModel, { scene: THREE.Object3D; restHeight: number }>> = {};
+
+/** Descarga un modelo. Si falla, la cinemática usa las figuras provisionales de formas sencillas (y el jugador, los brazos de antes). */
+export async function loadTrooperModel(id: TrooperModel, url: string): Promise<boolean> {
   try {
-    const gltf = await new GLTFLoader().loadAsync(url);
-    const scene = gltf.scene;
+    const scene = url.endsWith('.fbx') ? await loadFbxWithTextures(url) : (await new GLTFLoader().loadAsync(url)).scene;
     scene.traverse((o) => {
       const m = o as THREE.SkinnedMesh;
       if (!m.isMesh) return;
@@ -31,17 +34,46 @@ export async function loadCommandoModel(url: string): Promise<boolean> {
       m.frustumCulled = false;
     });
     scene.updateMatrixWorld(true);
-    restHeight = new THREE.Box3().setFromObject(scene, true).getSize(new THREE.Vector3()).y;
-    source = scene;
+    models[id] = { scene, restHeight: new THREE.Box3().setFromObject(scene, true).getSize(new THREE.Vector3()).y };
     return true;
   } catch (e) {
-    console.warn('No se pudo cargar el modelo del clon comando; se usa el provisional.', e);
-    source = null;
+    console.warn(`No se pudo cargar el modelo «${id}»; se usa el provisional.`, e);
+    delete models[id];
     return false;
   }
 }
 
-export const commandoModelReady = () => source !== null;
+/** Carga un .fbx y le pone las texturas JPG que hay junto a él (<material>_baseColor/_normal/_emissive.jpg). */
+async function loadFbxWithTextures(url: string): Promise<THREE.Object3D> {
+  const { FBXLoader } = await import('three/addons/loaders/FBXLoader.js');
+  const obj = await new FBXLoader().loadAsync(url);
+  const dir = url.replace(/[^/]*$/, '');
+  const tl = new THREE.TextureLoader();
+  const tex = async (name: string, srgb: boolean) => {
+    try {
+      const t = await tl.loadAsync(dir + name);
+      t.flipY = false; // las texturas vienen del .usdz (origen arriba a la izquierda, como en glTF)
+      if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    } catch { return null; }
+  };
+  const jobs: Promise<void>[] = [];
+  obj.traverse((o) => {
+    const m = o as THREE.SkinnedMesh;
+    if (!m.isMesh) return;
+    const name = (Array.isArray(m.material) ? m.material[0] : m.material).name;
+    jobs.push((async () => {
+      const [map, normalMap, emissiveMap] = await Promise.all([tex(`${name}_baseColor.jpg`, true), tex(`${name}_normal.jpg`, false), tex(`${name}_emissive.jpg`, true)]);
+      m.material = new THREE.MeshStandardMaterial({ map, normalMap, emissiveMap, color: 0xffffff });
+    })());
+  });
+  await Promise.all(jobs);
+  return obj;
+}
+
+export const loadCommandoModel = (url: string) => loadTrooperModel('commando', url);
+export const commandoModelReady = () => !!models.commando;
+export const trooperModelReady = (id: TrooperModel) => !!models[id];
 
 /** Nombre «limpio» de un hueso: «Left_elbow_06» → «leftelbow». */
 const key = (n: string) => n.replace(/_\d+$/, '').replace(/[\s_.]/g, '').toLowerCase();
@@ -55,32 +87,43 @@ export interface CommandoRig {
   reset(): void;
 }
 
-/** Una copia del modelo, lista para posar. */
-export function createCommandoRig(height: number): CommandoRig {
-  const model = cloneSkinned(source!) as THREE.Object3D;
+/** Una copia del modelo, lista para posar. `facing`: hacia dónde mira el modelo original (+1 = +Z, −1 = −Z). */
+export function createTrooperRig(id: TrooperModel, height: number, facing = 1): CommandoRig {
+  const src = models[id]!;
+  const model = cloneSkinned(src.scene) as THREE.Object3D;
   const root = new THREE.Group();
   const inner = new THREE.Group();
   inner.add(model);
-  inner.rotation.y = Math.PI; // el modelo mira a +Z: se gira para que mire a −Z, como todo en el juego
-  inner.scale.setScalar(height / restHeight);
+  if (facing > 0) inner.rotation.y = Math.PI; // el modelo mira a +Z: se gira para que mire a −Z, como todo en el juego
+  inner.scale.setScalar(height / src.restHeight);
   root.add(inner);
   root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(root, true);
   inner.position.y = -box.min.y; // pies en el suelo
   const bones: Record<string, THREE.Bone> = {};
   const meshes: THREE.SkinnedMesh[] = [];
-  model.traverse((o) => {
-    if ((o as THREE.Bone).isBone) bones[key(o.name)] = o as THREE.Bone;
-    if ((o as THREE.SkinnedMesh).isSkinnedMesh) meshes.push(o as THREE.SkinnedMesh);
-  });
+  model.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) meshes.push(o as THREE.SkinnedMesh); });
+  // los huesos que mueven la malla (en el .fbx hay además nudos con el mismo nombre que no mueven nada)
+  for (const m of meshes) for (const bn of m.skeleton.bones) if (!bones[key(bn.name)]) bones[key(bn.name)] = bn;
+  model.traverse((o) => { if ((o as THREE.Bone).isBone && !bones[key(o.name)]) bones[key(o.name)] = o as THREE.Bone; });
   const rest = new Map<THREE.Bone, { q: THREE.Quaternion; p: THREE.Vector3 }>();
   for (const b of Object.values(bones)) rest.set(b, { q: b.quaternion.clone(), p: b.position.clone() });
+  // centrado: la cadera sobre el origen (la caja de la postura en T no es simétrica en todos los modelos)
+  const hips = bones.hips;
+  if (hips) {
+    root.updateMatrixWorld(true);
+    const hp = root.worldToLocal(hips.getWorldPosition(new THREE.Vector3()));
+    inner.position.x -= hp.x;
+    inner.position.z -= hp.z;
+  }
   root.updateMatrixWorld(true);
   return {
     root, bones, meshes,
     reset() { for (const [b, r] of rest) { b.quaternion.copy(r.q); b.position.copy(r.p); } root.updateMatrixWorld(true); },
   };
 }
+
+export const createCommandoRig = (height: number) => createTrooperRig('commando', height);
 
 // ---------- Ayudas para posar ----------
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3();

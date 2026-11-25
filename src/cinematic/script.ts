@@ -84,11 +84,20 @@ export const COMANDO = { x: 4.0, z: -14.0 };
 /** Caja de la República tras la que se cubre, justo delante de él y de cara al norte (cobertura sólida del mapa). `giro` en radianes. */
 export const COBERTURA = { x: 4.0, z: -15.2, giro: 0 };
 
-/** Vuelo de la cañonera durante la toma 2: gira alrededor de un punto con la puerta mirando hacia él. Ángulos de MAYOR a MENOR. */
-export const VUELO = { centro: [0, -2] as [number, number], radio: 46, altura: 32, giroDesde: 60, giroHasta: 36, alabeo: 10 };
+/** Vuelo de la cañonera durante la toma 2 (2A y 2B). */
+export const VUELO = {
+  /** Pasada en línea recta a lo largo del cañón, de sur a norte, por el lado derecho: la puerta abierta (lado izquierdo de la nave) da a la cañonera estrellada. */
+  inicio: [20, 100] as [number, number],
+  fin: [20, -32] as [number, number],
+  /** Segundos que tarda (lo que duran las tomas 2A y 2B juntas): 132 m en 11 s ≈ 43 km/h; la cañonera estrellada queda de través hacia el segundo 8,5. */
+  duracion: 11,
+  /** Altura sobre el suelo del cráter (m) e inclinación lateral (grados). */
+  altura: 22,
+  alabeo: 5,
+};
 
-/** Dónde están de pie los dos clones junto a la puerta abierta (dentro de la nave, en metros; el suelo de la bahía está a ‑3,35). `separacion`: entre uno y otro. */
-export const PIERNAS = { x: 0.35, suelo: -3.35, z: -1.3, separacion: 2.15 };
+/** Dónde están de pie los dos soldados (clon normal y, a su derecha, el comando) junto a la puerta abierta (dentro de la nave, en metros; el suelo de la bahía está a ‑3,35). `separacion`: entre uno y otro. */
+export const PIERNAS = { x: 0.81, suelo: -3.35, z: -0.68, separacion: 1.75 }; // cada uno con un asa del techo delante (x 0,96 y 2,41)
 
 /** Estaturas (m). */
 export const ESTATURA = { clon: 1.83, comando: 1.85 };
@@ -109,26 +118,43 @@ export const TOMAS: Toma[] = [
     ],
   },
   {
-    nombre: '2 · Desde la cañonera en vuelo',
-    duracion: 6,
+    nombre: '2A · La cañonera en vuelo, desde fuera',
+    duracion: 4,
     fundidoEntrada: 0.7,
+    actores: ['canonera', 'piernas'], // 'piernas' = los dos soldados de la puerta (clon normal y comando)
+    camara: {
+      tipo: 'canonera',
+      // volando a la par de la nave, delante de la puerta abierta: se ve a los dos soldados de frente y el suelo pasar por debajo
+      desde: { pos: [1.0, -2.4, -5.6], mira: [1.8, -2.2, 0] },
+      hasta: { pos: [1.7, -2.0, -4.8], mira: [1.7, -2.3, 0] },
+    },
+    angulo: 56,
+    temblor: 0.45,
+    eventos: [
+      { en: 0, tipo: 'motor', encender: true },
+    ],
+    dialogos: [
+      { en: 0.4, quien: 'SOLDADO', texto: 'Comandante, tenemos una cañonera derribada en el sector siete.', voz: 'soldado-1', filtro: 'radio', dura: 3.3 },
+    ],
+  },
+  {
+    nombre: '2B · Desde dentro, mirando a la cañonera estrellada',
+    duracion: 7,
     actores: ['canonera', 'piernas'],
     camara: {
       tipo: 'canonera',
-      desde: { pos: [1.25, -1.9, -0.1], mira: [0.9, -5.6, -4.5] },
-      hasta: { pos: [1.1, -2.0, -0.35], mira: [1.2, -5.5, -4.5] },
+      // por encima de los hombros de los dos soldados, mirando abajo a nuestra cañonera estrellada
+      desde: { pos: [1.75, -1.2, 1.15], mira: [5.5, -6.8, -6.6] },
+      hasta: { pos: [1.6, -1.25, 1.05], mira: [2.4, -7.2, -7.6] },
     },
-    angulo: 62,
+    angulo: 64,
     temblor: 0.35,
     eventos: [
-      { en: 0, tipo: 'motor', encender: true },
-      { en: 3.8, tipo: 'cañonazo', fuerza: 0.5 },
-      { en: 5.8, tipo: 'motor', encender: false },
+      { en: 2.4, tipo: 'cañonazo', fuerza: 0.5 },
+      { en: 6.6, tipo: 'motor', encender: false },
     ],
     dialogos: [
-      { en: 0.5, quien: 'SOLDADO', texto: 'Comandante, tenemos una cañonera derribada en el sector siete.', voz: 'soldado-1', filtro: 'radio', dura: 3.4 },
-      // La respuesta sigue sonando por radio sobre el plano de la cañonera estrellada (toma 3)
-      { en: 4.2, quien: 'COMANDANTE', texto: 'Parece que nuestros compañeros no han tenido la misma suerte. No podemos bajar, seguimos rumbo.', voz: 'comandante-1', filtro: 'radio', dura: 5.2 },
+      { en: 0.3, quien: 'COMANDANTE', texto: 'Parece que nuestros compañeros no han tenido la misma suerte. No podemos bajar, seguimos rumbo.', voz: 'comandante-1', filtro: 'radio', dura: 4.4 },
     ],
   },
   {
@@ -158,7 +184,7 @@ export const TOMAS: Toma[] = [
   },
   {
     nombre: '5 · El comando tras la cobertura',
-    duracion: 5,
+    duracion: 6,
     actores: ['comando'],
     camara: {
       tipo: 'recorrido',
@@ -169,20 +195,21 @@ export const TOMAS: Toma[] = [
     temblor: 0.06,
     posturas: [
       { en: 0, agachado: 1, asoma: 0, golpe: 0 },
-      { en: 0.9, asoma: 1 },
-      { en: 1.3, golpe: 0 },
-      { en: 1.6, golpe: 1 },
-      { en: 2.05, golpe: 0.92 },
-      { en: 2.2, golpe: 1 },
-      { en: 2.7, golpe: 0 },
-      { en: 3.4, asoma: 0.6 },
+      { en: 0.8, asoma: 1 },
+      { en: 1.0, golpe: 0 },
+      { en: 1.3, golpe: 1 },
+      { en: 1.55, golpe: 0.92 },
+      { en: 1.65, golpe: 1 },
+      { en: 2.1, golpe: 0 },
+      { en: 3.6, asoma: 0.6 },
     ],
     eventos: [
-      { en: 1.55, tipo: 'golpeCasco' },
-      { en: 1.7, tipo: 'estatica', dura: 0.9, filtro: 'casco' },
+      { en: 1.25, tipo: 'golpeCasco' },
+      // justo después del golpe, una ráfaga de estática en la radio del casco
+      { en: 1.4, tipo: 'estatica', dura: 0.6, filtro: 'casco' },
     ],
     dialogos: [
-      { en: 2.6, quien: 'TÚ', texto: 'Rayos... las comunicaciones están fritas. Tendré que apañármelas solo.', voz: 'comando-1', filtro: 'casco', dura: 4.0 },
+      { en: 2.05, quien: 'TÚ', texto: 'Rayos... las comunicaciones están fritas. Tendré que apañármelas solo.', voz: 'comando-1', filtro: 'casco', dura: 3.8 },
     ],
   },
   {

@@ -5,7 +5,7 @@ import { withLightFloor } from '../world/lightFill';
 import { createB1, poseB1, type B1Bones } from '../enemies/B1Rig';
 import { withDroidWear } from '../enemies/droidWear';
 import { terrainHeight } from '../world/terrain';
-import { createCommandoRig, reach, turnWorld, aimBone, type CommandoRig } from '../player/commandoModel';
+import { createCommandoRig, createTrooperRig, reach, turnWorld, aimBone, trooperModelReady, type CommandoRig, type TrooperModel } from '../player/commandoModel';
 import { blasterModelData } from '../weapons/ViewModel';
 
 // «Actores» de la cinemática: solo se ven durante ella y no son parte de la partida (no chocan, no disparan, no piensan).
@@ -302,6 +302,223 @@ export class Commando {
     this.foreL.rotation.set(L(rest.e, 0.1, tap), 0, L(0, -1.9, tap));
     void s;
   }
+}
+
+// ---------- Soldados de pie en la puerta de la cañonera en vuelo (modelos de verdad) ----------
+// El SOLDADO (clon normal de fase I, sin arma) y el COMANDANTE (clon comando, con el DC-17m), mirando hacia fuera por la puerta abierta.
+// Pies a la anchura de los hombros, uno adelantado, rodillas algo dobladas y el peso cargado en una pierna; con una mano se agarran a un asa
+// del techo (por delante y por encima de la cabeza) y el torso y la cabeza miran abajo, al cañón. Se balancean con el vuelo y, mientras habla
+// cada uno, hace un gesto (el soldado señala abajo; el comandante asiente).
+
+/** Nombres de los huesos en cada modelo (el comando y el clon tienen esqueletos distintos). `l`/`r` = lado. */
+const BONES: Record<TrooperModel, {
+  spine: string; chest: string; neck: string; head: string;
+  arm: (s: 'l' | 'r') => string; fore: (s: 'l' | 'r') => string; hand: (s: 'l' | 'r') => string;
+  thigh: (s: 'l' | 'r') => string; knee: (s: 'l' | 'r') => string; foot: (s: 'l' | 'r') => string; toe: (s: 'l' | 'r') => string;
+  finger: (s: 'l' | 'r', f: string, i: number) => string; thumb: (s: 'l' | 'r', i: number) => string;
+}> = {
+  commando: {
+    spine: 'spine', chest: 'chest', neck: 'neck', head: 'head',
+    arm: (s) => `${S(s)}arm`, fore: (s) => `${S(s)}elbow`, hand: (s) => `${S(s)}wrist`,
+    thigh: (s) => `${S(s)}leg`, knee: (s) => `${S(s)}knee`, foot: (s) => `${S(s)}ankle`, toe: (s) => `${S(s)}toe`,
+    finger: (s, f, i) => `${f}finger${i}${s}`, thumb: (s, i) => `thumb${i}${s}`,
+  },
+  clone: {
+    spine: 'spine', chest: 'spine2', neck: 'neck', head: 'head',
+    arm: (s) => `${S(s)}arm`, fore: (s) => `${S(s)}forearm`, hand: (s) => `${S(s)}hand`,
+    thigh: (s) => `${S(s)}upleg`, knee: (s) => `${S(s)}leg`, foot: (s) => `${S(s)}foot`, toe: (s) => `${S(s)}toebase`,
+    finger: (s, f, i) => `${S(s)}hand${f === 'little' ? 'pinky' : f}${i}`, thumb: (s, i) => `${S(s)}handthumb${i}`,
+  },
+};
+function S(s: 'l' | 'r') { return s === 'l' ? 'left' : 'right'; }
+
+export interface TrooperSetup {
+  kind: TrooperModel;
+  /** Mano con la que se agarra al asa y pierna que carga el peso (la otra, adelantada). */
+  agarra: 'l' | 'r';
+  apoyo: 'l' | 'r';
+  /** Lleva el DC-17m en la mano libre (el comandante) o la tiene libre (el soldado). */
+  arma: boolean;
+  /** Gestos mientras habla, en segundos desde que empieza la pasada de la nave (toma 2A): señalar abajo / asentir / girar la cabeza al compañero. */
+  gestos: Array<{ tipo: 'señala' | 'asiente' | 'mira'; desde: number; hasta: number }>;
+}
+
+/** Ajustes de los dos soldados (metros, en el sistema de cada soldado: x a su derecha, y arriba desde el suelo, z hacia atrás; −z = hacia la puerta). */
+export const SHIP_TROOPERS = {
+  soldado: { kind: 'clone', agarra: 'r', apoyo: 'r', arma: false, gestos: [{ tipo: 'mira', desde: 0.35, hasta: 1.15 }, { tipo: 'señala', desde: 1.55, hasta: 3.5 }] } as TrooperSetup, // «Comandante,» → mira al compañero; «…cañonera derribada…» → señala abajo
+  comandante: { kind: 'commando', agarra: 'l', apoyo: 'l', arma: true, gestos: [{ tipo: 'mira', desde: 4.3, hasta: 5.2 }, { tipo: 'asiente', desde: 6.9, hasta: 7.6 }, { tipo: 'asiente', desde: 7.9, hasta: 8.6 }] } as TrooperSetup, // mira al soldado al empezar; asiente en «No podemos bajar» y «seguimos rumbo»
+  /** Dónde queda la mano que agarra el asa (por delante y por encima de la cabeza). */
+  asa: [0.15, 1.95, -0.25] as [number, number, number],
+  /** Pies: separación entre ellos, cuánto se adelanta uno y cuánto se retrasa el otro. */
+  pies: { separacion: 0.36, delante: 0.16, detras: 0.1 },
+  /** Cuánto baja la cadera (rodillas dobladas) y cuánto se desplaza hacia la pierna de apoyo. */
+  cadera: { baja: 0.05, lado: 0.05 },
+  /** Inclinación del torso hacia la puerta y de la cabeza hacia abajo (grados). */
+  torso: 8, cabeza: 24,
+  /** Hacia dónde señala el soldado con la mano libre (x hacia el otro lado del cuerpo, altura, delante). */
+  señala: [0.45, 0.8, -0.75] as [number, number, number],
+  /** Largo del DC-17m en las manos del comandante (m). */
+  largoArma: 0.5,
+};
+
+class ShipTrooper {
+  readonly group = new THREE.Group();
+  private rig: CommandoRig;
+  private rifle: THREE.Group | null = null;
+  private grip = new THREE.Vector3();
+  private B: (typeof BONES)[TrooperModel];
+  private fingerCache: Array<[THREE.Bone, THREE.Quaternion]> = [];
+  constructor(private set: TrooperSetup, height: number) {
+    this.rig = createTrooperRig(set.kind, height);
+    this.B = BONES[set.kind];
+    this.group.add(this.rig.root);
+    const bm = set.arma ? blasterModelData() : null;
+    if (bm) {
+      bm.geo.computeBoundingBox();
+      const bb = bm.geo.boundingBox!, s = SHIP_TROOPERS.largoArma / (bb.max.z - bb.min.z);
+      const mat = withLightFloor(new THREE.MeshLambertMaterial({ map: bm.map, color: bm.map ? 0xffffff : 0x3b3f45 }));
+      if (bm.map) mat.color.setScalar(bm.bright * 0.8);
+      const mesh = new THREE.Mesh(bm.geo, mat);
+      mesh.scale.setScalar(s);
+      this.rifle = new THREE.Group();
+      this.rifle.add(mesh);
+      this.group.add(this.rifle);
+      this.grip.set(0.02, -0.2, 0.15).multiplyScalar(s); // la empuñadura del DC-17m, en el sistema del arma
+    }
+  }
+
+  private b(name: string) { return this.rig.bones[name]; }
+  private W(x: number, y: number, z: number) { return this.group.localToWorld(new THREE.Vector3(x, y, z)); }
+
+  /** `t`: tiempo de la cinemática (balanceo); `ft`: segundos desde que empezó la pasada de la nave (gestos). */
+  pose(t: number, ft: number, phase: number) {
+    const st = this.set, B = this.B, T = SHIP_TROOPERS;
+    const free: 'l' | 'r' = st.agarra === 'l' ? 'r' : 'l';
+    const sgn = (s: 'l' | 'r') => (s === 'r' ? 1 : -1);
+    const gesture = (tipo: string) => {
+      let k = 0;
+      for (const g of st.gestos) if (g.tipo === tipo) {
+        const a = Math.min(1, (ft - g.desde) / 0.35), z = Math.min(1, (g.hasta - ft) / 0.35);
+        k = Math.max(k, Math.max(0, Math.min(a, z)));
+      }
+      return k * k * (3 - 2 * k);
+    };
+    this.rig.reset();
+    this.group.updateMatrixWorld(true);
+    const right = new THREE.Vector3(1, 0, 0).transformDirection(this.group.matrixWorld);
+    const fwd = new THREE.Vector3(0, 0, -1).transformDirection(this.group.matrixWorld);
+    const up = new THREE.Vector3(0, 1, 0).transformDirection(this.group.matrixWorld);
+
+    // 1) Cadera: algo más baja (rodillas dobladas), desplazada hacia la pierna de apoyo, inclinada y con un balanceo suave
+    const swayX = Math.sin(t * 0.9 + phase) * 0.025, swayZ = Math.sin(t * 1.3 + phase) * 0.015;
+    const hips = this.b('hips');
+    const hp = this.group.worldToLocal(hips.getWorldPosition(new THREE.Vector3()));
+    hp.y -= T.cadera.baja;
+    hp.x += sgn(st.apoyo) * T.cadera.lado + swayX;
+    hp.z += swayZ;
+    hips.position.copy(hips.parent!.worldToLocal(this.group.localToWorld(hp.clone())));
+    hips.updateMatrixWorld(true);
+    turnWorld(hips, fwd, sgn(st.apoyo) * 0.05 + swayX * 0.8); // la cadera cae hacia el lado que no carga
+    // 2) Piernas: pies a la anchura de los hombros, uno adelantado; rodillas hacia delante
+    for (const s of ['l', 'r'] as const) {
+      const front = s !== st.apoyo;
+      const foot = this.W(sgn(s) * T.pies.separacion / 2, 0.1, front ? -T.pies.delante : T.pies.detras);
+      reach(this.b(B.thigh(s)), this.b(B.knee(s)), this.b(B.foot(s)), foot, this.W(sgn(s) * 0.25, 0.55, -1.2));
+      aimBone(this.b(B.foot(s)), this.b(B.toe(s)), fwd.clone().multiplyScalar(1).addScaledVector(up, -0.35).addScaledVector(right, sgn(s) * 0.15));
+    }
+    // 3) Torso hacia la puerta y algo girado hacia el lado del asa; cabeza mirando abajo, al cañón
+    const lean = THREE.MathUtils.degToRad(T.torso);
+    turnWorld(this.b(B.spine), right, -lean * 0.5 + swayZ * 0.6);
+    turnWorld(this.b(B.chest), right, -lean * 0.5);
+    turnWorld(this.b(B.chest), up, sgn(st.agarra) * -0.08);
+    const nod = gesture('asiente') * Math.sin((ft % 0.7) / 0.7 * Math.PI * 2) * 0.18;
+    const look = gesture('mira');
+    turnWorld(this.b(B.neck), right, -THREE.MathUtils.degToRad(T.cabeza) * 0.4);
+    turnWorld(this.b(B.head), right, -THREE.MathUtils.degToRad(T.cabeza) * 0.6 + nod + look * 0.25);
+    turnWorld(this.b(B.head), up, look * sgn(st.agarra) * 0.6); // gira la cabeza hacia el compañero
+    // 4) Brazo del asa: por delante y por encima de la cabeza, codo doblado hacia fuera
+    const asa = this.W(sgn(st.agarra) * T.asa[0], T.asa[1], T.asa[2]);
+    reach(this.b(B.arm(st.agarra)), this.b(B.fore(st.agarra)), this.b(B.hand(st.agarra)), asa, this.W(sgn(st.agarra) * 0.8, 1.3, -0.3));
+    aimBone(this.b(B.hand(st.agarra)), this.b(B.finger(st.agarra, 'middle', 1)), up.clone().addScaledVector(fwd, 0.3)); // dedos hacia arriba, rodeando el asa
+    // 5) Mano libre: con el arma (el comandante) o colgando relajada / señalando abajo (el soldado)
+    const point = gesture('señala');
+    if (this.rifle) {
+      const hand = this.W(sgn(free) * 0.2, 0.98, -0.2);
+      reach(this.b(B.arm(free)), this.b(B.fore(free)), this.b(B.hand(free)), hand, this.W(sgn(free) * 0.6, 1.0, 0.4));
+    } else {
+      const rest = this.W(sgn(free) * 0.26, 0.88, -0.06), aim = this.W(-sgn(free) * T.señala[0], T.señala[1], T.señala[2]); // señala hacia delante y abajo, cruzando por delante del cuerpo (hacia donde está la cañonera estrellada)
+      const target = rest.lerp(aim, point);
+      reach(this.b(B.arm(free)), this.b(B.fore(free)), this.b(B.hand(free)), target, this.W(sgn(free) * 0.6, 1.0, 0.3));
+      if (point > 0) aimBone(this.b(B.hand(free)), this.b(B.finger(free, 'middle', 1)), target.clone().sub(this.b(B.arm(free)).getWorldPosition(new THREE.Vector3())).normalize());
+    }
+    // 6) Dedos: puño en el asa y en la empuñadura; el soldado, al señalar, estira el índice
+    this.fist(st.agarra, 1);
+    this.fist(free, this.rifle ? 1 : 0.45, !this.rifle && point > 0.5);
+    // 7) El arma pegada a la mano libre por la empuñadura, apuntando abajo y en diagonal por delante del cuerpo
+    if (this.rifle) {
+      const hand = this.b(B.hand(free)).getWorldPosition(new THREE.Vector3());
+      const dir = fwd.clone().multiplyScalar(0.55).addScaledVector(up, -0.75).addScaledVector(right, -sgn(free) * 0.35).normalize();
+      const m = new THREE.Matrix4().lookAt(new THREE.Vector3(), dir.clone().negate(), up); // −Z del arma hacia `dir`
+      const q = new THREE.Quaternion().setFromRotationMatrix(m);
+      const gq = this.group.getWorldQuaternion(new THREE.Quaternion());
+      this.rifle.quaternion.copy(gq.clone().invert().multiply(q));
+      this.rifle.updateMatrixWorld(true);
+      const off = this.grip.clone().applyQuaternion(q).multiplyScalar(this.group.getWorldScale(new THREE.Vector3()).x);
+      this.rifle.position.copy(this.group.worldToLocal(hand.sub(off)));
+    }
+    this.rig.root.updateMatrixWorld(true);
+  }
+
+  /** Cierra los dedos de una mano (la palma es el lado donde queda el pulgar). `amount` 0..1; `index` = deja el índice estirado. */
+  private fist(s: 'l' | 'r', amount: number, index = false) {
+    const B = this.B;
+    const p = (bn: THREE.Object3D) => bn.getWorldPosition(new THREE.Vector3());
+    const mid = this.b(B.finger(s, 'middle', 1)), idx = this.b(B.finger(s, 'index', 1)), lit = this.b(B.finger(s, 'little', 1));
+    const th = this.b(B.thumb(s, 2));
+    if (!mid || !idx || !lit || !th) return;
+    const hand = p(this.b(B.hand(s)));
+    const f = p(mid).sub(hand).normalize();
+    const side = p(idx).sub(p(lit)).normalize();
+    const n = new THREE.Vector3().crossVectors(side, f).normalize();
+    if (p(th).sub(hand).dot(n) < 0) n.negate(); // la palma, hacia el pulgar
+    for (const fname of ['index', 'middle', 'ring', 'little']) {
+      const k = fname === 'index' && index ? 0.05 : amount;
+      for (let i = 1; i <= 3; i++) {
+        const a = this.b(B.finger(s, fname, i));
+        if (!a) continue;
+        const c = this.b(B.finger(s, fname, i + 1)) ?? this.b(B.finger(s, fname, 3) + 'end');
+        const dir = c ? p(c).sub(p(a)).normalize() : f;
+        const axis = new THREE.Vector3().crossVectors(dir, n).normalize();
+        turnWorld(a, axis, [1.1, 1.3, 0.9][i - 1] * k);
+      }
+    }
+    const t1 = this.b(B.thumb(s, 1));
+    if (t1) turnWorld(t1, f, 0.4 * amount * (s === 'r' ? 1 : -1));
+    void this.fingerCache;
+  }
+}
+
+/** Los dos soldados de la puerta: el soldado (clon normal) a la izquierda y el comandante (clon comando) a la derecha. */
+export function buildShipTroopers(heights: { clon: number; comando: number }, gap: number) {
+  const g = new THREE.Group();
+  const list: Array<{ tr: ShipTrooper; phase: number }> = [];
+  const add = (st: TrooperSetup, x: number, h: number, phase: number) => {
+    if (!trooperModelReady(st.kind)) return;
+    const tr = new ShipTrooper(st, h);
+    tr.group.position.set(x, 0, 0);
+    g.add(tr.group);
+    list.push({ tr, phase });
+  };
+  add(SHIP_TROOPERS.soldado, 0, heights.clon, 0);
+  add(SHIP_TROOPERS.comandante, gap, heights.comando, 2.1);
+  const sway = (t: number, ft = 0) => {
+    for (const { tr, phase } of list) {
+      tr.group.rotation.set(0.015 * Math.sin(t * 1.3 + phase), 0, 0.02 * Math.sin(t * 0.9 + phase));
+      tr.pose(t, ft, phase);
+    }
+  };
+  sway(0, 0);
+  return { group: g, sway, ready: list.length === 2 };
 }
 
 // ---------- Clon comando con el modelo de verdad ----------

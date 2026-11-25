@@ -4,7 +4,7 @@ import type { AudioEngine } from '../audio/AudioEngine';
 import { CineSounds } from '../audio/CineSounds';
 import { Voices } from '../audio/Voices';
 import type { Effects } from '../weapons/Effects';
-import { B1Walkers, buildCloneLegs, buildFlyingLaat, Commando, CommandoModel } from './actors';
+import { B1Walkers, buildCloneLegs, buildFlyingLaat, buildShipTroopers, Commando, CommandoModel } from './actors';
 import { commandoModelReady } from '../player/commandoModel';
 import { COMANDO, DROIDES, ESTATURA, PIERNAS, SALIDA, TOMAS, VUELO, type Actor, type Camara, type Evento, type Postura, type Punto, type Toma, type Vista } from './script';
 
@@ -36,6 +36,7 @@ export class Cinematic {
   readonly voices = new Voices();
   private sounds = new CineSounds();
   private starts: number[] = [];
+  private flightStart = 0;
   private total = 0;
   private t = 0;
   private shot = -1;
@@ -51,7 +52,7 @@ export class Cinematic {
 
   // actores (se crean la primera vez)
   private ship: THREE.Group | null = null;
-  private legs: ReturnType<typeof buildCloneLegs> | null = null;
+  private legs: { group: THREE.Group; sway: (t: number, ft?: number) => void } | null = null;
   private commando: Commando | CommandoModel | null = null;
   private droids: B1Walkers | null = null;
   private poseNow = { agachado: 1, asoma: 0, golpe: 0 };
@@ -75,6 +76,7 @@ export class Cinematic {
   constructor(private d: CinematicDeps) {
     let acc = 0;
     for (const s of TOMAS) { this.starts.push(acc); acc += s.duracion; }
+    this.flightStart = this.starts[Math.max(0, TOMAS.findIndex((s) => s.camara?.tipo === 'canonera'))];
     this.total = acc;
     this.skipBtn.addEventListener('click', (e) => { e.stopPropagation(); this.skip(); });
     window.addEventListener('keydown', (e) => { if (this.active && (e.code === 'Enter' || e.code === 'NumpadEnter')) this.skip(); });
@@ -90,7 +92,9 @@ export class Cinematic {
     if (this.ship) return;
     const { scene } = this.d;
     this.ship = buildFlyingLaat();
-    this.legs = buildCloneLegs(ESTATURA.clon, PIERNAS.separacion);
+    // los dos soldados de la puerta: los modelos de verdad (clon normal y comando); si no cargaron, las piernas provisionales
+    const troopers = buildShipTroopers(ESTATURA, PIERNAS.separacion);
+    this.legs = troopers.ready ? troopers : buildCloneLegs(ESTATURA.clon, PIERNAS.separacion);
     this.legs.group.position.set(PIERNAS.x, PIERNAS.suelo, PIERNAS.z); // en el suelo de la bahía, junto a la puerta
     this.ship.add(this.legs.group);
     this.commando = commandoModelReady() ? new CommandoModel(ESTATURA.comando) : new Commando(ESTATURA.comando);
@@ -210,25 +214,27 @@ export class Cinematic {
   // ---------- Cámara ----------
   private ground(p: Punto, out: THREE.Vector3) { return out.set(p[0], terrainHeight(p[0], p[2]) + p[1], p[2]); }
 
-  /** Coloca la cañonera en vuelo en el instante `u` de su toma (0..dur) y deja su matriz en `this.m`. */
-  private placeShip(u: number, dur: number) {
+  /** Coloca la cañonera en vuelo `ft` segundos después de empezar su pasada (tomas 2A y 2B seguidas). */
+  private placeShip(ft: number) {
     const V = VUELO;
-    const angAt = (k: number) => THREE.MathUtils.degToRad(lerp(V.giroDesde, V.giroHasta, k));
-    const k = clamp01(u / dur);
-    const a = angAt(k), a2 = angAt(k + 0.01);
-    const cy = terrainHeight(V.centro[0], V.centro[1]) + V.altura;
-    const pos = this.v1.set(V.centro[0] + Math.cos(a) * V.radio, cy + Math.sin(u * 1.1) * 0.25, V.centro[1] + Math.sin(a) * V.radio);
-    const X = this.v2.set(V.centro[0] + Math.cos(a2) * V.radio - pos.x, 0, V.centro[1] + Math.sin(a2) * V.radio - pos.z).normalize();
+    const k = ft / V.duracion;
+    const dir = this.v2.set(V.fin[0] - V.inicio[0], 0, V.fin[1] - V.inicio[1]);
+    const cy = terrainHeight(COMANDO.x, COMANDO.z) + V.altura;
+    const pos = this.v1.set(V.inicio[0] + dir.x * k, cy + Math.sin(ft * 1.1) * 0.3, V.inicio[1] + dir.z * k);
+    const X = dir.normalize();
     const Z = new THREE.Vector3().crossVectors(X, this.up).normalize();
     const Y = new THREE.Vector3().crossVectors(Z, X);
     this.m.makeBasis(X, Y, Z);
     this.q.setFromRotationMatrix(this.m);
-    const roll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(-V.alabeo) + Math.sin(u * 0.8) * 0.02);
+    const roll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(-V.alabeo) + Math.sin(ft * 0.8) * 0.02);
     this.q.multiply(roll);
     this.ship!.position.copy(pos);
     this.ship!.quaternion.copy(this.q);
     this.ship!.updateMatrixWorld(true);
   }
+
+  /** Segundos desde que empezó la pasada de la cañonera (la primera toma con la cámara en la nave). */
+  private flightTime() { return Math.max(0, this.t - this.flightStart); }
 
   private placeCamera(s: Toma, u: number) {
     const cam = this.d.camera;
@@ -249,7 +255,7 @@ export class Cinematic {
       cam.position.set(x, terrainHeight(x, z) + c.altura, z);
       cam.lookAt(this.ground(c.centro, this.v2));
     } else {
-      this.placeShip(u, s.duracion);
+      this.placeShip(Math.max(0, this.starts[TOMAS.indexOf(s)] + u - this.flightStart));
       const e = smooth(k);
       const lv = (v: Vista, out: THREE.Vector3, which: 'pos' | 'mira') => out.set(...v[which]);
       const p = lv(c.desde, this.v1, 'pos').lerp(lv(c.hasta, new THREE.Vector3(), 'pos'), e).applyMatrix4(this.ship!.matrixWorld);
@@ -321,7 +327,7 @@ export class Cinematic {
       if (view !== s) { this.enterShotView(view); }
       this.placeCamera(view, view === s ? u : 0);
     }
-    this.legs?.sway(this.t);
+    this.legs?.sway(this.t, this.flightTime());
     if (s.actores?.includes('droides')) this.droids!.update(u);
     this.updatePose(s, u);
 
@@ -410,6 +416,18 @@ export class Cinematic {
     const hit = rc.intersectObject(ship, true)[0];
     ship.position.copy(keep.p); ship.quaternion.copy(keep.q); ship.visible = keep.v; ship.updateMatrixWorld(true);
     return hit ? { d: +hit.distance.toFixed(2), part: hit.object.name, face: hit.face ? [hit.face.a, hit.face.b, hit.face.c] : null, point: hit.point.toArray().map((v) => +v.toFixed(2)) } : null;
+  }
+
+  /** Panel de ajuste del filtro: reproduce una frase con su filtro, o el golpe al casco con la ráfaga de estática. */
+  testVoice(what: 'soldado' | 'comandante' | 'comando' | 'golpe') {
+    this.voices.stopAll();
+    if (what === 'golpe') {
+      this.sounds.knock(2);
+      setTimeout(() => { this.voices.static('casco', 0.6, 2.2); this.voices.click('casco', true); }, 150);
+      return;
+    }
+    const line = TOMAS.flatMap((s) => s.dialogos ?? []).find((d) => d.voz === `${what}-1`);
+    if (line) this.voices.say(line.voz, line.filtro, line.dura ?? 3);
   }
 
   /** Solo para pruebas: estado actual. */

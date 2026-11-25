@@ -11,6 +11,9 @@ interface BlasterModel { geo: THREE.BufferGeometry; map: THREE.Texture | null; m
 let blasterModel: BlasterModel | null = null;
 /** El modelo del bláster (para ponérselo en las manos al comando de la cinemática), o null si no cargó. */
 export const blasterModelData = () => blasterModel;
+/** El E-5 de antes (lo lleva el clon normal de la cinemática), o null si no cargó. */
+let e5Model: BlasterModel | null = null;
+export const e5ModelData = () => e5Model;
 const BLASTER_BRIGHT = 2.2 * 0.9; // el negro del arma un 10 % más oscuro
 // Posición del arma en pantalla: desde la cadera (abajo a la derecha) y apuntando (centrada, un poco más arriba)
 /** Posición del arma en pantalla (respecto a los ojos, en m: x derecha, y arriba, z hacia atrás), tamaño y cuánto sube al apuntar.
@@ -23,6 +26,7 @@ export const HIP = { x: 0.26, y: -0.184, z: -0.624, scale: 0.905, adsLift: 0.102
  * Si falla, se usa el E-5 de antes (blaster.bin) y, si tampoco, uno de cajas.
  */
 export async function loadBlasterModel(url: string): Promise<boolean> {
+  const old = loadOldBlaster(url); // el E-5 se carga siempre (respaldo del jugador y arma del clon normal de la cinemática)
   try {
     const gltf = await new GLTFLoader().loadAsync(url.replace(/[^/]*$/, '') + 'dc17m.glb');
     gltf.scene.updateMatrixWorld(true);
@@ -58,18 +62,20 @@ export async function loadBlasterModel(url: string): Promise<boolean> {
     geo.computeBoundingBox();
     if (map) { (map as THREE.Texture).colorSpace = THREE.SRGBColorSpace; (map as THREE.Texture).anisotropy = 4; }
     blasterModel = { geo, map, muzzle: [0, DC17.alturaCanon, DC17.boca], bright: DC17.brillo };
+    await old;
     return true;
   } catch (e) {
-    console.warn('No se pudo cargar el DC-17m; se prueba con el bláster de antes.', e);
+    console.warn('No se pudo cargar el DC-17m; se usa el bláster de antes.', e);
   }
-  return loadOldBlaster(url);
+  blasterModel = await old;
+  return blasterModel !== null;
 }
 
 /** Medidas del DC-17m en el sistema del arma (las mismas unidades que el arma de antes): largo total, dónde está la boca (z) y a qué altura va el cañón. */
 export const DC17 = { largo: 0.8, boca: -0.45, alturaCanon: 0, /** cuánto se aclara la textura (1 = tal cual) */ brillo: 1.05 };
 
 /** El bláster E-5 de antes (respaldo). */
-async function loadOldBlaster(url: string): Promise<boolean> {
+async function loadOldBlaster(url: string): Promise<BlasterModel | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -94,12 +100,12 @@ async function loadOldBlaster(url: string): Promise<boolean> {
     } catch (e) {
       console.warn('No se pudo cargar la textura del bláster; se usa gris liso.', e);
     }
-    blasterModel = { geo, map, muzzle: h.muzzle, bright: BLASTER_BRIGHT };
-    return true;
+    e5Model = { geo, map, muzzle: h.muzzle, bright: BLASTER_BRIGHT };
+    return e5Model;
   } catch (e) {
-    console.warn('No se pudo cargar el modelo del bláster; se usa el de respaldo.', e);
-    blasterModel = null;
-    return false;
+    console.warn('No se pudo cargar el bláster E-5.', e);
+    e5Model = null;
+    return null;
   }
 }
 

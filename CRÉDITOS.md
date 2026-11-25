@@ -28,6 +28,12 @@ Se muestra también en la pantalla de créditos del juego (menú → «Créditos
 Modelo aportado por el autor del proyecto. Cambios: sus piezas se juntan en una sola malla, se gira y se escala al tamaño del arma en pantalla (en el juego).
 Sustituye al E-5, que queda solo como respaldo si el archivo falla.
 
+**Clon de fase I** (`public/models/clone/`): este trabajo se basa en
+«[Clone Trooper Phase1 (Shiny) [Updated]](https://sketchfab.com/3d-models/clone-trooper-phase1-shiny-updated-aae018747b054186bd48e460b0ad1192)»
+de [Admiral Tributon](https://sketchfab.com/doctor10), con licencia [CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/) (hay que citar al autor; se permite el uso
+comercial; ver `public/models/LICENCIA-CLON.txt`). Modelo aportado por el autor del proyecto. Se usa su versión .fbx con sus texturas de color, relieve y brillo
+(del .usdz) reducidas a JPG de 1024 px; sin las de metal/rugosidad. Sale en la cinemática (soldado de la puerta de la cañonera en vuelo); las posturas se hacen por código.
+
 **Clon comando** (`public/models/commando.glb`): este trabajo se basa en
 «[Republic Commando](https://sketchfab.com/3d-models/republic-commando-30959b9c2ddb475085eaccdcb00e2dd8)»
 de [Abel](https://sketchfab.com/abel76), con licencia

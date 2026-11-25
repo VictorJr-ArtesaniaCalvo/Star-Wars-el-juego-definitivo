@@ -14,6 +14,8 @@ export interface MenuActions {
   onCinematic?: (shot: number) => void;
   /** Abre el panel de ajuste de las manos en primera persona (modo de pruebas) */
   onTuneHands?: () => void;
+  /** Abre el panel del filtro de radio de las voces (modo de pruebas) */
+  onTuneVoice?: () => void;
 }
 
 // Menú de inicio y de pausa, con los ajustes y el panel oculto de pruebas.
@@ -30,6 +32,7 @@ export class Menu {
     this.btnQuit.addEventListener('click', actions.onQuit);
     $('btnCine').addEventListener('click', () => actions.onCinematic?.(0));
     $('btnTuneHands').addEventListener('click', () => actions.onTuneHands?.());
+    $('btnTuneVoice').addEventListener('click', () => actions.onTuneVoice?.());
     document.querySelectorAll<HTMLButtonElement>('#cineShots button').forEach((b) => b.addEventListener('click', () => actions.onCinematic?.(Number(b.dataset.s) - 1)));
     $('btnCredits').addEventListener('click', () => ($('creditsScreen').hidden = false));
     $('btnCreditsBack').addEventListener('click', () => ($('creditsScreen').hidden = true));

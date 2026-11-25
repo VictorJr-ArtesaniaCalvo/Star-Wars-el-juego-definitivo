@@ -13,10 +13,13 @@ import { Howler } from 'howler';
 export type VoiceFilter = 'radio' | 'casco';
 
 /** Ajustes de cada filtro (fáciles de cambiar al oírlo). */
-export const RADIO_FILTERS: Record<VoiceFilter, { graves: number; agudos: number; medios: number; saturacion: number; estatica: number; volumen: number }> = {
-  // graves/agudos: frecuencias de corte (Hz) · medios: realce en dB · saturación: 1 = nada, 6 = mucha · estática: volumen del siseo
-  radio: { graves: 480, agudos: 3000, medios: 8, saturacion: 4.5, estatica: 0.055, volumen: 0.95 },
-  casco: { graves: 260, agudos: 4600, medios: 4, saturacion: 2, estatica: 0.018, volumen: 1 },
+export interface FilterSetup { graves: number; agudos: number; medios: number; saturacion: number; compresion: number; estatica: number; clic: number; volumen: number }
+export const RADIO_FILTERS: Record<VoiceFilter, FilterSetup> = {
+  // graves/agudos: frecuencias de corte (Hz) · medios: realce en dB (suena metálico) · saturación: 1 = nada, 6 = mucha · compresión: 1 = nada, 20 = mucha
+  // estática: volumen del siseo de fondo · clic: volumen del clic de la radio · volumen: de la voz ya filtrada
+  // radio: comunicaciones de la cañonera (tomas 2A y 2B), más marcado · casco: el comando dentro de su casco (toma 5), más suave
+  radio: { graves: 480, agudos: 3000, medios: 8, saturacion: 2.6, compresion: 10, estatica: 0.055, clic: 1, volumen: 0.95 },
+  casco: { graves: 260, agudos: 4600, medios: 4, saturacion: 1.5, compresion: 6, estatica: 0.018, clic: 0.6, volumen: 1 },
 };
 
 interface Chain { input: GainNode; out: GainNode }
@@ -84,7 +87,7 @@ export class Voices {
     shaper.curve = curve;
     shaper.oversample = '2x';
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -26; comp.knee.value = 6; comp.ratio.value = 10; comp.attack.value = 0.003; comp.release.value = 0.12;
+    comp.threshold.value = -26; comp.knee.value = 6; comp.ratio.value = Math.max(1, f.compresion); comp.attack.value = 0.003; comp.release.value = 0.12;
     const out = ctx.createGain();
     out.gain.value = f.volumen;
     input.connect(hp).connect(hp2).connect(mid).connect(shaper).connect(lp).connect(lp2).connect(comp).connect(out);
@@ -131,7 +134,7 @@ export class Voices {
     const ctx = this.ctx, c = this.chain(kind);
     if (!ctx || !c) return;
     const t0 = at ?? ctx.currentTime;
-    const lvl = kind === 'radio' ? 1 : 0.6;
+    const lvl = RADIO_FILTERS[kind].clic;
     if (!end) {
       const o = ctx.createOscillator();
       o.type = 'square';
@@ -180,6 +183,15 @@ export class Voices {
     this.click(kind, true, t0 + 0.08 + dur);
     return dur;
   }
+
+  /** Vuelve a montar los filtros con los ajustes actuales de RADIO_FILTERS (panel de ajuste del modo de pruebas). */
+  retune() {
+    for (const c of this.chains.values()) { try { c.out.disconnect(); } catch { /* ya desconectado */ } }
+    this.chains.clear();
+  }
+
+  /** ¿Están descargadas las voces? (para el panel de ajuste) */
+  loaded(id: string) { return !!this.buffers.get(id); }
 
   /** Corta todo lo que esté sonando (al saltar la cinemática). */
   stopAll() {
