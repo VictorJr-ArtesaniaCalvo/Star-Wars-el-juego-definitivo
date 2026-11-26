@@ -7,6 +7,7 @@ import { loadWorldTextures } from '../world/materials';
 import { loadParticleAtlas } from '../world/crashFx';
 import { loadLaat } from '../world/laat';
 import { loadCapitalShips } from '../world/skyLife';
+import { loadConsular } from '../world/consular';
 import { EnemyManager } from '../enemies/EnemyManager';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -185,7 +186,7 @@ export class Game {
 
   async init() {
     await RAPIER.init();
-    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`), loadWorldTextures(import.meta.env.BASE_URL), loadParticleAtlas(import.meta.env.BASE_URL), loadCommandoModel(`${import.meta.env.BASE_URL}models/commando.glb`), loadTrooperModel('clone', `${import.meta.env.BASE_URL}models/clone/clone.fbx`), loadClips(import.meta.env.BASE_URL, ANIM_CLIPS), loadCapitalShips(import.meta.env.BASE_URL), loadDetonatorModel(`${import.meta.env.BASE_URL}models/detonator.glb`)]);
+    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`), loadWorldTextures(import.meta.env.BASE_URL), loadParticleAtlas(import.meta.env.BASE_URL), loadCommandoModel(`${import.meta.env.BASE_URL}models/commando.glb`), loadTrooperModel('clone', `${import.meta.env.BASE_URL}models/clone/clone.fbx`), loadClips(import.meta.env.BASE_URL, ANIM_CLIPS), loadCapitalShips(import.meta.env.BASE_URL), loadDetonatorModel(`${import.meta.env.BASE_URL}models/detonator.glb`), loadConsular(import.meta.env.BASE_URL)]);
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = TICK;
     this.audio.init();

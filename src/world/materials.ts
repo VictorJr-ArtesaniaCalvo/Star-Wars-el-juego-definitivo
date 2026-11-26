@@ -191,6 +191,27 @@ interface Options {
 const bumpUniform = { value: 1 };
 export const setWorldBump = (on: boolean) => { bumpUniform.value = on ? 1 : 0; };
 
+/**
+ * Zona del crucero consular estrellado (fondo sur del valle): centro y radios en x y z. Allí el suelo, los restos y las rocas
+ * se ven a través de la neblina igual que la nave (como una silueta pálida al fondo), aunque estén más lejos de lo que llega la vista.
+ */
+export const CRUISER_SITE = { x: -10, z: 222, rx: 70, rz: 112, cap: 0.72, top: 34 };
+/** 1 mientras está el cañón; 0 en la arena (allí no hay crucero). */
+export const cruiserSiteOn = { value: 1 };
+const CRUISER_FOG_GLSL = `
+#ifdef USE_FOG
+  vec3 crPre = gl_FragColor.rgb;
+#endif
+#include <fog_fragment>
+#ifdef USE_FOG
+  {
+    vec2 crD = (vWPos.xz - vec2(${CRUISER_SITE.x.toFixed(1)}, ${CRUISER_SITE.z.toFixed(1)})) / vec2(${CRUISER_SITE.rx.toFixed(1)}, ${CRUISER_SITE.rz.toFixed(1)});
+    float crK = uCrSiteOn * (1.0 - smoothstep(0.35, 1.0, length(crD))) * (1.0 - smoothstep(${(CRUISER_SITE.top - 8).toFixed(1)}, ${CRUISER_SITE.top.toFixed(1)}, vWPos.y));
+    float crF = smoothstep(fogNear, fogFar, vFogDepth);
+    gl_FragColor.rgb = mix(gl_FragColor.rgb, mix(crPre, fogColor, min(crF, ${CRUISER_SITE.cap.toFixed(2)})), crK);
+  }
+#endif`;
+
 // Suelo «rico» (calidad media y alta): arena roja + roca en lajas + roca con agujeros. En calidad baja se queda el de siempre.
 const richUniform = { value: 0 };
 const pitMapUniform: { value: THREE.Texture | null } = { value: null };
@@ -233,11 +254,13 @@ export function applyWorldTextures(mat: THREE.MeshLambertMaterial, o: Options) {
     shader.uniforms.uRich = richUniform;
     if (sp) { shader.uniforms.spireMap = { value: sp.rock }; if (sp.joints) shader.uniforms.jointMap = { value: sp.joints }; }
     shader.uniforms.uBump = bumpUniform;
+    shader.uniforms.uCrSiteOn = cruiserSiteOn;
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNor;\nvarying float vTexAmt;\nvarying float vKind;\nvarying float vRock;' + (o.rockOnly ? '\nattribute float texAmt;\nattribute float texKind;' : '') + (o.terrainRock ? '\nattribute float aRock;' : ''))
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n#ifdef USE_INSTANCING\nvWPos = (modelMatrix * instanceMatrix * vec4(position, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * objectNormal);\n#else\nvWPos = (modelMatrix * vec4(position, 1.0)).xyz;\nvWNor = normalize(mat3(modelMatrix) * objectNormal);\n#endif\nvTexAmt = ' + (o.rockOnly ? 'texAmt' : '1.0') + ';\nvKind = ' + (o.rockOnly ? 'texKind' : '0.0') + ';\nvRock = ' + (o.terrainRock ? 'aRock' : '0.0') + ';');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
+uniform float uCrSiteOn;
 varying vec3 vWPos;
 varying vec3 vWNor;
 varying float vTexAmt;
@@ -365,8 +388,9 @@ ${sp ? '  }' : ''}
   // en el suelo rico el relieve fino se apaga con la distancia (a ras de suelo se vería como hebras)
   gBump *= mix(1.0, 1.0 - smoothstep(18.0, 70.0, length(vViewPosition)), uRich * (1.0 - steep));`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-  normal = normalize(normal + (viewMatrix * vec4(gBump, 0.0)).xyz);`);
+  normal = normalize(normal + (viewMatrix * vec4(gBump, 0.0)).xyz);`)
+      .replace('#include <fog_fragment>', CRUISER_FOG_GLSL);
   };
-  mat.customProgramCacheKey = () => 'worldtex5-' + (o.rockOnly ? 'rock' : 'terrain') + (pits ? 'p' : '') + (o.terrainRock ? 'r' : '') + (sp ? 's' : '');
+  mat.customProgramCacheKey = () => 'worldtex6-' + (o.rockOnly ? 'rock' : 'terrain') + (pits ? 'p' : '') + (o.terrainRock ? 'r' : '') + (sp ? 's' : '');
   return withLightFloor(mat);
 }

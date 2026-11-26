@@ -61,6 +61,14 @@ de [Léonard Doye / Leoskateman](https://sketchfab.com/leoskateman), con licenci
 Modelo aportado por el autor del proyecto. Cambios (herramienta `tools/convert-ship.mjs`): escalado a 10 cm, texturas de color y relieve a 512 px y de brillo a 256 px,
 sin la de metal/rugosidad. La granada que vuela al lanzarla es una bola gris sencilla con una bombilla roja, hecha por código.
 
+**Crucero consular de la República (estrellado al fondo del valle)** (`public/models/consular.glb`): este trabajo se basa en
+«[Consular cruiser](https://sketchfab.com/3d-models/consular-cruiser-5906f0b5065947ac8addb622240c7589)»
+de [Cpt.Kirk](https://sketchfab.com/CommanderCodyfromCoruscant), con licencia
+[CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/) (hay que citar al autor; se permite el uso comercial; ver `public/models/LICENCIA-CONSULAR.txt`).
+Modelo aportado por el autor del proyecto. Cambios (herramienta `tools/convert-ship.mjs`): sin las líneas de contorno, aligerado de ~6.000 a ~5.300 triángulos
+y texturas en JPG (ya eran pequeñas, de 512 px como mucho). En el juego: a tamaño real (115 m), estrellado (morro hundido, inclinado y tumbado),
+un motor desprendido, sin las partes enterradas y con daños, polvo y la pintura apagada dibujados por encima.
+
 **Destructor de la República, clase Venator** (`public/models/venator.glb`): este trabajo se basa en
 «[Venator Class Star Destroyer](https://sketchfab.com/3d-models/venator-class-star-destroyer-af3648043a5b4fd394adfc32baee369e)»
 de [Digital Sock](https://sketchfab.com/DigitalSock), con licencia

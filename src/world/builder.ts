@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { terrainHeight } from './terrain';
+import { cruiserKeepOut, terrainHeight } from './terrain';
 import { caveKeepOut } from './cave';
 import { bakeSunShadow } from './sunShadow';
 import { bakeBaseAO, type Foot } from './contact';
@@ -53,12 +53,17 @@ export class Builder {
     geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
   }
 
-  /** ¿Taparía esta pieza (ya colocada) la entrada de la cueva? Entonces no se pone (el resto del mapa no cambia). */
+  /** Mientras está a true se ponen los restos y rocas del crucero (que sí van en su zona). */
+  cruiserPieces = false;
+
+  /** ¿Taparía esta pieza (ya colocada) la entrada de la cueva, o caería encima del crucero estrellado? Entonces no se pone (el resto del mapa no cambia). */
   private overCave(g: THREE.BufferGeometry) {
     g.computeBoundingBox();
     const b = g.boundingBox!;
     const r = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) * 0.4;
-    return caveKeepOut((b.min.x + b.max.x) / 2, (b.min.z + b.max.z) / 2, r, b.min.y);
+    const cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2;
+    // tampoco encima del crucero estrellado ni de su surco (salvo sus propios restos y rocas)
+    return caveKeepOut(cx, cz, r, b.min.y) || (!this.cruiserPieces && cruiserKeepOut(cx, cz, r));
   }
 
   /** Pieza con forma libre (rocas). Su parte sólida es su envolvente. */

@@ -46,7 +46,7 @@ export class Atmosphere {
     const range = (a: number, b: number) => a + rng() * (b - a);
 
     // --- Columnas de humo, a lo lejos, detrás de las paredes del cañón ---
-    const plumes: Array<[number, number]> = [[-85, -125], [70, -135], [-100, 70], [95, 105], [30, 150], [-30, -190], [WRECK.x + 4, WRECK.z - 6]];
+    const plumes: Array<[number, number]> = [[-85, -125], [70, -135], [-100, 70], [95, 105], [-30, -190], [WRECK.x + 4, WRECK.z - 6]];
     const pos: number[] = [], col: number[] = [], uv: number[] = [], idx: number[] = [];
     const up = new THREE.Vector3(0, 1, 0);
     const base = new THREE.Color(0x3a2412);

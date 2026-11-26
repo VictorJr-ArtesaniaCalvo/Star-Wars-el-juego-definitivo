@@ -4,8 +4,8 @@ import { glowTexture } from './atmosphere';
 import { makeRng } from './terrain';
 
 // Vida en el cielo (solo decoración, no afecta a la partida):
-//  - un destructor de la República (Venator) detrás de ti, sobre la nave núcleo, y una fragata separatista (Munificent)
-//    delante, sobre el castillo; altos, lejos y quietos, intercambiando disparos por encima del cañón.
+//  - un destructor de la República (Venator) detrás de ti, sobre el crucero estrellado, y una fragata separatista (Munificent)
+//    delante (donde estaba el castillo); altos, lejos y quietos, intercambiando disparos por encima del cañón.
 //    Modelos reales (public/models/venator.glb y frigate.glb, hechos con tools/convert-ship.mjs); si no cargan,
 //    las naves sencillas hechas por código de antes;
 //  - algún geonosiano que cruza el cañón de un lado a otro.
@@ -217,11 +217,11 @@ class SkyBattle {
       return { body, hull, half: box.getSize(new THREE.Vector3()).multiplyScalar(0.5), center: box.getCenter(new THREE.Vector3()) };
     };
 
-    // Destructor de la República: detrás de ti, sobre la nave núcleo separatista, con el morro hacia la derecha. Quieto.
+    // Destructor de la República: detrás de ti, sobre el crucero estrellado del fondo del valle, con el morro hacia la derecha. Quieto.
     this.republic = makeShip('venator', venator, 1.45, [[-17, 0, 78, 20], [0, 0, 78, 20], [17, 0, 78, 20]]);
     this.republic.body.position.set(25, 265, 300);
     this.republic.body.rotation.y = -Math.PI / 2 + 0.28;
-    // Fragata separatista: delante, sobre el castillo, algo más baja, mirando hacia el otro lado. Quieta.
+    // Fragata separatista: delante (donde estaba el castillo), algo más baja, mirando hacia el otro lado. Quieta.
     this.sep = makeShip('frigate', separatist, 1.6, [[0, 0, 56, 15], [-6.5, 3.5, 56, 12], [6.5, 3.5, 56, 12]]);
     this.sep.body.position.set(-35, 240, -310);
     this.sep.body.rotation.y = Math.PI / 2 - 0.22;

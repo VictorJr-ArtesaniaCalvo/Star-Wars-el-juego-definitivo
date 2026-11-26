@@ -15,6 +15,7 @@
 //   Destructor Venator → public/models/venator.glb   --eslora=1137 --ejes=y,z,x --metros=2
 // Otros:
 //   Detonador térmico (granada en la mano) → public/models/detonator.glb   --eslora=0.1 --proporcion=1 --relieve=512
+//   Crucero consular estrellado (fondo del valle) → public/models/consular.glb   --eslora=115 --ejes=x,z,-y --proporcion=0.7 --metros=0.06
 // Necesita Python 3 con Pillow si el modelo tiene texturas.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -60,7 +61,7 @@ const imageBytes = (i) => { const bv = g.bufferViews[g.images[i].bufferView]; re
 // colocan la nave para el visor de Sketchfab) y se reordenan los ejes según --ejes.
 const hasTex = (mi) => !!g.materials[mi]?.pbrMetallicRoughness?.baseColorTexture || !!g.materials[mi]?.emissiveTexture;
 const swap = (a) => { const o = new Float32Array(a.length); for (let i = 0; i < a.length; i += 3) for (let k = 0; k < 3; k++) o[i + k] = AXES[k].sign * a[i + AXES[k].k]; return o; };
-const pieces = g.meshes.flatMap((m) => m.primitives.map((pr) => {
+const pieces = g.meshes.flatMap((m) => m.primitives.filter((pr) => (pr.mode ?? 4) === 4).map((pr) => { // solo triángulos (las líneas de contorno de SketchUp se quitan)
   const pos = swap(read(pr.attributes.POSITION));
   const tex = hasTex(pr.material) && pr.attributes.TEXCOORD_0 !== undefined;
   return { name: m.name, material: pr.material, pos, nor: swap(read(pr.attributes.NORMAL)), uv: tex ? read(pr.attributes.TEXCOORD_0) : null, idx: pr.indices !== undefined ? read(pr.indices) : Uint32Array.from({ length: pos.length / 3 }, (_, k) => k) };

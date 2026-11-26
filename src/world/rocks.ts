@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Builder, place } from './builder';
 import { slabGeometry } from './scatter';
-import { beadedSpire } from './landmarks';
 import { caveKeepOut } from './cave';
 import { METAL_WALL_SPOTS } from './wreckage';
 import { CANYON_HALF_L, CANYON_HALF_W, crashFieldOriginal, crashMatrix, floorHalfWidth, makeRng, terrainHeight, WORLD_SEED } from './terrain';
@@ -27,6 +26,20 @@ function hash(x: number, y: number, z: number, seed: number) {
   const r = (v: number) => Math.round(v * 1000) / 1000;
   const n = Math.sin(r(x) * 127.1 + r(y) * 311.7 + r(z) * 74.7 + seed * 13.37) * 43758.5453;
   return n - Math.floor(n);
+}
+
+type Prof = Array<[number, number]>; // [radio, altura]
+
+/** Torre geonosiana: una pila de «cuentas» redondeadas (cuello, panza, cuello) que se van estrechando hasta una punta. */
+function beadedSpire(H: number, R: number, beads: number): Prof {
+  const pts: Prof = [[R * 1.25, 0]];
+  for (let b = 0; b < beads; b++) {
+    const t0 = b / beads, t1 = (b + 1) / beads, tm = (t0 + t1) / 2;
+    const taper = (t: number) => Math.pow(1 - t, 0.8) * 0.9 + 0.1 * (1 - t);
+    pts.push([R * taper(t0) * 0.62, H * (t0 + (t1 - t0) * 0.05)], [R * taper(tm) * (b === 0 ? 1.2 : 1), H * tm], [R * taper(t1) * 0.62, H * (t1 - (t1 - t0) * 0.05)]);
+  }
+  pts.push([0, H]);
+  return pts;
 }
 
 /** Aguja con anillos redondeados (la misma forma que las torres del castillo): una pila de «cuentas» que se estrechan hasta una punta, algo irregulares y con una pequeña inclinación. */
@@ -93,7 +106,7 @@ function layeredWall(w: number, h: number, seed: number) {
 }
 
 /** `detail`: 0 = 20 caras (rocas pequeñas, más angulosas y ligeras) · 1 = 80 caras (rocas grandes). */
-function boulderGeometry(seed: number, detail = 1) {
+export function boulderGeometry(seed: number, detail = 1) {
   const g = new THREE.IcosahedronGeometry(1, detail);
   const p = g.attributes.position as THREE.BufferAttribute;
   for (let i = 0; i < p.count; i++) {

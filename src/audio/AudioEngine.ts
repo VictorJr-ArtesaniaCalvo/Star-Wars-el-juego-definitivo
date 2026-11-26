@@ -10,6 +10,8 @@ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
 /** Volumen del viento de fondo (1 = el primero). Víctor lo bajó al 60 % y luego otra vez al 60 % (0,6 × 0,6): sonaba estridente. */
 const WIND_VOLUME = 0.36;
+/** Golpe de viento de las ráfagas: bajado un 30 % (pedido por Víctor). */
+const GUST_VOLUME = 0.7;
 /** La música ya está igualada de volumen; esto la deja por debajo de los efectos con el control a la mitad. */
 const MUSIC_BASE = 0.7;
 
@@ -324,7 +326,7 @@ export class AudioEngine {
   /** Golpe de viento de una ráfaga (`k` = su fuerza, 0–1): llega desde el oeste, de donde sopla el viento. */
   windGust(k: number) {
     const e = this.ear;
-    this.play('gust', Math.min(1, 0.55 * k + 0.15) * WIND_VOLUME * 2.2, 0.92 + Math.random() * 0.16, [e.x - 14, e.y + 2, e.z], 10);
+    this.play('gust', Math.min(1, 0.55 * k + 0.15) * WIND_VOLUME * 2.2 * GUST_VOLUME, 0.92 + Math.random() * 0.16, [e.x - 14, e.y + 2, e.z], 10);
   }
 
   private pick(id: SoundId) {
