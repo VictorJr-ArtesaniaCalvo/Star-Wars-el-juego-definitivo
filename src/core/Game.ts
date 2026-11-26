@@ -39,8 +39,9 @@ import { COMANDO } from '../cinematic/script';
 import { currentZone, groundHeight, setZone } from '../world/zone';
 import { addArenaPhysics, ArenaPrep } from '../world/arena/ArenaWorld';
 import { ArenaCinematic } from '../cinematic/ArenaCinematic';
+import { loadLaatSounds } from '../audio/CineSounds';
 import { buildCave, CUEVA } from '../world/cave';
-import { ARENA_ENTRY, ARENA_ROUND, ARENA_SUN } from '../world/arena/layout';
+import { ARENA_B, ARENA_ENTRY, ARENA_ROUND, ARENA_SUN } from '../world/arena/layout';
 
 type Mode = 'menu' | 'cinematic' | 'playing' | 'paused' | 'gameover' | 'transition';
 /** Fundido a negro al cambiar de zona (segundos): bajar, texto en negro, subir. */
@@ -48,6 +49,8 @@ const ZONE_FADE_OUT = 1.6;
 const ZONE_HOLD = 2.2;
 /** La cinemática de paso a la arena ya se ha visto en esta sesión (al reintentar no se repite). */
 const CINE2_SEEN = 'geonosis.cine2Seen';
+/** Vista previa pendiente tras recargar (una toma del cañón pedida desde la arena). */
+const PREVIEW_SHOT = 'geonosis.previewShot';
 const ZONE_FADE_IN = 1.6;
 // Apuntar: acerca la vista y afina la puntería; desde la cadera se mueve más rápido pero el disparo se abre.
 const FOV_HIP = 72;
@@ -81,6 +84,8 @@ export class Game {
   private activeCine: 'intro' | 'arena' = 'intro';
   private arenaPrep: ArenaPrep | null = null;
   private arenaRound = 0;
+  /** A qué volver al acabar una vista previa de la cinemática (modo de pruebas). */
+  private previewReturn: Mode = 'menu';
   private voiceTuner = new VoiceTuner({
     retune: () => this.cine.voices.retune(),
     play: (what) => { this.audio.resume(); this.cine.testVoice(what); },
@@ -217,8 +222,10 @@ export class Game {
       prepStep: (ms) => (this.arenaPrep ??= new ArenaPrep()).step(ms),
       swap: () => this.swapToArena(),
       onEnd: (at) => this.endArenaCinematic(at),
+      onPreviewEnd: () => this.endArenaPreview(),
     });
     this.cine2.voices.preload(ArenaCinematic.voiceIds()); // c2_piloto_1, c2_piloto_2, c2_comando (aún sin grabar: subtítulos)
+    void loadLaatSounds(import.meta.env.BASE_URL); // sonidos grabados de la cañonera (pasada rasante e interior en vuelo)
     this.physics.step();
 
     this.applySettings();
@@ -358,6 +365,10 @@ export class Game {
       el.classList.add('out');
       document.removeEventListener('keydown', go);
       window.setTimeout(() => el.remove(), 750);
+      // ¿se pidió ver una toma del cañón estando en la arena? (hubo que recargar): se pone ahora
+      let pending: string | null = null;
+      try { pending = sessionStorage.getItem(PREVIEW_SHOT); sessionStorage.removeItem(PREVIEW_SHOT); } catch { /* nada */ }
+      if (pending !== null) window.setTimeout(() => this.testArenaCinematic(Number(pending)), 800);
     };
     el.addEventListener('touchend', go);
     el.addEventListener('click', go);
@@ -522,13 +533,76 @@ export class Game {
     }, ZONE_FADE_OUT * 1000);
   }
 
-  /** Modo de pruebas: ver la cinemática de paso a la arena desde una toma (las del cañón necesitan el cañón: si ya estás en la arena, se recarga). */
+  /**
+   * Modo de pruebas: VISTA PREVIA de una toma de la cinemática de paso a la arena. Solo esa toma, encima de lo que haya (la partida se
+   * queda como estaba, escondida y quieta) y al acabar se vuelve al mismo menú. Las tomas del cañón necesitan el cañón: si ya estás en
+   * la arena, se recarga el juego y se pone la toma al volver. Las de la arena, si estás en el cañón, pasan a la arena (sin vuelta atrás).
+   */
   private testArenaCinematic(shot: number) {
-    if (this.mode === 'cinematic') return;
-    const tunnel = 7; // primera toma en la arena
-    if (currentZone() === 'arena' && shot < tunnel) { this.reloadForCanyon(); return; }
-    if (this.mode === 'menu' || this.mode === 'gameover') this.startRun();
-    this.beginArenaCinematic(ARENA_ROUND, shot);
+    if (this.mode === 'cinematic' || this.mode === 'transition') return;
+    const arenaShot = shot >= ArenaCinematic.arenaShot();
+    if (!arenaShot && currentZone() === 'arena') {
+      try { sessionStorage.setItem(PREVIEW_SHOT, String(shot)); } catch { /* nada */ }
+      this.reloadForCanyon();
+      return;
+    }
+    const prev: Mode = this.mode === 'paused' ? 'paused' : 'menu';
+    const play = () => {
+      this.previewReturn = prev;
+      this.mode = 'cinematic';
+      this.activeCine = 'arena';
+      this.menu.hide();
+      this.gameOver.hide();
+      this.hud.hideBanner();
+      this.hud.setVisible(false, false);
+      this.input.touch?.reset();
+      if (document.pointerLockElement) document.exitPointerLock();
+      this.enemies.setShown(false);
+      this.effects.clear();
+      this.audio.start();
+      this.audio.resume(); // en pausa el sonido está parado
+      this.cine2.start(shot, { preview: true });
+      this.dirty = true;
+    };
+    if (!arenaShot || currentZone() === 'arena') { play(); return; }
+    // una toma de la arena desde el cañón: en negro se pasa a la arena (tarda un poco) y la partida sigue allí, en la ronda 7
+    const fade = document.getElementById('zoneFade')!;
+    this.mode = 'transition';
+    this.menu.hide();
+    fade.hidden = false;
+    fade.style.transitionDuration = '0s';
+    fade.classList.add('on', 'text');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      this.waves.stop();
+      this.swapToArena();
+      this.resetForArena();
+      this.localPlayer.teleport(0.3, ARENA_B - 1.5);
+      this.yaw = 0;
+      this.pitch = 0;
+      this.physics.step();
+      if (prev === 'paused') this.waves.start(ARENA_ROUND);
+      this.mode = prev;
+      play();
+      fade.style.transitionDuration = '0.6s';
+      fade.classList.remove('on', 'text');
+      window.setTimeout(() => { fade.hidden = true; }, 700);
+    }));
+  }
+
+  /** Fin de la vista previa: se vuelve al menú en el que estabas, con la partida tal cual. */
+  private endArenaPreview() {
+    this.enemies.setShown(true);
+    this.camera.fov = FOV_HIP;
+    this.camera.updateProjectionMatrix();
+    this.syncCamera(1);
+    if (this.previewReturn === 'paused') {
+      this.mode = 'paused';
+      this.audio.suspend();
+      this.menu.show(true);
+    } else {
+      this.mode = 'menu';
+      this.menu.show(false);
+    }
   }
 
   /** Cinemática inicial: sin controles ni HUD; la música empieza ya y sigue en la partida. */

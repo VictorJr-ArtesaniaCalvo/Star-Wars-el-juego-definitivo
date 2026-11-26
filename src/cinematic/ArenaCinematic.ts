@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { AudioEngine } from '../audio/AudioEngine';
-import { CineSounds } from '../audio/CineSounds';
+import { CineSounds, laatPeak } from '../audio/CineSounds';
 import { Voices } from '../audio/Voices';
 import type { Effects } from '../weapons/Effects';
 import { buildFlyingLaat, CommandoModel } from './actors';
@@ -48,6 +48,8 @@ export interface ArenaCineDeps {
   swap: () => void;
   /** Fin (o se ha omitido): dónde queda el comando, para empezar a jugar desde ahí. */
   onEnd: (at: { x: number; z: number; yaw: number }) => void;
+  /** Fin de una vista previa (modo de pruebas: una sola toma; el juego vuelve a donde estaba). */
+  onPreviewEnd: () => void;
 }
 
 interface Scheduled { at: number; fire: () => void }
@@ -81,7 +83,12 @@ export class ArenaCinematic {
   private burst = 0;
   private stepPhase = 0;
   private lastShipDist = -1;
+  private flybyOn = false;
+  private flybyAt = 0;
   private endAt = { x: 0, z: 0, yaw: 0 };
+  /** Vista previa del modo de pruebas: solo una toma, sin pasar a la arena ni cambiar la música. */
+  private preview = false;
+  private previewEnd = 0;
 
   // actores (se crean al empezar y se quitan al acabar)
   private root: THREE.Group | null = null;
@@ -129,6 +136,9 @@ export class ArenaCinematic {
   static ready() {
     return commandoModelReady() && ['Rifle_Run', 'Rifle_Run_To_Stop', 'Crouch_Rapid_Fire', 'Rifle_Kneel_To_Stand', 'Rifle_Idle', 'Rifle_Aiming_Idle'].every((n) => !!getClip(n));
   }
+
+  /** Primera toma que ya es en la arena (las de antes necesitan el cañón). */
+  static arenaShot() { return TOMAS2.findIndex((s) => s.id === 'tunel'); }
 
   get duration() { return this.total; }
   /** ¿Ya se ha pasado a la arena? */
@@ -200,11 +210,9 @@ export class ArenaCinematic {
     this.path = pts;
     this.pathLen = [0];
     for (let i = 1; i < pts.length; i++) this.pathLen.push(this.pathLen[i - 1] + pts[i].distanceTo(pts[i - 1]));
-    // la carrera empieza de forma que cruce la boca 0,85 s después de empezar la toma 6 (justo antes de que tape la cortinilla)
+    // la carrera va de forma que cruce la boca en el segundo `cruza` de la toma 5 (antes de que la tape la cortinilla)
     const mouthS = this.pathLen[pts.length - 2];
-    const iRun = TOMAS2.findIndex((s) => s.id === 'carrera'), iIn = TOMAS2.findIndex((s) => s.id === 'entrada');
-    const runTime = this.starts[iIn] - this.starts[iRun] + 0.85;
-    this.runStart = mouthS - CARRERA.velocidad * runTime;
+    this.runStart = mouthS - CARRERA.velocidad * CARRERA.cruza;
     for (const o of root.children) o.visible = false;
     this.arenaFx.visible = false;
     scene.add(root);
@@ -249,9 +257,11 @@ export class ArenaCinematic {
 
   // ---------- Empezar, omitir, acabar ----------
   /** Empieza (desde la toma `from`; las demás sirven para revisar una toma en el modo de pruebas). */
-  start(from = 0) {
+  start(from = 0, opts: { preview?: boolean } = {}) {
     if (!this.root) this.build();
     from = Math.max(0, Math.min(TOMAS2.length - 1, from));
+    this.preview = !!opts.preview;
+    this.previewEnd = this.starts[from] + TOMAS2[from].duracion;
     this.active = true;
     this.held = false;
     this.t = this.starts[from];
@@ -265,6 +275,7 @@ export class ArenaCinematic {
     this.musicOn = false;
     this.shieldsAt = -1;
     this.lastShipDist = -1;
+    this.flybyOn = false;
     // revisar desde una toma de la arena: se pasa ya
     const arenaFrom = TOMAS2.findIndex((s) => s.id === 'tunel');
     if (from >= arenaFrom && !this.swapped) this.doSwap();
@@ -299,8 +310,9 @@ export class ArenaCinematic {
     this.skipBtn.hidden = false;
     this.d.camera.near = 0.05;
     this.d.camera.updateProjectionMatrix();
-    // la música de la arena empieza con la cinemática (la del cañón se apaga antes, poco a poco)
-    this.d.audio.fadeOutGameMusic(0.9);
+    // la música de la arena empieza con la cinemática (la del cañón se apaga antes, poco a poco); en la vista previa no se toca
+    if (!this.preview) this.d.audio.fadeOutGameMusic(0.9);
+    this.musicOn = this.preview;
     if (!this.swapped) this.sounds.startEngine(0.0001, 0.2);
     // prepara de una vez los sombreadores de lo que va a salir (evita tirones al cambiar de toma)
     for (const o of this.root!.children) o.visible = true;
@@ -367,6 +379,26 @@ export class ArenaCinematic {
     }, SALIDA2.fundido * 1000 + 700);
   }
 
+  /** Fin de la vista previa: todo como estaba (sin pasar a la arena) y el juego vuelve a su menú. */
+  private finishPreview() {
+    if (!this.active) return;
+    this.active = false;
+    this.preview = false;
+    this.voices.stopAll();
+    this.sounds.stopAll();
+    this.hideAll();
+    this.d.camera.up.set(0, 1, 0);
+    this.d.camera.near = 0.08;
+    this.d.camera.updateProjectionMatrix();
+    this.subEl.classList.remove('show');
+    this.titleEl.style.opacity = '0';
+    this.locEl.style.opacity = '0';
+    this.skipBtn.hidden = true;
+    this.rootEl.hidden = true;
+    this.rootEl.classList.remove('on', 'outro');
+    this.d.onPreviewEnd();
+  }
+
   private startMusic() {
     if (this.musicOn) return;
     this.musicOn = true;
@@ -383,7 +415,7 @@ export class ArenaCinematic {
       case 'cortinilla':
         if (this.swapped || this.wiping) break;
         this.wiping = true;
-        this.d.wipe(() => { if (this.active) this.doSwap(); });
+        this.d.wipe(() => { if (!this.active) return; if (this.preview) this.finishPreview(); else this.doSwap(); });
         break;
     }
   }
@@ -394,10 +426,11 @@ export class ArenaCinematic {
     if (this.skipT >= 0) {
       this.skipT += dt;
       this.fadeEl.style.opacity = String(clamp01(this.skipT / SKIP_FADE));
-      if (this.skipT >= SKIP_FADE + 0.05) this.finish();
+      if (this.skipT >= SKIP_FADE + 0.05) { if (this.preview) this.finishPreview(); else this.finish(); }
       return;
     }
     this.t += dt;
+    if (this.preview && this.t >= this.previewEnd) { this.finishPreview(); return; }
     // la toma del túnel ya es en la arena: hasta que la cortinilla no tape la pantalla y se haga el cambio, se espera al final de la toma 6
     const tunnelAt = this.starts[TOMAS2.findIndex((q) => q.id === 'tunel')];
     if (!this.swapped && this.t >= tunnelAt) this.t = tunnelAt - 0.0005;
@@ -410,7 +443,7 @@ export class ArenaCinematic {
     const u = this.t - this.starts[i];
     while (this.qi < this.queue.length && this.queue[this.qi].at <= this.t) this.queue[this.qi++].fire();
     // la arena se va montando escondida (unos milisegundos por imagen) mientras se ve el cañón
-    if (!this.swapped) this.d.prepStep(5);
+    if (!this.swapped && !this.preview) this.d.prepStep(5);
     this.impulse = Math.max(0, this.impulse - dt * 1.6);
     this.flushImpacts();
     this.animate(s, u, dt);
@@ -506,11 +539,11 @@ export class ArenaCinematic {
         const cam = this.G(VUELO2.camara[0], VUELO2.camara[1], VUELO2.camara[2]);
         // la cámara sigue a la nave con algo de retraso (sin llegar a mirar justo arriba)
         const target = this.ship!.position.clone();
-        target.y = Math.min(target.y, cam.y + 16);
         const k = smooth(u / 1.2);
-        const start = this.G(VUELO2.camara[0] - 2, 6, VUELO2.camara[2] + 30);
+        const start = this.G(VUELO2.camara[0] - 2, 20, VUELO2.camara[2] + 40);
         this.look(cam, start.lerp(target, 0.35 + 0.65 * k));
-        this.engineByDistance(dt);
+        if (this.sounds.hasFlyby()) this.flybySound(u, dt);
+        else this.engineByDistance(dt);
         break;
       }
       case 'combate': {
@@ -572,8 +605,9 @@ export class ArenaCinematic {
         this.engineByDistance(dt);
         break;
       }
-      case 'carrera': case 'entrada': {
-        const T = this.t - this.starts[TOMAS2.findIndex((q) => q.id === 'carrera')];
+      case 'entrada': {
+        // llega corriendo, esquivando disparos, y se mete en la cueva; la cámara, fija junto a la boca, le sigue y se queda en la entrada
+        const T = u;
         const sPath = this.runStart + T * CARRERA.velocidad;
         const p = this.pathAt(sPath, this.v1, this.v2).clone();
         const dir = this.v2.clone();
@@ -583,28 +617,17 @@ export class ArenaCinematic {
         const inside = (m.x - p.x) * m.out[0]; // metros dentro de la cueva
         cmd.setShade(lerp(1, 0.18, smooth(inside / 2.5)));
         this.showCanyonDroids(this.t);
-        if (s.id === 'carrera') {
-          // impactos levantando arena a su alrededor y algún disparo que pasa
-          if (this.t >= this.nextDroidShot) {
-            this.nextDroidShot = this.t + 0.13 + Math.random() * 0.22;
-            const ahead = p.clone().addScaledVector(dir, 1 + Math.random() * 3);
-            ahead.x += (Math.random() - 0.5) * 4; ahead.z += (Math.random() - 0.5) * 4;
-            this.droidFires(ahead, 0.5, true);
-          }
-          // detrás de él y algo de lado (por el mismo camino que ha corrido: ahí no hay rocas que tapen)
-          const side = new THREE.Vector3(-dir.z, 0, dir.x); // a su derecha
-          const cam = p.clone().addScaledVector(dir, -4.2).addScaledVector(side, 1.0);
-          cam.y = this.gh(cam.x, cam.z) + 1.85;
-          const at = p.clone().addScaledVector(dir, 6);
-          at.y = this.gh(at.x, at.z) + 1.05;
-          this.look(cam, at);
-        } else {
-          // desde fuera: entra en la oscuridad de la cueva
-          const along = new THREE.Vector3(0, 0, 1);
-          const cam = new THREE.Vector3(m.x + m.out[0] * 9.5, 0, m.z).addScaledVector(along, 3.6);
-          cam.y = this.gh(cam.x, cam.z) + 1.7;
-          this.look(cam, new THREE.Vector3(m.x - m.out[0] * 1.0, m.y + 1.9, m.z));
+        if (inside < 0.5 && this.t >= this.nextDroidShot) {
+          this.nextDroidShot = this.t + 0.14 + Math.random() * 0.22;
+          const ahead = p.clone().addScaledVector(dir, 1 + Math.random() * 3);
+          ahead.x += (Math.random() - 0.5) * 4; ahead.z += (Math.random() - 0.5) * 4;
+          this.droidFires(ahead, 0.5, true);
         }
+        const cam = new THREE.Vector3(m.x + m.out[0] * 7.5, 0, m.z + 6.5);
+        cam.y = this.gh(cam.x, cam.z) + 1.6;
+        const runner = new THREE.Vector3(p.x, this.gh(p.x, p.z) + 1.2, p.z);
+        const door = new THREE.Vector3(m.x - m.out[0] * 0.8, m.y + 1.8, m.z);
+        this.look(cam, runner.lerp(door, smooth((T - 0.6) / 2.0)));
         break;
       }
       case 'tunel': {
@@ -784,10 +807,10 @@ export class ArenaCinematic {
     ship.visible = true;
     // polvo levantado bajo la nave (más cuanto más baja va)
     const gy = this.gh(pos.x, pos.z);
-    if (pos.y - gy < 22) this.d.effects.groundDust(pos.x + (Math.random() - 0.5) * 6, this.gh(pos.x, pos.z), pos.z + (Math.random() - 0.5) * 8, 3, 6, 7);
+    if (pos.y - gy < 30) this.d.effects.groundDust(pos.x + (Math.random() - 0.5) * 6, this.gh(pos.x, pos.z), pos.z + (Math.random() - 0.5) * 8, 3, 6, 7);
     // la cámara tiembla cuando pasa por encima
     const near = this.d.camera.position.distanceTo(pos);
-    this.impulse = Math.max(this.impulse, 0.5 * clamp01(1 - (near - 12) / 22));
+    this.impulse = Math.max(this.impulse, 0.42 * clamp01(1 - (near - 24) / 26));
     return pos;
   }
 
@@ -815,6 +838,34 @@ export class ArenaCinematic {
     ship.position.copy(pos);
     ship.quaternion.copy(q);
     ship.updateMatrixWorld(true);
+  }
+
+  /**
+   * Pasada rasante con el sonido grabado: empieza de forma que lo más fuerte coincida con la nave pasando por encima de la cámara,
+   * y cada imagen se mueve de un lado a otro (según dónde esté la nave en la imagen) y cambia de tono (al acercarse y al alejarse).
+   */
+  private flybySound(u: number, dt: number) {
+    const V = VUELO2.pasada, cam = this.d.camera;
+    if (!this.flybyOn) {
+      this.flybyOn = true;
+      // segundo de la toma en que la nave pasa más cerca de la cámara
+      const base = this.gh(COMANDO2.x, COMANDO2.z);
+      const a = new THREE.Vector3(V.desde[0], base + V.desde[1], V.desde[2]), b = new THREE.Vector3(V.hasta[0], base + V.hasta[1], V.hasta[2]);
+      const ab = b.clone().sub(a);
+      const kc = clamp01(cam.position.clone().sub(a).dot(ab) / ab.lengthSq());
+      const tc = V.empieza + kc * V.dura;
+      this.flybyAt = tc;
+      this.sounds.startFlyby(laatPeak() - (tc - u), 1);
+      this.sounds.setEngine(0.0001, 1);
+    }
+    // de un lado a otro: llega por la izquierda, pasa por encima (en el centro) y se va por la derecha
+    const k = (u - this.flybyAt) / 1.3;
+    const pan = Math.max(-0.9, Math.min(0.9, 0.9 * Math.tanh(k * 1.4)));
+    // tono: un poco más agudo al acercarse y más grave al alejarse (la grabación ya trae parte de ese cambio)
+    const dist = cam.position.distanceTo(this.ship!.position);
+    const v = this.lastShipDist < 0 || dt <= 0 ? 0 : (dist - this.lastShipDist) / dt;
+    this.lastShipDist = dist;
+    this.sounds.steerFlyby(pan, Math.max(0.92, Math.min(1.08, 1 - v / 220)));
   }
 
   /** El motor suena según lo cerca que esté la nave, y más agudo al acercarse y más grave al alejarse. */

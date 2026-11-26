@@ -139,6 +139,7 @@ export class Cinematic {
           fire: () => {
             const est = dl.dura ?? Math.max(2, dl.texto.length / 15 + 0.5);
             const dur = this.voices.say(dl.voz, dl.filtro, est);
+            this.sounds.duckInterior(dur + 0.2);
             this.subs.push({ from: this.t, to: this.t + dur + 0.2, quien: dl.quien, texto: dl.texto });
           },
         });
@@ -196,7 +197,10 @@ export class Cinematic {
         break;
       }
       case 'sacudida': this.impulse = Math.max(this.impulse, e.fuerza); break;
-      case 'motor': if (e.encender) this.sounds.startEngine(); else this.sounds.stopEngine(0.5); break;
+      case 'motor': // el sonido grabado del interior de la cañonera (si no cargó, el motor generado de antes)
+        if (this.sounds.hasInterior()) { if (e.encender) this.sounds.startInterior(TOMAS[this.shot]?.cabina ?? 1); else this.sounds.stopInterior(0.6); }
+        else if (e.encender) this.sounds.startEngine(); else this.sounds.stopEngine(0.5);
+        break;
       case 'fuego': this.sounds.crackle(e.dura); break;
       case 'golpeCasco': this.sounds.knock(2); break;
       case 'estatica': this.voices.static(e.filtro ?? 'casco', e.dura, RAFAGA_ESTATICA, undefined, true); this.voices.click(e.filtro ?? 'casco', true); break;
@@ -206,6 +210,7 @@ export class Cinematic {
   private enterShot(i: number) {
     const s = TOMAS[i];
     this.shot = i;
+    if (s.cabina !== undefined) this.sounds.setInterior(s.cabina, 0.4);
     const fog = this.d.scene.fog as THREE.Fog;
     if (this.savedFog) { fog.near = this.savedFog.near; fog.far = this.savedFog.far; this.savedFog = null; }
     if (s.neblina) { this.savedFog = { near: fog.near, far: fog.far }; fog.near = s.neblina.cerca; fog.far = s.neblina.lejos; }

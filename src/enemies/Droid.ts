@@ -111,6 +111,13 @@ export class Droid {
     }
   }
 
+  /** Se ve o no (para esconder la partida detrás de una vista previa de la cinemática sin tocarla). */
+  setShown(on: boolean) {
+    const show = on && this.state.active && this.state.alive;
+    this.group.visible = show;
+    this.blob.visible = show;
+  }
+
   /** Solo para pruebas: pone al B2 en un punto del paso. */
   poseB2Now(phase: number, walk: number) {
     if (this.b2Rig) poseB2(this.b2Rig, walk, phase);

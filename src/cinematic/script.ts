@@ -72,6 +72,8 @@ export interface Toma {
   dialogos?: Dialogo[];
   eventos?: Evento[];
   posturas?: Postura[];
+  /** Ruido grabado del interior de la cañonera: 0 = desde fuera (más lejano y con viento) · 1 = desde dentro (más presente). */
+  cabina?: number;
 }
 
 // ---------- Lugares fijos ----------
@@ -120,6 +122,7 @@ export const TOMAS: Toma[] = [
   {
     nombre: '2A · La cañonera en vuelo, desde fuera',
     duracion: 4,
+    cabina: 0,
     fundidoEntrada: 0.7,
     actores: ['canonera', 'piernas'], // 'piernas' = los dos soldados de la puerta (clon normal y comando)
     camara: {
@@ -140,6 +143,7 @@ export const TOMAS: Toma[] = [
   {
     nombre: '2B · Desde dentro, mirando a la cañonera estrellada',
     duracion: 7,
+    cabina: 1,
     actores: ['canonera', 'piernas'],
     camara: {
       tipo: 'canonera',

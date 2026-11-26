@@ -1,7 +1,7 @@
 // ============================================================================
 //  GUION DE LA CINEMÁTICA DE PASO A LA ARENA (al acabar la ronda 6)
 // ============================================================================
-// El guion es de Víctor: 11 tomas, unos 40 s. Todo lo que se ve y se oye está aquí, para ajustarlo cambiando números.
+// El guion es de Víctor (con sus cambios: sin la carrera larga; entrada a la cueva más larga): 10 tomas, unos 38 s. Todo lo que se ve y se oye está aquí, para ajustarlo cambiando números.
 // El reproductor es src/cinematic/ArenaCinematic.ts (cámaras, actores, disparos, sonidos).
 //
 // CÓMO LEER LAS POSICIONES (igual que en script.ts)
@@ -32,7 +32,7 @@ export type Evento2 =
   | { en: number; tipo: 'cañonazo'; fuerza: number };
 
 export type TomaId =
-  | 'pasada' | 'combate' | 'radioA' | 'radioB' | 'respuesta' | 'carrera' | 'entrada'
+  | 'pasada' | 'combate' | 'radioA' | 'radioB' | 'respuesta' | 'entrada'
   | 'tunel' | 'arena' | 'droides' | 'dekas' | 'escudos' | 'cierre' | 'ronda';
 
 export interface Toma2 {
@@ -60,25 +60,27 @@ export const COMANDO2 = { x: 4.0, z: -14.0 };
 export const DROIDES_CAÑON: Array<[number, number]> = [[-4, -43], [1.5, -47], [7, -41], [11.5, -49], [-8.5, -51], [4.5, -55]];
 
 /**
- * Carrera hacia la cueva (tomas 5 y 6). Empieza algo más allá de la caja (el corte de la toma 4 a la 5 lo disimula) y sigue por estos puntos
- * hasta la boca de la cueva (la boca la pone src/world/cave.ts; aquí solo los puntos de antes, esquivando las rocas).
+ * Carrera hacia la cueva (se ve en la toma 5, cuando llega y se mete). Sigue estos puntos hasta la boca de la cueva (la boca la pone
+ * src/world/cave.ts; aquí solo los puntos de antes, esquivando las rocas). El corte de la toma 4 a la 5 disimula el tramo que no se ve.
  */
 export const CARRERA = {
   // zigzag por la arena libre, esquivando las rocas del camino (comprobado en el mapa desde arriba)
   puntos: [[-3, -21.5], [-13, -22], [-17.5, -23.6], [-20.5, -22.3], [-23.5, -21], [-29.5, -20.5], [-34, -22.2]] as Array<[number, number]>,
-  /** Velocidad corriendo (m/s) y cuánto entra en la cueva antes de que la tape la cortinilla (m). */
+  /** Velocidad corriendo (m/s), cuánto entra en la cueva (m) y en qué segundo de la toma 5 cruza la boca. */
   velocidad: 6.3,
-  dentro: 5,
+  dentro: 6,
+  cruza: 2.6,
 };
 
 /** La cañonera aliada: pasada rasante (toma 1) y vueltas sobre el cañón vista desde abajo (toma 3B). */
 export const VUELO2 = {
   /** Pasada de sur a norte: desde, hasta ([x, altura sobre el suelo, z]) y segundos. */
-  pasada: { desde: [-1, 9.5, 95] as [number, number, number], hasta: [-6, 15, -95] as [number, number, number], dura: 5.2, empieza: 0 }, // pasa por encima de la cámara hacia el segundo 2,2
+  pasada: { desde: [-1, 27, 95] as [number, number, number], hasta: [-6, 33, -95] as [number, number, number], dura: 5.2, empieza: 0 }, // bastante alta (Víctor); pasa sobre la cámara hacia el segundo 2,2
   /** Cámara de la pasada: muy baja junto a unas rocas (al este del cráter), mirando hacia donde viene la nave. */
   camara: [10, 0.55, 14] as [number, number, number],
   /** Vueltas sobre el cañón: centro, radio, altura (m) y ángulos (grados, 0 = este, 90 = sur) al empezar y acabar la toma 3B. */
-  orbita: { centro: [-4, -20] as [number, number], radio: 32, altura: 30, giroDesde: 115, giroHasta: 205, alabeo: 24 },
+  // círculo ancho, rápido (150° en 8 s, unos 13 m/s) y muy inclinado en el giro (Víctor)
+  orbita: { centro: [0, -24] as [number, number], radio: 40, altura: 36, giroDesde: 100, giroHasta: 250, alabeo: 40 },
 };
 
 /** La arena (después de la cortinilla). La puerta sur está en z = 41,4; su túnel sigue hacia +z. */
@@ -156,31 +158,23 @@ export const TOMAS2: Toma2[] = [
     ],
   },
   {
-    id: 'carrera',
-    nombre: '5 · Carrera hacia la cueva',
-    duracion: 4,
-    angulo: 60,
-    temblor: 0.3,
-    eventos: [{ en: 1.6, tipo: 'cañonazo', fuerza: 0.35 }],
-  },
-  {
     id: 'entrada',
-    nombre: '6 · Entra en la cueva (cortinilla)',
-    duracion: 1.5,
-    angulo: 52,
-    temblor: 0.12,
-    eventos: [{ en: 0.3, tipo: 'cortinilla' }],
+    nombre: '5 · Llega corriendo a la cueva y entra (cortinilla)',
+    duracion: 3.8,
+    angulo: 50,
+    temblor: 0.18,
+    eventos: [{ en: 1.0, tipo: 'cañonazo', fuerza: 0.3 }, { en: 2.65, tipo: 'cortinilla' }],
   },
   {
     id: 'tunel',
-    nombre: '7 · Túnel: silueta a contraluz',
+    nombre: '6 · Túnel: silueta a contraluz',
     duracion: 2.5,
     angulo: 54,
     temblor: 0.2,
   },
   {
     id: 'arena',
-    nombre: '8 · La arena desde lo alto',
+    nombre: '7 · La arena desde lo alto',
     duracion: 4,
     angulo: 58,
     temblor: 0.03,
@@ -189,21 +183,21 @@ export const TOMAS2: Toma2[] = [
   },
   {
     id: 'droides',
-    nombre: '9 · Sale a la arena y los B1 se giran',
+    nombre: '8 · Sale a la arena y los B1 se giran',
     duracion: 3,
     angulo: 50,
     temblor: 0.1,
   },
   {
     id: 'dekas',
-    nombre: '10A · Llegan rodando los droidekas y se despliegan',
+    nombre: '9A · Llegan rodando los droidekas y se despliegan',
     duracion: 2.6,
     angulo: 48,
     temblor: 0.08,
   },
   {
     id: 'escudos',
-    nombre: '10B · Primer plano: los escudos se encienden',
+    nombre: '9B · Primer plano: los escudos se encienden',
     duracion: 1.4,
     angulo: 40,
     temblor: 0.05,
@@ -211,7 +205,7 @@ export const TOMAS2: Toma2[] = [
   },
   {
     id: 'cierre',
-    nombre: '11 · Levanta el rifle',
+    nombre: '10 · Levanta el rifle',
     duracion: 1,
     angulo: 46,
     temblor: 0.05,

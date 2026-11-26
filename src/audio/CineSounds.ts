@@ -5,6 +5,29 @@ import { Howler } from 'howler';
 // escudo de droideka encendiéndose y pasos con eco en el túnel.
 // Todos pasan por el volumen general del juego.
 
+/** Sonidos grabados de la cañonera (de Víctor; preparados con tools/prepare-laat-sounds.py). Se comparten entre las dos cinemáticas. */
+const LAAT = {
+  /** Pasada rasante (cinemática de paso a la arena, toma 1): segundo del archivo en que suena más fuerte (la nave encima). */
+  pasada: { file: 'laat-pasada.mp3', pico: 2.59 },
+  /** Interior en vuelo (cinemática inicial, 2A y 2B): bucle de BUCLE_INICIO a BUCLE_INICIO + BUCLE_LARGO segundos. */
+  interior: { file: 'laat-interior.mp3', inicio: 0.25, largo: 28.5 },
+};
+const buffers: Partial<Record<'pasada' | 'interior', AudioBuffer>> = {};
+
+/** Descarga los sonidos de la cañonera (si fallan, se usa el motor generado de antes). */
+export async function loadLaatSounds(base: string) {
+  const ctx = Howler.ctx;
+  if (!ctx) return;
+  await Promise.all((['pasada', 'interior'] as const).map(async (k) => {
+    try {
+      const r = await fetch(`${base}audio/${LAAT[k].file}`);
+      if (!r.ok) throw new Error(String(r.status));
+      buffers[k] = await ctx.decodeAudioData(await r.arrayBuffer());
+    } catch (e) { console.warn(`No se pudo cargar el sonido «${LAAT[k].file}»`, e); }
+  }));
+}
+export const laatPeak = () => LAAT.pasada.pico;
+
 export class CineSounds {
   private noise: AudioBuffer | null = null;
   private engine: { stop: (fade: number) => void; set: (level: number, pitch: number) => void } | null = null;
@@ -162,6 +185,120 @@ export class CineSounds {
     }
   }
 
+  // ---------- Sonidos grabados de la cañonera ----------
+  private interior: { gain: GainNode; lp: BiquadFilterNode; wind: GainNode; duck: GainNode; stop: (fade: number) => void } | null = null;
+  private flyby: { pan: StereoPannerNode; src: AudioBufferSourceNode; gain: GainNode } | null = null;
+
+  /** ¿Están los sonidos grabados? (si no, se usa el motor generado) */
+  hasInterior() { return !!buffers.interior; }
+  hasFlyby() { return !!buffers.pasada; }
+
+  /**
+   * Interior de la cañonera en vuelo, en bucle sin cortes. `presence` 0 = desde fuera (más lejano, apagado y con viento) · 1 = desde dentro.
+   */
+  startInterior(presence: number, fadeIn = 0.6) {
+    const ctx = this.ctx, out = this.out, buf = buffers.interior;
+    if (!ctx || !out || !buf || this.interior) return;
+    const t0 = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, t0);
+    master.gain.exponentialRampToValueAtTime(1, t0 + fadeIn);
+    const duck = ctx.createGain(); // baja un poco mientras hablan
+    master.connect(duck).connect(out);
+    const src = this.track(ctx.createBufferSource());
+    src.buffer = buf;
+    src.loop = true;
+    src.loopStart = LAAT.interior.inicio;
+    src.loopEnd = LAAT.interior.inicio + LAAT.interior.largo;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 0.5;
+    const gain = ctx.createGain();
+    src.connect(lp).connect(gain).connect(master);
+    // viento por fuera de la nave (en la 2A, desde fuera)
+    const wind = ctx.createGain();
+    const w = this.track(ctx.createBufferSource());
+    w.buffer = this.noiseBuffer(ctx); w.loop = true; w.playbackRate.value = 2.2;
+    const wbp = ctx.createBiquadFilter(); wbp.type = 'bandpass'; wbp.frequency.value = 650; wbp.Q.value = 0.45;
+    const lfo = this.track(ctx.createOscillator()); lfo.frequency.value = 0.3;
+    const lfoG = ctx.createGain(); lfoG.gain.value = 0.05;
+    lfo.connect(lfoG).connect(wind.gain);
+    w.connect(wbp).connect(wind).connect(master);
+    src.start(t0, LAAT.interior.inicio + Math.random() * 10);
+    w.start(t0, Math.random() * 2);
+    lfo.start(t0);
+    this.interior = {
+      gain, lp, wind, duck,
+      stop: (fade: number) => {
+        const t = ctx.currentTime;
+        master.gain.cancelScheduledValues(t);
+        master.gain.setValueAtTime(Math.max(0.0001, master.gain.value), t);
+        master.gain.exponentialRampToValueAtTime(0.0001, t + fade);
+        for (const s of [src, w, lfo]) s.stop(t + fade + 0.05);
+      },
+    };
+    this.setInterior(presence, 0);
+  }
+
+  /** Cambia entre «desde fuera» (0) y «desde dentro» (1), poco a poco (`ramp` segundos). */
+  setInterior(presence: number, ramp = 0.5) {
+    const it = this.interior, ctx = this.ctx;
+    if (!it || !ctx) return;
+    const t = ctx.currentTime, k = Math.max(0, Math.min(1, presence)), tc = Math.max(0.01, ramp / 3);
+    it.gain.gain.setTargetAtTime(0.5 + 0.5 * k, t, tc); // desde fuera, algo más lejano
+    it.lp.frequency.setTargetAtTime(1300 + (16000 - 1300) * k * k, t, tc); // y más apagado
+    it.wind.gain.setTargetAtTime(0.2 * (1 - k) + 0.03, t, tc); // y mezclado con viento
+  }
+
+  /** Mientras alguien habla, el ruido de la nave baja un poco (los diálogos se entienden mejor). */
+  duckInterior(seconds: number) {
+    const it = this.interior, ctx = this.ctx;
+    if (!it || !ctx) return;
+    const t = ctx.currentTime;
+    it.duck.gain.cancelScheduledValues(t);
+    it.duck.gain.setTargetAtTime(0.7, t, 0.08);
+    it.duck.gain.setTargetAtTime(1, t + seconds, 0.3);
+  }
+
+  stopInterior(fade = 0.6) {
+    this.interior?.stop(fade);
+    this.interior = null;
+  }
+
+  /**
+   * Pasada rasante grabada: empieza en el segundo `offset` del archivo (el pico, la nave encima, está en `laatPeak()`).
+   * Luego, cada imagen, `steerFlyby` la mueve de lado a lado y le cambia el tono.
+   */
+  startFlyby(offset: number, level = 1) {
+    const ctx = this.ctx, out = this.out, buf = buffers.pasada;
+    if (!ctx || !out || !buf) return;
+    this.stopFlyby();
+    const src = this.track(ctx.createBufferSource());
+    src.buffer = buf;
+    const pan = ctx.createStereoPanner();
+    const gain = ctx.createGain();
+    gain.gain.value = level;
+    src.connect(pan).connect(gain).connect(out);
+    src.start(ctx.currentTime + 0.01, Math.max(0, offset));
+    this.flyby = { pan, src, gain };
+  }
+
+  /** `pan` −1 (izquierda) a 1 (derecha) · `rate` 1 = tono normal (más agudo al acercarse, más grave al alejarse). */
+  steerFlyby(pan: number, rate: number) {
+    const f = this.flyby, ctx = this.ctx;
+    if (!f || !ctx) return;
+    const t = ctx.currentTime;
+    f.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), t, 0.05);
+    f.src.playbackRate.setTargetAtTime(rate, t, 0.08);
+  }
+
+  stopFlyby(fade = 0.3) {
+    const f = this.flyby, ctx = this.ctx;
+    if (!f || !ctx) return;
+    const t = ctx.currentTime;
+    f.gain.gain.setTargetAtTime(0.0001, t, fade / 3);
+    try { f.src.stop(t + fade + 0.05); } catch { /* ya parado */ }
+    this.flyby = null;
+  }
+
   stopEngine(fade = 0.6) {
     this.engine?.stop(fade);
     this.engine = null;
@@ -229,6 +366,8 @@ export class CineSounds {
   /** Corta todo (al saltar la cinemática). */
   stopAll() {
     this.stopEngine(0.25);
+    this.stopInterior(0.25);
+    this.stopFlyby(0.2);
     for (const s of this.live) { try { s.stop(); } catch { /* ya parado */ } }
     this.live = [];
   }

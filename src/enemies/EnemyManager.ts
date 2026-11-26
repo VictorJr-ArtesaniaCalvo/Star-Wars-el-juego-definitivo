@@ -148,6 +148,11 @@ export class EnemyManager {
     this.ctx.claimed.clear();
   }
 
+  /** Esconde (o vuelve a enseñar) a todos los droides sin quitarlos (vista previa de la cinemática). */
+  setShown(on: boolean) {
+    for (const d of this.droids) d.setShown(on);
+  }
+
   clear() {
     for (const d of this.droids) if (d.state.active) d.deactivate(this.ctx);
     this.ctx.claimed.clear();
