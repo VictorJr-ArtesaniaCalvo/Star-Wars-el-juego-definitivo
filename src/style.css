@@ -312,26 +312,26 @@ h1.red { color: #ff7a60; }
 @keyframes hudIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- Panel de ajuste de manos (modo de pruebas) ---------- */
-#handTuner, #voiceTuner, #droidVoiceTuner {
+#handTuner, #voiceTuner, #droidVoiceTuner, #shipTuner {
   position: fixed; z-index: 30; top: calc(8px + env(safe-area-inset-top)); left: calc(8px + env(safe-area-inset-left));
   width: 270px; max-height: calc(100vh - 16px); overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y;
   background: rgba(14, 8, 6, .78); border: 1px solid rgba(255, 200, 140, .35); border-radius: 10px; padding: 8px 10px; font-size: 12px;
 }
-#handTuner .ht-head, #voiceTuner .ht-head, #droidVoiceTuner .ht-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; color: #ffcf9a; letter-spacing: 2px; }
-#handTuner button, #voiceTuner button, #droidVoiceTuner button { font: inherit; color: #fff; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.3); border-radius: 6px; padding: 5px 7px; }
-#handTuner button.on, #voiceTuner button.on, #droidVoiceTuner button.on { background: rgba(255, 170, 90, .45); border-color: #ffb070; }
-#handTuner .ht-seg, #voiceTuner .ht-seg, #droidVoiceTuner .ht-seg { display: flex; gap: 5px; margin: 5px 0; }
-#handTuner .ht-seg button, #voiceTuner .ht-seg button, #droidVoiceTuner .ht-seg button { flex: 1; }
-#handTuner .ht-row, #voiceTuner .ht-row, #droidVoiceTuner .ht-row { display: block; margin: 4px 0; }
-#handTuner .ht-row span, #voiceTuner .ht-row span, #droidVoiceTuner .ht-row span { display: flex; justify-content: space-between; opacity: .9; }
-#handTuner .ht-row i, #voiceTuner .ht-row i, #droidVoiceTuner .ht-row i { font-style: normal; color: #ffcf9a; }
-#handTuner input[type=range], #voiceTuner input[type=range], #droidVoiceTuner input[type=range] { width: 100%; margin: 2px 0 0; }
-#handTuner .ht-warn, #voiceTuner .ht-warn, #droidVoiceTuner .ht-warn { color: #ff9a7a; margin: 4px 0; }
-#handTuner .ht-copy, #voiceTuner .ht-copy, #droidVoiceTuner .ht-copy { background: rgba(120, 200, 120, .3); }
-#handTuner .ht-out, #voiceTuner .ht-out, #droidVoiceTuner .ht-out { width: 100%; height: 70px; font-size: 10px; margin-top: 4px; color: #000; user-select: text; -webkit-user-select: text; }
-#handTuner .ht-sub, #voiceTuner .ht-sub, #droidVoiceTuner .ht-sub { margin: 8px 0 2px; color: #ffcf9a; letter-spacing: 2px; font-size: 11px; border-top: 1px solid rgba(255,200,140,.25); padding-top: 6px; }
+#handTuner .ht-head, #voiceTuner .ht-head, #droidVoiceTuner .ht-head, #shipTuner .ht-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; color: #ffcf9a; letter-spacing: 2px; }
+#handTuner button, #voiceTuner button, #droidVoiceTuner button, #shipTuner button { font: inherit; color: #fff; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.3); border-radius: 6px; padding: 5px 7px; }
+#handTuner button.on, #voiceTuner button.on, #droidVoiceTuner button.on, #shipTuner button.on { background: rgba(255, 170, 90, .45); border-color: #ffb070; }
+#handTuner .ht-seg, #voiceTuner .ht-seg, #droidVoiceTuner .ht-seg, #shipTuner .ht-seg { display: flex; gap: 5px; margin: 5px 0; }
+#handTuner .ht-seg button, #voiceTuner .ht-seg button, #droidVoiceTuner .ht-seg button, #shipTuner .ht-seg button { flex: 1; }
+#handTuner .ht-row, #voiceTuner .ht-row, #droidVoiceTuner .ht-row, #shipTuner .ht-row { display: block; margin: 4px 0; }
+#handTuner .ht-row span, #voiceTuner .ht-row span, #droidVoiceTuner .ht-row span, #shipTuner .ht-row span { display: flex; justify-content: space-between; opacity: .9; }
+#handTuner .ht-row i, #voiceTuner .ht-row i, #droidVoiceTuner .ht-row i, #shipTuner .ht-row i { font-style: normal; color: #ffcf9a; }
+#handTuner input[type=range], #voiceTuner input[type=range], #droidVoiceTuner input[type=range], #shipTuner input[type=range] { width: 100%; margin: 2px 0 0; }
+#handTuner .ht-warn, #voiceTuner .ht-warn, #droidVoiceTuner .ht-warn, #shipTuner .ht-warn { color: #ff9a7a; margin: 4px 0; }
+#handTuner .ht-copy, #voiceTuner .ht-copy, #droidVoiceTuner .ht-copy, #shipTuner .ht-copy { background: rgba(120, 200, 120, .3); }
+#handTuner .ht-out, #voiceTuner .ht-out, #droidVoiceTuner .ht-out, #shipTuner .ht-out { width: 100%; height: 70px; font-size: 10px; margin-top: 4px; color: #000; user-select: text; -webkit-user-select: text; }
+#handTuner .ht-sub, #voiceTuner .ht-sub, #droidVoiceTuner .ht-sub, #shipTuner .ht-sub { margin: 8px 0 2px; color: #ffcf9a; letter-spacing: 2px; font-size: 11px; border-top: 1px solid rgba(255,200,140,.25); padding-top: 6px; }
 #handTuner .ht-mini { margin: 6px 0 0; font-size: 11px; opacity: .75; text-transform: uppercase; letter-spacing: 1px; }
-#voiceTuner, #droidVoiceTuner { z-index: 40; }
+#voiceTuner, #droidVoiceTuner, #shipTuner { z-index: 40; }
 
 /* ---------- Paso a la arena: fundido a negro suave con el nombre de la zona ---------- */
 #zoneFade { position: fixed; inset: 0; z-index: 9; background: #000; opacity: 0; pointer-events: none; transition: opacity 1.6s ease-in-out; display: flex; flex-direction: column; align-items: center; justify-content: center; }

@@ -50,7 +50,7 @@ export class World {
     scene: THREE.Scene,
     rapier: typeof RAPIER,
     physics: RAPIER.World,
-    hooks: { skyFire?: (x: number, y: number, z: number) => void } = {},
+    hooks: { skyFire?: (x: number, y: number, z: number, side: number) => void } = {},
   ) {
     const before = new Set(scene.children);
     const collidersBefore = new Set<number>(), bodiesBefore = new Set<number>();
@@ -117,6 +117,9 @@ export class World {
     cruiserSiteOn.value = 0; // en la arena no hay crucero: la neblina vuelve a ser la de siempre
     this.wallBlocks = null;
   }
+
+  /** Dónde está la Venator (para el sonido de sus motores); null en la arena (allí no hay naves). */
+  venatorPosition() { return this.canyon ? this.skyLife.venatorPosition() : null; }
 
   /** Fuerza de la ráfaga de viento y arena (0 a 1), en el cañón y en la arena. */
   get gust() { return this.air.gust; }

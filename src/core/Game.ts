@@ -36,6 +36,8 @@ import { Cinematic } from '../cinematic/Cinematic';
 import { loadCommandoModel, loadTrooperModel } from '../player/commandoModel';
 import { ANIM_CLIPS, loadClips } from '../anim/mixamo';
 import { HandTuner } from '../ui/HandTuner';
+import { ShipSounds, SHIP_SOUND } from '../audio/ShipSounds';
+import { ValuesTuner } from '../ui/ValuesTuner';
 import { DroidVoices } from '../audio/DroidVoices';
 import { DroidVoiceTuner } from '../ui/DroidVoiceTuner';
 import { VoiceTuner } from '../ui/VoiceTuner';
@@ -114,6 +116,16 @@ export class Game {
   /** Voces de los droides (B1 y, cuando haya archivos, B2): src/audio/DroidVoices.ts. */
   private droidVoices = new DroidVoices();
   private droidsTalk = false;
+  /** Sonido de las naves del cielo (motores de la Venator y disparos): src/audio/ShipSounds.ts. */
+  private shipSounds = new ShipSounds();
+  private shipTuner = new ValuesTuner({
+    id: 'shipTuner', titulo: 'SONIDO DE LAS NAVES', valores: SHIP_SOUND, copia: 'NAVES',
+    campos: [['motores', 'Volumen de los motores (Venator)', 0, 2, 0.05], ['disparos', 'Volumen de los disparos', 0, 1.5, 0.05], ['arena', 'En la arena (proporción)', 0, 1, 0.05]],
+    pruebas: [
+      ['Disparo Venator', () => { this.audio.resume(); this.shipSounds.test('venator', { x: 25, y: 265, z: 300 }); }],
+      ['Disparo fragata', () => { this.audio.resume(); this.shipSounds.test('fragata', { x: -35, y: 240, z: -310 }); }],
+    ],
+  });
   private droidVoiceTuner = new DroidVoiceTuner({
     test: (dist) => { this.audio.resume(); const c = this.camera.position; this.droidVoices.test(dist, { x: c.x, y: c.y, z: c.z, yaw: this.yaw }); },
   });
@@ -158,6 +170,7 @@ export class Game {
       onTuneHands: () => this.openHandTuner(),
       onTuneVoice: () => { this.audio.resume(); this.voiceTuner.show(); },
       onTuneDroidVoice: () => { this.audio.resume(); this.droidVoiceTuner.show(); },
+      onTuneShips: () => { this.audio.resume(); this.shipTuner.show(); },
       onCinematic: (shot) => { if (this.mode === 'menu' || this.mode === 'gameover') this.startRun(true, shot); },
       onArenaCinematic: (shot) => this.testArenaCinematic(shot),
       onQuit: () => this.quitToMenu(),
@@ -200,9 +213,11 @@ export class Game {
     this.physics.timestep = TICK;
     this.audio.init();
     void this.droidVoices.load(import.meta.env.BASE_URL);
+    void this.shipSounds.load(import.meta.env.BASE_URL);
     setWallDetail(this.settings.data.quality !== 'low'); // la forma de las paredes se fija al cargar (baja = recta)
     this.builtWallDetail = this.settings.data.quality !== 'low';
-    this.world = new World(this.scene, RAPIER, this.physics, { skyFire: (x, y, z) => this.audio.distantBoom(x, y, z) });
+    // disparos de las naves del cielo: el sonido grabado de cada nave (verde = Venator, rojo = fragata); si no cargó, el cañonazo de antes
+    this.world = new World(this.scene, RAPIER, this.physics, { skyFire: (x, y, z, side) => { if (this.shipSounds.hasShots) { if (this.audio.isStarted) this.shipSounds.shot(side === 0 ? 'venator' : 'fragata', x, y, z); } else this.audio.distantBoom(x, y, z); } });
 
     this.state.players.push({ id: 0, x: SPAWN.x, y: 0, z: SPAWN.z, yaw: 0, pitch: 0, crouching: false, health: 100, grenades: GRENADE.perGame });
     this.localPlayer = new PlayerController(RAPIER, this.physics, this.state.players[0]);
@@ -882,6 +897,13 @@ export class Game {
     this.last = t;
 
     const inp = this.input.poll(dt, this.settings.data.sensitivity);
+    // naves del cielo: motores de la Venator desde la nave (en el cañón); en la arena, disparos lejanos de vez en cuando
+    if (this.audio.isStarted && this.world) {
+      const ven = this.world.venatorPosition();
+      this.shipSounds.setArena(!ven);
+      if (ven) this.shipSounds.setEngine(ven);
+      else this.shipSounds.tickArena(this.camera.position);
+    }
     // los droides solo hablan en partida: en las cinemáticas, el menú o al perder, callan y olvidan lo que habían visto
     const talk = this.mode === 'playing' || this.mode === 'paused';
     if (!talk && this.droidsTalk) this.droidVoices.reset();

@@ -1,0 +1,18 @@
+{
+ "fragata": {
+  "disparo": [
+   "fragata_disparo_1",
+   "fragata_disparo_2"
+  ]
+ },
+ "venator": {
+  "motores": [
+   "venator_motores"
+  ],
+  "disparo": [
+   "venator_turbolaser_1",
+   "venator_turbolaser_2",
+   "venator_turbolaser_3"
+  ]
+ }
+}

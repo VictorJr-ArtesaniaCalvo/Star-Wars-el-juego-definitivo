@@ -22,6 +22,7 @@ export interface MenuActions {
   /** Abre el panel del filtro de radio de las voces (modo de pruebas) */
   onTuneVoice?: () => void;
   onTuneDroidVoice?: () => void;
+  onTuneShips?: () => void;
 }
 
 // Pantalla principal (fondo de Geonosis; JUGAR, AJUSTES, AGRADECIMIENTOS) y menú de pausa (CONTINUAR, AJUSTES, ABANDONAR).
@@ -42,6 +43,7 @@ export class Menu {
     $('btnTuneHands').addEventListener('click', () => actions.onTuneHands?.());
     $('btnTuneVoice').addEventListener('click', () => actions.onTuneVoice?.());
     $('btnTuneDroidVoice').addEventListener('click', () => actions.onTuneDroidVoice?.());
+    $('btnTuneShips').addEventListener('click', () => actions.onTuneShips?.());
     document.querySelectorAll<HTMLButtonElement>('#cineShots button').forEach((b) => b.addEventListener('click', () => actions.onCinematic?.(Number(b.dataset.s) - 1)));
     document.querySelectorAll<HTMLButtonElement>('#cine2Shots button').forEach((b) => b.addEventListener('click', () => actions.onArenaCinematic?.(Number(b.dataset.s) - 1)));
     $('btnCredits').addEventListener('click', () => ($('creditsScreen').hidden = false));

@@ -36,7 +36,9 @@ src/
   cinematic/          Cinemática inicial: script.ts (GUION: tomas, cámaras, tiempos, diálogos; todo ajustable), Cinematic.ts (reproductor),
                       actors.ts (LAAT en vuelo con la puerta abierta, piernas de clones, comando PROVISIONAL, B1 en silueta).
   audio/Voices.ts     Voces con filtro de radio de casco clon (Web Audio). audio/CineSounds.ts: motor, golpe en el casco, fuego.
+  audio/ShipSounds.ts Sonido de las naves del cielo: motores de la Venator en bucle (3D) y disparos de cada nave (3D, apagados y con eco).
   audio/DroidVoices.ts Voces de los droides: cuándo hablan, reglas para no repetirse, voz con dirección desde el droide y filtro robótico.
+  ui/ValuesTuner.ts   Panel genérico de ajustes del modo de pruebas (deslizadores + probar + «Copiar valores»).
   audio/Ambience.ts   Ambiente con los audios de Víctor: fondos en bucle con fundido cruzado de igual potencia, cambio de escena cruzado y ráfagas grabadas.
   sim/, net/          Tipos de estado y reserva de ideas para multijugador (no usado).
 src/world/ (lo más importante del escenario)

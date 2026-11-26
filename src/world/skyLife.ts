@@ -179,7 +179,7 @@ class SkyBattle {
 
   constructor(
     scene: THREE.Scene,
-    private onFire?: (x: number, y: number, z: number) => void,
+    private onFire?: (x: number, y: number, z: number, side: number) => void,
   ) {
     const glow = glowTexture();
 
@@ -251,6 +251,13 @@ class SkyBattle {
     }
   }
 
+  /** Centro del casco de la Venator en el mundo. */
+  republicPosition() {
+    const p = this.republic.center.clone();
+    this.republic.body.updateMatrixWorld();
+    return this.republic.body.localToWorld(p);
+  }
+
   /** Punto al azar sobre el casco de una nave (en el mundo): por la parte central de arriba, a lo largo de casi toda la eslora. */
   private hullPoint(ship: SkyShip, out: THREE.Vector3) {
     const { half, center } = ship;
@@ -267,7 +274,7 @@ class SkyBattle {
     const dst = side === 0 ? this.sep : this.republic;
     this.hullPoint(src, b.from);
     this.hullPoint(dst, b.to);
-    this.onFire?.(b.from.x, b.from.y, b.from.z);
+    this.onFire?.(b.from.x, b.from.y, b.from.z, side); // side 0 = Venator (verde), 1 = fragata (rojo): para su sonido
     const dist = b.from.distanceTo(b.to);
     b.dur = dist / BOLT_SPEED;
     b.t = 0;
@@ -440,7 +447,10 @@ export class SkyLife {
   private battle: SkyBattle;
   private geonosians: Geonosians;
 
-  constructor(scene: THREE.Scene, onFire?: (x: number, y: number, z: number) => void) {
+  /** Dónde está la Venator (centro de la nave), para el sonido de sus motores. */
+  venatorPosition() { return this.battle.republicPosition(); }
+
+  constructor(scene: THREE.Scene, onFire?: (x: number, y: number, z: number, side: number) => void) {
     this.battle = new SkyBattle(scene, onFire);
     this.geonosians = new Geonosians(scene);
   }

@@ -123,6 +123,9 @@ Todas de dominio público (CC0 1.0); se citan por cortesía. Detalles completos 
 - **Sonidos de la cañonera** (`public/audio/laat-pasada.mp3` y `laat-interior.mp3`): aportados por el autor del proyecto (originales en
   `assets/audio/efectos/laat_paso_rasante.mp3` y `laat_interior_vuelo.mp3`). Preparados con `tools/prepare-laat-sounds.py`: recortados, igualados de
   volumen (la pasada a −17 LUFS; el interior a −26 LUFS, por debajo de las voces) y el interior convertido en bucle sin cortes. **Origen y licencia por confirmar.**
+- **Sonidos de las naves del cielo** (`public/audio/naves/`: motores de la Venator, turboláseres de la Venator y disparos de la fragata): hechos por el
+  autor del proyecto con ElevenLabs (originales en `assets/audio/efectos/venator_*.mp3` y `fragata_*.mp3`). Preparados con `tools/prepare-ship-sounds.py`:
+  sin silencios (y el motor sin fundidos, para el bucle), igualados de volumen y en mono. **Condiciones de uso de ElevenLabs por confirmar.**
 - **Voces de los droides B1** (`public/audio/voces/droides/`: avistado, buscando y recibido, con variantes): hechas por el autor del proyecto con
   ElevenLabs (originales en `assets/audio/voces/droides/`). Preparadas con `tools/prepare-droid-voices.py`: sin silencios, igualadas a −16 LUFS, en mono;
   el filtro robótico lo pone el juego. **Condiciones de uso de ElevenLabs por confirmar.**

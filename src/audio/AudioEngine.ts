@@ -50,6 +50,8 @@ export class AudioEngine {
   readonly ambience = new Ambience();
   private ambScene: AmbScene = 'canyon';
   private started = false;
+  /** ¿Ya arrancó el sonido de la partida? (tras el primer toque) */
+  get isStarted() { return this.started; }
   private recentEnemyShots: number[] = [];
   private lastBoom = 0;
   private volume = 0.8; // general
