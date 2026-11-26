@@ -227,6 +227,8 @@ button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 #grenades b { font-size: 9px; letter-spacing: 2px; font-weight: 700; margin-right: 3px; color: rgba(210,235,200,.85); text-shadow: 0 0 2px #000; }
 #grenades i { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(190,225,150,.7); background: rgba(150,200,110,.9); transition: background .15s; }
 #grenades i.spent { background: transparent; }
+/* con los botones táctiles, las granadas que quedan ya se ven en el número del botón de granada (pedido por Víctor) */
+body.touch:not(.gamepad) #grenades { display: none; }
 #healPop { position: absolute; left: 4px; top: 40px; font-size: 14px; font-weight: 800; letter-spacing: 1px; color: #8fffa6; text-shadow: 0 0 3px #000; opacity: 0; }
 #healPop.go { animation: healUp 1.3s ease-out; }
 @keyframes healUp { 0% { opacity: 0; transform: translateY(8px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }

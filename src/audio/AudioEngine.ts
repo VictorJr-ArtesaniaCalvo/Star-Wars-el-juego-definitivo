@@ -373,7 +373,7 @@ export class AudioEngine {
   }
   /** Pitido de la granada armada (al lanzarla). Devuelve con qué número seguirla mientras vuela (o nada si no hay sonido). */
   grenadeArmed(x: number, y: number, z: number) {
-    const sid = this.playAt(this.detArmed, 0.8, [x, y, z], 3, 'detonador-armado');
+    const sid = this.playAt(this.detArmed, 1.0, [x, y, z], 5, 'detonador-armado');
     if (sid !== undefined) this.armedIds.add(sid);
     return sid;
   }
@@ -383,7 +383,7 @@ export class AudioEngine {
   grenadeArmedStop(sid: number) { this.detArmed?.howl.stop(sid); this.armedIds.delete(sid); }
   /** Explosión de la granada (la grabada; si no cargó, la generada de siempre). */
   grenadeExplosion(x: number, y: number, z: number) {
-    if (this.playAt(this.detBoom, 1.0, [x, y, z], 12, 'detonador-explosion') === undefined) this.explosion(x, y, z);
+    if (this.playAt(this.detBoom, 1.0, [x, y, z], 18, 'detonador-explosion') === undefined) this.explosion(x, y, z);
   }
 
   /** Disparo de un droide, desde su posición. Se limita cuántos suenan a la vez para cuidar el móvil. */

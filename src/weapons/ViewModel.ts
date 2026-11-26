@@ -263,16 +263,24 @@ export class ViewModel {
     return true;
   }
 
-  /** Botón de granada soltado: la lanza (en cuanto la tenga en la mano). */
+  /** ¿Tiene (o está cogiendo) la granada en la mano, sin haberla lanzado aún? */
+  get grenadeHolding() { return this.nade.phase === 'reach' || this.nade.phase === 'hold'; }
+
+  /** Disparo con la granada en la mano: la lanza (en cuanto la tenga en la mano). */
   grenadeRelease() {
-    if (this.nade.phase === 'reach' || this.nade.phase === 'hold') this.nade.release = true;
+    if (this.grenadeHolding) this.nade.release = true;
+  }
+
+  /** Botón de granada otra vez: la guarda en el cinturón sin lanzarla y la mano vuelve al rifle. */
+  grenadePutAway() {
+    if (this.grenadeHolding) Object.assign(this.nade, { phase: 'back', t: 0, release: false, frozen: false });
   }
 
   /** Panel de ajuste: deja la postura de sujetar la granada quieta en pantalla (o la quita y la mano vuelve al rifle sin lanzar). */
   grenadeFreeze(on: boolean) {
     this.nade.frozen = on;
     if (on) { if (this.nade.phase === 'none') this.grenadeStart(true); this.nade.release = false; }
-    else if (this.nade.phase === 'reach' || this.nade.phase === 'hold') Object.assign(this.nade, { phase: 'back', t: 0 });
+    else this.grenadePutAway();
   }
   get grenadeFrozen() { return this.nade.frozen; }
 

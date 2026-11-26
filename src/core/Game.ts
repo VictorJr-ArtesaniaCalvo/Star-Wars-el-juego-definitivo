@@ -113,6 +113,9 @@ export class Game {
   private grenadeSys!: GrenadeSystem;
   private grenadeCd = 0;
   private swapT = 0;
+  private prevFire = false;
+  /** ¿Muestran los botones de disparo el icono de lanzar? (granada en la mano) */
+  private nadeHud = false;
   private shake = 0;
   private medkits!: MedkitSystem;
   private jumpBuffer = 0;
@@ -904,11 +907,17 @@ export class Game {
       this.yaw -= inp.yaw;
       this.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.pitch - inp.pitch));
       if (inp.crouchPressed) this.wantCrouch = !this.wantCrouch;
-      // Granada: al pulsar se coge con la mano izquierda; al soltar se lanza (desde el panel de ajuste no, si está congelada).
-      if (inp.grenadePressed && !this.tuner.open) this.startGrenade();
-      if (nadeBusy && !inp.grenadeHeld && !this.tuner.open) this.viewModel.grenadeRelease();
       this.swapT = Math.max(0, this.swapT - dt);
       const fireNow = inp.fire || inp.fireHip;
+      // Granada: el botón de granada la saca (la mano izquierda la coge del cinturón y la sujeta) o, si ya la tienes, la guarda;
+      // con ella en la mano, disparar la lanza. (Con el panel de ajuste abierto, solo sus botones.)
+      if (!this.tuner.open) {
+        if (inp.grenadePressed) { if (this.viewModel.grenadeHolding) this.viewModel.grenadePutAway(); else this.startGrenade(); }
+        if (this.viewModel.grenadeHolding && fireNow && !this.prevFire) { this.viewModel.grenadeRelease(); this.swapT = 0.45; }
+      }
+      this.prevFire = fireNow;
+      // los botones de disparo cambian su icono por el de lanzar mientras tienes la granada en la mano
+      if (this.viewModel.grenadeHolding !== this.nadeHud) { this.nadeHud = this.viewModel.grenadeHolding; this.hud.setWeapon(this.nadeHud ? 'grenade' : 'blaster'); }
       this.grenadeCd = Math.max(0, this.grenadeCd - dt);
       this.shake = Math.max(0, this.shake - dt * 2.6);
       // Saltar: si estás agachado, primero te levantas.

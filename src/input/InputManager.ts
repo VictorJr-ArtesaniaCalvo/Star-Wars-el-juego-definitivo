@@ -16,8 +16,6 @@ export interface FrameInput {
   crouchPressed: boolean;
   jumpPressed: boolean;
   grenadePressed: boolean;
-  /** botón de granada mantenido (se sujeta mientras se mantiene, se lanza al soltar) */
-  grenadeHeld: boolean;
   pausePressed: boolean;
 }
 
@@ -47,7 +45,7 @@ export class InputManager {
       this.touch?.reset();
     }
 
-    const out: FrameInput = { moveX: 0, moveZ: 0, yaw: 0, pitch: 0, fire: false, fireHip: false, aimHeld: false, aimToggled: false, touchAim: false, crouchPressed: false, jumpPressed: false, grenadePressed: false, grenadeHeld: false, pausePressed: false };
+    const out: FrameInput = { moveX: 0, moveZ: 0, yaw: 0, pitch: 0, fire: false, fireHip: false, aimHeld: false, aimToggled: false, touchAim: false, crouchPressed: false, jumpPressed: false, grenadePressed: false, pausePressed: false };
     const sources = [this.keyboard, this.gamepad, ...(this.touch && !pad ? [this.touch] : [])];
     for (const s of sources) {
       const m = s.move();
@@ -63,9 +61,7 @@ export class InputManager {
       if (s === this.touch && (l.yaw !== 0 || l.pitch !== 0 || s.fire() || s.fireHip())) out.touchAim = true;
       out.crouchPressed = s.consumeCrouch() || out.crouchPressed;
       out.jumpPressed = s.consumeJump() || out.jumpPressed;
-      out.grenadePressed = s.consumeGrenade() || out.grenadePressed;
-      out.grenadeHeld = s.grenadeHeld() || out.grenadeHeld;
-      out.pausePressed = s.consumePause() || out.pausePressed;
+      out.grenadePressed = s.consumeGrenade() || out.grenadePressed;      out.pausePressed = s.consumePause() || out.pausePressed;
     }
     out.moveX = Math.max(-1, Math.min(1, out.moveX));
     out.moveZ = Math.max(-1, Math.min(1, out.moveZ));

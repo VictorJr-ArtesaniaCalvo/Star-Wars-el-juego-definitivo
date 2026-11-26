@@ -217,16 +217,17 @@ export const FP_STATE = { version: 0, corteVisible: false, debug: [] as string[]
 export interface FreePose { pos: [number, number, number]; rot: [number, number, number]; lado: number; abajo: number }
 
 /** Ajustes de la mano izquierda con la granada (los cambia en directo la sección «Granada» del panel de ajuste). */
+// valores de Víctor (panel de ajuste, sección «Granada»)
 export const FP_GRENADE = {
   /** La mano que la sujeta (en el sistema de la cámara). */
-  mano: { pos: [-0.13, -0.17, -0.4], rot: [0, -30, 90], lado: -35, abajo: 50 } as FreePose, // valores de partida (pendiente de Víctor)
+  mano: { pos: [-0.186, -0.224, -0.51], rot: [39, -39, 71], lado: -35, abajo: 23 } as FreePose,
   /** La granada dentro de la mano (en el sistema de la mano: x hacia el pulgar, y saliendo de la palma, z hacia los dedos; m y grados). */
-  granada: { pos: [0, 0.058, 0.012], rot: [0, 90, 0] as [number, number, number] },
+  granada: { pos: [-0.006, 0.062, 0.025], rot: [-66, 42, 135] as [number, number, number] },
   /** Cuánto se cierran los dedos y el pulgar alrededor de la granada (se paran al tocarla). */
   dedos: 1,
-  pulgar: 1,
+  pulgar: 0,
   /** El rifle mientras sujetas la granada: cuánto baja (m), se aparta a la derecha (m) y se inclina (grados). */
-  rifle: { baja: 0.07, aparta: 0.04, gira: 10 },
+  rifle: { baja: 0.186, aparta: 0.116, gira: 30 },
 };
 /** Radio de la granada para que los dedos se paren al tocarla (10 cm de diámetro). */
 export const GRENADE_RADIUS = 0.05;

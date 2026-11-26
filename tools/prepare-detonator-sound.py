@@ -7,8 +7,8 @@ siempre en el instante exacto en que la granada estalla (aunque el juego vaya a 
                                          desde la granada. Su duración es la MECHA de la granada (GRENADE.fuse en Grenade.ts).
   public/audio/detonador-explosion.mp3  la explosión hasta el final: suena al estallar, desde donde estalla.
 
-Mono (el juego los coloca en el espacio). Las dos partes llevan la misma ganancia, así guardan el volumen relativo del
-original; el pico de la explosión queda a −1 dB.
+Mono (el juego los coloca en el espacio). Primero las dos partes llevan la misma ganancia (pico de la explosión a −1 dB);
+luego, a petición de Víctor, se suben con un limitador (más volumen sin distorsión): la explosión +6 dB y el pitido +10 dB.
 
 Uso (desde la carpeta del proyecto, con ffmpeg y numpy):  python3 -I tools/prepare-detonator-sound.py
 """
@@ -34,12 +34,14 @@ def load(path):
     return d
 
 
-def to_mp3(x, path, kbps):
+def to_mp3(x, path, kbps, boost_db):
+    """Guarda en MP3 subiendo el volumen `boost_db` con un limitador (los picos no pasan de −0,5 dB)."""
     tmp = tempfile.mktemp(suffix='.wav')
     with wave.open(tmp, 'wb') as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR)
         w.writeframes((np.clip(x, -1, 1) * 32767).astype(np.int16).tobytes())
-    subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-ar', '44100', '-b:a', f'{kbps}k', path], check=True)
+    af = f'volume={boost_db}dB,alimiter=limit=0.94:attack=3:release=80:level=disabled:latency=1'
+    subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-af', af, '-ar', '44100', '-b:a', f'{kbps}k', path], check=True)
     os.remove(tmp)
 
 
@@ -52,7 +54,7 @@ f = int(0.003 * SR)  # fundidos de 3 ms en los cortes (sin chasquidos)
 armed[:f] *= np.linspace(0, 1, f); armed[-f:] *= np.linspace(1, 0, f)
 boom[:f] *= np.linspace(0, 1, f)
 t = int(0.05 * SR); boom[-t:] *= np.linspace(1, 0, t)
-to_mp3(armed, os.path.join(OUT, 'detonador-armado.mp3'), 96)
-to_mp3(boom, os.path.join(OUT, 'detonador-explosion.mp3'), 128)
+to_mp3(armed, os.path.join(OUT, 'detonador-armado.mp3'), 96, 10)
+to_mp3(boom, os.path.join(OUT, 'detonador-explosion.mp3'), 128, 6)
 print(f'detonador-armado.mp3: {len(armed) / SR:.3f} s  (= mecha de la granada)')
 print(f'detonador-explosion.mp3: {len(boom) / SR:.3f} s')
