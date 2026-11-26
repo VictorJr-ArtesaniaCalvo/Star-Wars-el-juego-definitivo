@@ -1,4 +1,5 @@
 import { Howler } from 'howler';
+import { MIX_CINE, mixBus } from './mix';
 
 // Sonidos propios de la cinemática, generados en el momento con Web Audio (sin archivos):
 // motor de la cañonera en vuelo (con volumen y tono para las pasadas), golpe con los nudillos en el casco, crepitar del fuego,
@@ -35,6 +36,8 @@ export class CineSounds {
 
   private get ctx(): AudioContext | null { return Howler.ctx ?? null; }
   private get out(): AudioNode | null { const c = this.ctx; return c ? (Howler.masterGain ?? c.destination) : null; }
+  /** Salida con el volumen de mezcla de ese sonido (panel «MEZCLA: CINEMÁTICAS»). */
+  private mix(key: keyof typeof MIX_CINE): AudioNode | null { return mixBus(MIX_CINE, key) ?? this.out; }
 
   private noiseBuffer(ctx: AudioContext) {
     if (this.noise) return this.noise;
@@ -56,7 +59,7 @@ export class CineSounds {
 
   /** Motor de la cañonera: retumbo grave con un silbido de turbina por encima. `level` 0..1. */
   startEngine(level = 1, fadeIn = 0.8) {
-    const ctx = this.ctx, out = this.out;
+    const ctx = this.ctx, out = this.mix('motor');
     if (!ctx || !out || this.engine) return;
     const t0 = ctx.currentTime;
     const master = ctx.createGain();
@@ -120,7 +123,7 @@ export class CineSounds {
    * `level` 0..1 (dos droidekas a la vez: algo más fuerte).
    */
   shieldOn(level = 1) {
-    const ctx = this.ctx, out = this.out;
+    const ctx = this.ctx, out = this.mix('escudos');
     if (!ctx || !out) return;
     const t0 = ctx.currentTime + 0.01, dur = 1.6;
     const master = ctx.createGain();
@@ -158,7 +161,7 @@ export class CineSounds {
 
   /** Un paso en el túnel: golpe sordo de la bota y su eco contra la roca (tres rebotes que se apagan). `level` 0..1. */
   echoStep(level = 1) {
-    const ctx = this.ctx, out = this.out;
+    const ctx = this.ctx, out = this.mix('pasos');
     if (!ctx || !out) return;
     const t0 = ctx.currentTime + 0.005;
     for (const [dt, k, f] of [[0, 1, 520], [0.13, 0.42, 420], [0.27, 0.22, 360], [0.42, 0.11, 300]] as const) {
@@ -197,7 +200,7 @@ export class CineSounds {
    * Interior de la cañonera en vuelo, en bucle sin cortes. `presence` 0 = desde fuera (más lejano, apagado y con viento) · 1 = desde dentro.
    */
   startInterior(presence: number, fadeIn = 0.6) {
-    const ctx = this.ctx, out = this.out, buf = buffers.interior;
+    const ctx = this.ctx, out = this.mix('interior'), buf = buffers.interior;
     if (!ctx || !out || !buf || this.interior) return;
     const t0 = ctx.currentTime;
     const master = ctx.createGain();
@@ -268,7 +271,7 @@ export class CineSounds {
    * Luego, cada imagen, `steerFlyby` la mueve de lado a lado y le cambia el tono.
    */
   startFlyby(offset: number, level = 1) {
-    const ctx = this.ctx, out = this.out, buf = buffers.pasada;
+    const ctx = this.ctx, out = this.mix('pasada'), buf = buffers.pasada;
     if (!ctx || !out || !buf) return;
     this.stopFlyby();
     const src = this.track(ctx.createBufferSource());
@@ -306,7 +309,7 @@ export class CineSounds {
 
   /** Golpes con los nudillos en el lateral del casco (`n` golpes seguidos). */
   knock(n = 2) {
-    const ctx = this.ctx, out = this.out;
+    const ctx = this.ctx, out = this.mix('golpe');
     if (!ctx || !out) return;
     for (let i = 0; i < n; i++) {
       const t0 = ctx.currentTime + 0.01 + i * 0.17;
@@ -336,7 +339,7 @@ export class CineSounds {
 
   /** Crepitar del fuego durante `seconds` (chasquidos sueltos sobre un rumor suave). */
   crackle(seconds: number, level = 1) {
-    const ctx = this.ctx, out = this.out;
+    const ctx = this.ctx, out = this.mix('fuego');
     if (!ctx || !out) return;
     const t0 = ctx.currentTime;
     const src = this.track(ctx.createBufferSource());

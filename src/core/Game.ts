@@ -37,6 +37,7 @@ import { loadCommandoModel, loadTrooperModel } from '../player/commandoModel';
 import { ANIM_CLIPS, loadClips } from '../anim/mixamo';
 import { HandTuner } from '../ui/HandTuner';
 import { ShipSounds, SHIP_SOUND } from '../audio/ShipSounds';
+import { MIX_CINE, MIX_COMBATE, MIX_MUSICA, MIX_VIENTO } from '../audio/mix';
 import { ValuesTuner } from '../ui/ValuesTuner';
 import { DroidVoices } from '../audio/DroidVoices';
 import { DroidVoiceTuner } from '../ui/DroidVoiceTuner';
@@ -93,8 +94,12 @@ export class Game {
   /** A qué volver al acabar una vista previa de la cinemática (modo de pruebas). */
   private previewReturn: Mode = 'menu';
   private voiceTuner = new VoiceTuner({
-    retune: () => this.cine.voices.retune(),
-    play: (what) => { this.audio.resume(); this.cine.testVoice(what); },
+    retune: () => { this.cine.voices.retune(); this.cine2.voices.retune(); },
+    play: (what) => {
+      this.audio.resume();
+      if (what === 'piloto') this.cine2.voices.say('c2_piloto_1', 'piloto', 4.6); // el piloto del paso a la arena
+      else this.cine.testVoice(what);
+    },
   });
   private tuner = new HandTuner({
     toggleAim: () => { this.adsToggled = !this.adsToggled; },
@@ -118,6 +123,33 @@ export class Game {
   private droidsTalk = false;
   /** Sonido de las naves del cielo (motores de la Venator y disparos): src/audio/ShipSounds.ts. */
   private shipSounds = new ShipSounds();
+  // Mezcla de sonido (modo de pruebas): un panel por grupo; cada deslizador multiplica el volumen de un sonido (1 = como ahora)
+  private mixTuners = {
+    viento: new ValuesTuner({
+      id: 'mixViento', titulo: 'MEZCLA: VIENTO', valores: MIX_VIENTO, copia: 'MEZCLA VIENTO', cambio: () => this.audio.mixChanged(),
+      campos: [['fondoCanon', 'Fondo del cañón', 0, 3, 0.05], ['fondoTunel', 'Fondo del túnel', 0, 3, 0.05], ['fondoArena', 'Fondo de la arena', 0, 3, 0.05],
+        ['rafagas', 'Ráfagas grabadas', 0, 3, 0.05], ['subida', 'Subida del fondo con cada ráfaga', 0, 3, 0.05],
+        ['antesFondo', 'Viento generado («Antes»)', 0, 3, 0.05], ['antesRafaga', 'Golpe de ráfaga generado', 0, 3, 0.05]],
+    }),
+    combate: new ValuesTuner({
+      id: 'mixCombate', titulo: 'MEZCLA: COMBATE', valores: MIX_COMBATE, copia: 'MEZCLA COMBATE', cambio: () => this.audio.mixChanged(),
+      campos: [['blaster', 'Tu bláster', 0, 3, 0.05], ['calor', 'Sobrecalentamiento del bláster', 0, 3, 0.05], ['droides', 'Disparos de B1 y B2', 0, 3, 0.05],
+        ['droideka', 'Disparos de droidekas', 0, 3, 0.05], ['cargarArma', '«Cargar el arma» de los B1', 0, 3, 0.05], ['granadaPitido', 'Pitido del detonador', 0, 3, 0.05],
+        ['explosion', 'Explosión de la granada', 0, 3, 0.05], ['lanzar', 'Lanzar la granada', 0, 3, 0.05], ['rebote', 'Rebote de la granada', 0, 3, 0.05],
+        ['kit', 'Coger un kit médico', 0, 3, 0.05]],
+      pruebas: [['Bláster', () => { this.audio.resume(); this.audio.start(); this.audio.playerShot(); }], ['Explosión', () => { this.audio.resume(); this.audio.start(); const c = this.camera.position; this.audio.grenadeExplosion(c.x, c.y, c.z - 8); }]],
+    }),
+    cine: new ValuesTuner({
+      id: 'mixCine', titulo: 'MEZCLA: CINEMÁTICAS', valores: MIX_CINE, copia: 'MEZCLA CINEMATICAS', cambio: () => this.audio.mixChanged(),
+      campos: [['interior', 'Interior de la cañonera en vuelo', 0, 3, 0.05], ['pasada', 'Pasada rasante de la cañonera', 0, 3, 0.05], ['motor', 'Motor generado (respaldo)', 0, 3, 0.05],
+        ['golpe', 'Golpe en el casco', 0, 3, 0.05], ['fuego', 'Fuego', 0, 3, 0.05], ['escudos', 'Escudos de los droidekas', 0, 3, 0.05],
+        ['pasos', 'Pasos en el túnel', 0, 3, 0.05], ['disparosLejanos', 'Disparos lejanos', 0, 3, 0.05], ['canonazos', 'Cañonazos lejanos', 0, 3, 0.05]],
+    }),
+    musica: new ValuesTuner({
+      id: 'mixMusica', titulo: 'MEZCLA: MÚSICA', valores: MIX_MUSICA, copia: 'MEZCLA MUSICA', cambio: () => this.audio.mixChanged(),
+      campos: [['canon', 'Música del cañón', 0, 2, 0.05], ['arena', 'Música de la arena', 0, 2, 0.05], ['menu', 'Música del menú', 0, 2, 0.05]],
+    }),
+  };
   private shipTuner = new ValuesTuner({
     id: 'shipTuner', titulo: 'SONIDO DE LAS NAVES', valores: SHIP_SOUND, copia: 'NAVES',
     campos: [['motores', 'Volumen de los motores (Venator)', 0, 2, 0.05], ['disparos', 'Volumen de los disparos', 0, 1.5, 0.05], ['arena', 'En la arena (proporción)', 0, 1, 0.05]],
@@ -171,6 +203,7 @@ export class Game {
       onTuneVoice: () => { this.audio.resume(); this.voiceTuner.show(); },
       onTuneDroidVoice: () => { this.audio.resume(); this.droidVoiceTuner.show(); },
       onTuneShips: () => { this.audio.resume(); this.shipTuner.show(); },
+      onTuneMix: (g) => { this.audio.resume(); this.mixTuners[g].show(); },
       onCinematic: (shot) => { if (this.mode === 'menu' || this.mode === 'gameover') this.startRun(true, shot); },
       onArenaCinematic: (shot) => this.testArenaCinematic(shot),
       onQuit: () => this.quitToMenu(),

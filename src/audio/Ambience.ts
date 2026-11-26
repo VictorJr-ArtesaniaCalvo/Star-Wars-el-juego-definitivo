@@ -1,4 +1,5 @@
 import { Howler } from 'howler';
+import { MIX_VIENTO } from './mix';
 
 // Ambiente con los audios de Víctor (ElevenLabs), preparados con tools/prepare-ambience.py → public/audio/ambiente/.
 //
@@ -32,7 +33,7 @@ const SWELL = 0.25;
 
 interface Info { tipo: 'fondo' | 'rafaga'; grupo: string; dura: number; golpe?: number }
 interface Clip { name: string; buf: AudioBuffer; golpe: number }
-interface Bed { grupo: string; clips: Clip[]; gain: GainNode; next: number; cur: { src: AudioBufferSourceNode; g: GainNode } | null; last: string }
+interface Bed { grupo: string; clips: Clip[]; gain: GainNode; mix: GainNode; mixKey: keyof typeof MIX_VIENTO; next: number; cur: { src: AudioBufferSourceNode; g: GainNode } | null; last: string }
 
 /** Curvas de igual potencia (de 0 a 1 y de 1 a 0). */
 const N = 64;
@@ -133,9 +134,11 @@ export class Ambience {
       const clips = this.clips.get(grupo);
       if (!clips?.length) continue;
       const gain = ctx.createGain();
-      gain.connect(this.out!);
+      const mixKey = scene === 'canyon' ? 'fondoCanon' : scene === 'tunnel' ? 'fondoTunel' : 'fondoArena';
+      const mix = ctx.createGain(); mix.gain.value = MIX_VIENTO[mixKey]; // mezcla (panel «MEZCLA: VIENTO»)
+      gain.connect(mix).connect(this.out!);
       curve(gain.gain, UP, t, first ? 2 : SCENE_FADE, vol);
-      const bed: Bed = { grupo, clips, gain, next: t, cur: null, last: '' };
+      const bed: Bed = { grupo, clips, gain, mix, mixKey, next: t, cur: null, last: '' };
       this.beds.set(`${scene}:${grupo}`, bed);
       this.startPass(bed, t, false); // empieza ya a volumen completo: el fundido lo hace `gain`
     }
@@ -166,14 +169,18 @@ export class Ambience {
   private pump() {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
-    for (const bed of this.beds.values()) if (bed.next < now + 1.5) this.startPass(bed, Math.max(bed.next, now + 0.05), true);
+    for (const bed of this.beds.values()) {
+      if (bed.next < now + 1.5) this.startPass(bed, Math.max(bed.next, now + 0.05), true);
+      bed.mix.gain.setTargetAtTime(MIX_VIENTO[bed.mixKey], now, 0.2); // sigue al panel de mezcla
+    }
+    if (this.gustOut && this.enabled) this.gustOut.gain.setTargetAtTime(GUST_LEVEL * MIX_VIENTO.rafagas, now, 0.2);
   }
 
   /** El fondo sube un poco mientras sopla una ráfaga (k de 0 a 1). */
   setGust(k: number) {
     if (!this.ctx || !this.swellNode || Math.abs(k - this.swell) < 0.02) return;
     this.swell = k;
-    this.swellNode.gain.setTargetAtTime(1 + SWELL * k, this.ctx.currentTime, 0.4);
+    this.swellNode.gain.setTargetAtTime(1 + SWELL * MIX_VIENTO.subida * k, this.ctx.currentTime, 0.4);
   }
 
   /**

@@ -10,6 +10,8 @@ export interface ValuesTunerSetup<T extends Record<string, number>> {
   pruebas?: Array<[string, () => void]>;
   /** Prefijo del texto copiado. */
   copia: string;
+  /** Algún valor ha cambiado (para aplicarlo en directo). */
+  cambio?: () => void;
 }
 
 const round = (v: number, step: number) => +(Math.round(v / step) * step).toFixed(step < 0.01 ? 3 : step < 1 ? 2 : 0);
@@ -40,6 +42,7 @@ export class ValuesTuner<T extends Record<string, number>> {
       range.addEventListener('input', () => {
         (o.valores as Record<string, number>)[key] = Number(range.value);
         num.textContent = String(round(Number(range.value), step));
+        o.cambio?.();
       });
       box.appendChild(row);
       this.inputs.push({ range, num, key, step });

@@ -1,6 +1,7 @@
 import { Howl, Howler } from 'howler';
 import { synthesizeAll, type SoundId, type SynthSet } from './Synth';
 import { Ambience, type AmbScene } from './Ambience';
+import { MIX_CINE, MIX_COMBATE, MIX_MUSICA, MIX_VIENTO, refreshMix } from './mix';
 
 export type Sfx = 'b1' | 'b2' | 'droideka';
 
@@ -131,8 +132,15 @@ export class AudioEngine {
   private applyVolumes() {
     Howler.volume(this.paused ? 0 : this.volume * this.sfxVol);
     const g = Math.min(1, this.volume * this.musicVol * MUSIC_BASE);
-    this.setTrackGain(this.music, g * (this.paused ? 0.6 : 1) * this.gameFade);
-    this.setTrackGain(this.menuMusic, g * this.menuFade);
+    const mm = this.music === this.arenaMusic ? MIX_MUSICA.arena : MIX_MUSICA.canon; // mezcla de cada música (modo de pruebas)
+    this.setTrackGain(this.music, g * (this.paused ? 0.6 : 1) * this.gameFade * mm);
+    this.setTrackGain(this.menuMusic, g * this.menuFade * MIX_MUSICA.menu);
+  }
+
+  /** Los paneles de mezcla del modo de pruebas han cambiado algo: se aplica ya. */
+  mixChanged() {
+    this.applyVolumes();
+    refreshMix();
   }
 
   private setTrackGain(m: Track | null, g: number) {
@@ -291,7 +299,7 @@ export class AudioEngine {
     // con el ambiente nuevo, el viento generado de antes calla (se puede volver a él para comparar: modo de pruebas)
     const old = this.ambience.active ? 0 : 1;
     this.oldWind += (old - this.oldWind) * 0.03; // cambio suave entre los dos, sin cortes
-    if (this.wind && this.windId !== undefined) this.wind.volume((0.2 + 0.3 * k) * WIND_VOLUME * this.oldWind, this.windId);
+    if (this.wind && this.windId !== undefined) this.wind.volume((0.2 + 0.3 * k) * WIND_VOLUME * this.oldWind * MIX_VIENTO.antesFondo, this.windId);
     this.ambience.setGust(k);
   }
   private oldWind = 0;
@@ -356,7 +364,7 @@ export class AudioEngine {
   windGust(k: number) {
     if (this.ambience.hasGusts(this.ambScene)) return; // ya suena la ráfaga grabada (programada con windGustPlanned)
     const e = this.ear;
-    this.play('gust', Math.min(1, 0.55 * k + 0.15) * WIND_VOLUME * 2.2 * GUST_VOLUME, 0.92 + Math.random() * 0.16, [e.x - 14, e.y + 2, e.z], 10);
+    this.play('gust', Math.min(1, 0.55 * k + 0.15) * WIND_VOLUME * 2.2 * GUST_VOLUME * MIX_VIENTO.antesRafaga, 0.92 + Math.random() * 0.16, [e.x - 14, e.y + 2, e.z], 10);
   }
 
   private pick(id: SoundId) {
@@ -383,23 +391,23 @@ export class AudioEngine {
     const ok = this.clonClips.map((c, i) => (c.ok ? i : -1)).filter((i) => i >= 0);
     const pool = ok.filter((i) => i !== this.lastClon);
     const list = pool.length ? pool : ok;
-    if (!list.length) { this.play('blaster', 0.62, rnd(0.95, 1.06)); return; } // respaldo
+    if (!list.length) { this.play('blaster', 0.62 * MIX_COMBATE.blaster, rnd(0.95, 1.06)); return; } // respaldo
     if (!this.started) return;
     const i = list[Math.floor(Math.random() * list.length)];
     this.lastClon = i;
     const h = this.clonClips[i].howl;
     const sid = h.play();
-    h.volume(0.55, sid);
+    h.volume(0.55 * MIX_COMBATE.blaster, sid);
     h.rate(rnd(0.97, 1.04), sid);
     this.played[`clon-clip${i + 1}`] = (this.played[`clon-clip${i + 1}`] ?? 0) + 1;
   }
-  overheat() { this.play('overheat', 0.55); }
-  ready() { this.play('ready', 0.35); }
+  overheat() { this.play('overheat', 0.55 * MIX_COMBATE.calor); }
+  ready() { this.play('ready', 0.35 * MIX_COMBATE.calor); }
   /** Recoger un kit médico: dos notas suaves ascendentes. */
-  pickup() { this.play('ready', 0.55, 1.35); }
-  grenadeThrow() { this.play('whoosh', 0.5, rnd(0.95, 1.05)); }
-  grenadeBounce(x: number, y: number, z: number) { this.play('tink', 0.45, rnd(0.9, 1.15), [x, y, z], 4); }
-  explosion(x: number, y: number, z: number) { this.play('explosion', 1.0, rnd(0.94, 1.04), [x, y, z], 12); }
+  pickup() { this.play('ready', 0.55 * MIX_COMBATE.kit, 1.35); }
+  grenadeThrow() { this.play('whoosh', 0.5 * MIX_COMBATE.lanzar, rnd(0.95, 1.05)); }
+  grenadeBounce(x: number, y: number, z: number) { this.play('tink', 0.45 * MIX_COMBATE.rebote, rnd(0.9, 1.15), [x, y, z], 4); }
+  explosion(x: number, y: number, z: number) { this.play('explosion', 1.0 * MIX_COMBATE.explosion, rnd(0.94, 1.04), [x, y, z], 12); }
 
   /** Pone a sonar un sonido grabado en un punto del espacio (con dirección y distancia). */
   private playAt(c: { howl: Howl; ok: boolean } | null, volume: number, pos: [number, number, number], ref: number, key: string) {
@@ -413,7 +421,7 @@ export class AudioEngine {
   }
   /** Pitido de la granada armada (al lanzarla). Devuelve con qué número seguirla mientras vuela (o nada si no hay sonido). */
   grenadeArmed(x: number, y: number, z: number) {
-    const sid = this.playAt(this.detArmed, 1.0, [x, y, z], 5, 'detonador-armado');
+    const sid = this.playAt(this.detArmed, 1.0 * MIX_COMBATE.granadaPitido, [x, y, z], 5, 'detonador-armado');
     if (sid !== undefined) this.armedIds.add(sid);
     return sid;
   }
@@ -423,7 +431,7 @@ export class AudioEngine {
   grenadeArmedStop(sid: number) { this.detArmed?.howl.stop(sid); this.armedIds.delete(sid); }
   /** Explosión de la granada (la grabada; si no cargó, la generada de siempre). */
   grenadeExplosion(x: number, y: number, z: number) {
-    if (this.playAt(this.detBoom, 1.0, [x, y, z], 18, 'detonador-explosion') === undefined) this.explosion(x, y, z);
+    if (this.playAt(this.detBoom, 1.0 * MIX_COMBATE.explosion, [x, y, z], 18, 'detonador-explosion') === undefined) this.explosion(x, y, z);
   }
 
   /** Disparo de un droide, desde su posición. Se limita cuántos suenan a la vez para cuidar el móvil. */
@@ -437,7 +445,7 @@ export class AudioEngine {
     if ((kind === 'b1' || kind === 'b2') && this.playB1Clip(x, y, z)) return;
     if (kind === 'droideka' && this.playDekaClip(x, y, z)) return;
     const id: SoundId = kind === 'b2' ? 'b2' : kind === 'droideka' ? 'deka' : 'b1';
-    const vol = kind === 'b2' ? 0.7 : kind === 'droideka' ? 0.45 : 0.5;
+    const vol = (kind === 'b2' ? 0.7 : kind === 'droideka' ? 0.45 : 0.5) * (kind === 'droideka' ? MIX_COMBATE.droideka : MIX_COMBATE.droides);
     this.play(id, vol, rnd(0.93, 1.08), [x, y, z], kind === 'b2' ? 9 : 7);
   }
 
@@ -449,7 +457,7 @@ export class AudioEngine {
     if (now - this.lastAppear < 180) return; // si aparecen varios a la vez, no se amontonan
     this.lastAppear = now;
     const sid = l.howl.play();
-    l.howl.volume(0.55, sid);
+    l.howl.volume(0.55 * MIX_COMBATE.cargarArma, sid);
     l.howl.rate(rnd(0.96, 1.05), sid);
     l.howl.pos(x, y, z, sid);
     l.howl.pannerAttr({ panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 22, rolloffFactor: 1.0, maxDistance: 400 }, sid);
@@ -466,7 +474,7 @@ export class AudioEngine {
     this.lastDeka = i;
     const h = this.dekaClips[i].howl;
     const sid = h.play();
-    h.volume(0.42, sid);
+    h.volume(0.42 * MIX_COMBATE.droideka, sid);
     h.rate(rnd(0.93, 1.1), sid);
     h.pos(x, y, z, sid);
     h.pannerAttr({ panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 7, rolloffFactor: 1.15, maxDistance: 400 }, sid);
@@ -483,7 +491,7 @@ export class AudioEngine {
     this.lastB1 = i;
     const h = this.b1Clips[i].howl;
     const sid = h.play();
-    h.volume(0.5, sid);
+    h.volume(0.5 * MIX_COMBATE.droides, sid);
     h.rate(rnd(0.96, 1.05), sid);
     h.pos(x, y, z, sid);
     h.pannerAttr({ panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 7, rolloffFactor: 1.15, maxDistance: 400 }, sid);
@@ -498,20 +506,20 @@ export class AudioEngine {
     const id = pool.length ? undefined : (Math.random() < 0.5 ? 'b1' : 'blaster') as SoundId;
     const h = pool.length ? pool[Math.floor(Math.random() * pool.length)].howl : this.pick(id!);
     const sid = h.play();
-    h.volume(rnd(0.05, 0.14), sid);
+    h.volume(rnd(0.05, 0.14) * MIX_CINE.disparosLejanos, sid);
     h.rate(rnd(0.8, 0.95), sid);
     h.stereo(rnd(-0.8, 0.8), sid);
     this.played['lejano'] = (this.played['lejano'] ?? 0) + 1;
   }
 
   /** Cinemática: cañonazo lejano sin dirección (sin el límite de los del cielo). */
-  boomNow(volume = 0.5) { this.play('boom', volume, rnd(0.85, 1.05)); }
+  boomNow(volume = 0.5) { this.play('boom', volume * MIX_CINE.canonazos, rnd(0.85, 1.05)); }
 
   /** Cañonazo de las naves del cielo (como mucho uno cada pocos segundos, para que sea ambiente y no ruido). */
   distantBoom(x: number, y: number, z: number) {
     const now = performance.now();
     if (now - this.lastBoom < 3500 || Math.random() < 0.45) return;
     this.lastBoom = now;
-    this.play('boom', rnd(0.3, 0.5), rnd(0.85, 1.1), [x, y, z], 60);
+    this.play('boom', rnd(0.3, 0.5) * MIX_CINE.canonazos, rnd(0.85, 1.1), [x, y, z], 60);
   }
 }

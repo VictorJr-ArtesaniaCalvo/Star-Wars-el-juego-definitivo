@@ -23,6 +23,7 @@ export interface MenuActions {
   onTuneVoice?: () => void;
   onTuneDroidVoice?: () => void;
   onTuneShips?: () => void;
+  onTuneMix?: (group: 'viento' | 'combate' | 'cine' | 'musica') => void;
 }
 
 // Pantalla principal (fondo de Geonosis; JUGAR, AJUSTES, AGRADECIMIENTOS) y menú de pausa (CONTINUAR, AJUSTES, ABANDONAR).
@@ -44,6 +45,7 @@ export class Menu {
     $('btnTuneVoice').addEventListener('click', () => actions.onTuneVoice?.());
     $('btnTuneDroidVoice').addEventListener('click', () => actions.onTuneDroidVoice?.());
     $('btnTuneShips').addEventListener('click', () => actions.onTuneShips?.());
+    document.querySelectorAll<HTMLButtonElement>('#mixButtons [data-g]').forEach((b) => b.addEventListener('click', () => actions.onTuneMix?.(b.dataset.g as 'viento' | 'combate' | 'cine' | 'musica')));
     document.querySelectorAll<HTMLButtonElement>('#cineShots button').forEach((b) => b.addEventListener('click', () => actions.onCinematic?.(Number(b.dataset.s) - 1)));
     document.querySelectorAll<HTMLButtonElement>('#cine2Shots button').forEach((b) => b.addEventListener('click', () => actions.onArenaCinematic?.(Number(b.dataset.s) - 1)));
     $('btnCredits').addEventListener('click', () => ($('creditsScreen').hidden = false));

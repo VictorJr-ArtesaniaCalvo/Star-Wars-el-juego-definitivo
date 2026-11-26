@@ -1,14 +1,15 @@
 import { RADIO_FILTERS, type FilterSetup, type VoiceFilter } from '../audio/Voices';
 
 // Panel del modo de pruebas para ajustar en directo el filtro de radio de las voces de la cinemática y escucharlo.
-// Dos filtros: «radio» (tomas 2A y 2B, más marcado) y «casco» (toma 5, más suave). «Copiar valores» copia los números para
+// Tres filtros: «radio» (tomas 2A y 2B, más marcado), «casco» (toma 5 y el comando del paso a la arena, más suave) y «piloto»
+// (el piloto de la cañonera en el paso a la arena, el más marcado). «Copiar valores» copia los números para
 // pasárselos al desarrollador, que los deja fijos en RADIO_FILTERS (src/audio/Voices.ts).
 
 export interface VoiceTunerHooks {
   /** El filtro ha cambiado: hay que volver a montarlo. */
   retune: () => void;
   /** Reproduce una frase con su filtro (soldado y comandante: radio; comando: casco) o el golpe al casco con la ráfaga de estática. */
-  play: (what: 'soldado' | 'comandante' | 'comando' | 'golpe') => void;
+  play: (what: 'soldado' | 'comandante' | 'comando' | 'golpe' | 'piloto') => void;
 }
 
 const FIELDS: Array<[keyof FilterSetup, string, number, number, number]> = [
@@ -36,11 +37,12 @@ export class VoiceTuner {
     d.hidden = true;
     d.innerHTML = `
       <div class="ht-head"><b>FILTRO DE RADIO</b><button data-a="close">✕</button></div>
-      <div class="ht-seg"><button data-k="radio">Radio (2A y 2B)</button><button data-k="casco">Casco (toma 5)</button></div>
+      <div class="ht-seg"><button data-k="radio">Radio (2A y 2B)</button><button data-k="casco">Casco (comando)</button><button data-k="piloto">Piloto</button></div>
       <div class="ht-fields"></div>
       <div class="ht-sub">ESCUCHAR</div>
       <div class="ht-seg"><button data-p="soldado">Soldado</button><button data-p="comandante">Comandante</button></div>
       <div class="ht-seg"><button data-p="comando">Comando</button><button data-p="golpe">Golpe + estática</button></div>
+      <div class="ht-seg"><button data-p="piloto">Piloto (paso a la arena)</button></div>
       <div class="ht-seg"><button data-a="copy" class="ht-copy">Copiar valores</button></div>
       <textarea class="ht-out" readonly hidden></textarea>`;
     document.body.appendChild(d);
@@ -61,9 +63,9 @@ export class VoiceTuner {
     }
     d.querySelectorAll<HTMLButtonElement>('[data-k]').forEach((b) => b.addEventListener('click', () => { this.kind = b.dataset.k as VoiceFilter; this.refresh(); }));
     d.querySelectorAll<HTMLButtonElement>('[data-p]').forEach((b) => b.addEventListener('click', () => {
-      const p = b.dataset.p as 'soldado' | 'comandante' | 'comando' | 'golpe';
+      const p = b.dataset.p as 'soldado' | 'comandante' | 'comando' | 'golpe' | 'piloto';
       // al probar una frase, el panel pasa a su filtro
-      const k: VoiceFilter = p === 'comando' || p === 'golpe' ? 'casco' : 'radio';
+      const k: VoiceFilter = p === 'comando' || p === 'golpe' ? 'casco' : p === 'piloto' ? 'piloto' : 'radio';
       if (k !== this.kind) { this.kind = k; this.refresh(); }
       hooks.play(p);
     }));
@@ -80,7 +82,7 @@ export class VoiceTuner {
 
   private copy(btn: HTMLButtonElement) {
     const pack = (f: FilterSetup) => Object.fromEntries(FIELDS.map(([k, , , , step]) => [k, round(f[k], step)]));
-    const text = 'FILTRO ' + JSON.stringify({ radio: pack(RADIO_FILTERS.radio), casco: pack(RADIO_FILTERS.casco) });
+    const text = 'FILTRO ' + JSON.stringify({ radio: pack(RADIO_FILTERS.radio), casco: pack(RADIO_FILTERS.casco), piloto: pack(RADIO_FILTERS.piloto) });
     const out = this.root.querySelector<HTMLTextAreaElement>('.ht-out')!;
     out.value = text;
     const done = () => { btn.textContent = 'Copiado ✓'; setTimeout(() => (btn.textContent = 'Copiar valores'), 1800); };
