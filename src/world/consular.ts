@@ -11,8 +11,8 @@ import type { Quality } from '../core/Settings';
 // Modelo real: «Consular cruiser» de Cpt.Kirk (CC-BY 4.0), aligerado con tools/convert-ship.mjs → public/models/consular.glb.
 //  · Postura (morro hundido, inclinada, tumbada) y huella en el suelo (surco, arena amontonada): CRUISER en terrain.ts.
 //  · Un motor se ha desprendido y está tirado en el surco (CRUISER_ENGINE). Lo enterrado no se dibuja.
-//  · El casco lleva por encima (en el dibujo, sin tocar el modelo): pintura apagada, polvo ocre, manchas de quemado y brechas negras
-//    con el borde al rojo. Se ve a través de la neblina (como una silueta pálida), igual que su surco, restos y rocas.
+//  · El casco lleva por encima (en el dibujo, sin tocar el modelo): pintura apagada, polvo ocre, manchas de quemado, brechas negras
+//    con el borde al rojo y explosiones en el morro (la punta ennegrecida). Se ve a través de la neblina (como una silueta pálida), igual que su surco, restos y rocas.
 //  · Humo negro de los motores y de las brechas, fuegos pequeños, chispas y polvo en la base: CruiserFx.
 
 let model: THREE.Object3D | null = null;
@@ -61,13 +61,23 @@ const HOLE_ENGINE: [number, number, number, number] = [9.5, 2, 2, 5]; // en el m
 
 // ---------- Dibujo del casco: pintura apagada, polvo, quemado y brechas ----------
 const holeUniform = { value: [0, 1, 2, 3, 4].map(() => new THREE.Vector4(0, -1000, 0, 1)) };
+/** Manchas de explosión en el morro (sistema de la nave): centro y radio. Más la punta del morro entera ennegrecida (NOSE_BURN). */
+const BLASTS_SHIP: Array<[number, number, number, number]> = [
+  [0, 4.5, 47, 6.5], [3.5, 3.5, 37, 6], [-3, 4.5, 29, 5], [6.5, 0.5, 50, 6], [-6, 1, 42, 6.5], [5.5, 2.5, 24, 4.5],
+];
+const NOSE_BURN: [number, number, number, number] = [0, 0, 58, 24];
+const blastUniform = { value: BLASTS_SHIP.map(() => new THREE.Vector4(0, -1000, 0, 1)) };
+const noseUniform = { value: new THREE.Vector4(0, -1000, 0, 1) };
 const timeUniform = { value: 0 };
 const groundUniform = { value: 0 };
 
 function hullMaterial(src: THREE.MeshStandardMaterial): THREE.MeshLambertMaterial {
-  const m = new THREE.MeshLambertMaterial({ map: src.map ?? null, color: src.color.clone(), side: THREE.DoubleSide, emissive: 0x2a2219 });
+  // solo la cara de delante: el modelo trae cada cara repetida por detrás (de SketchUp) y, dibujando las dos, «bailaban»
+  const m = new THREE.MeshLambertMaterial({ map: src.map ?? null, color: src.color.clone(), side: THREE.FrontSide, emissive: 0x2a2219 });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uCrHole = holeUniform;
+    sh.uniforms.uCrBlast = blastUniform;
+    sh.uniforms.uCrNose = noseUniform;
     sh.uniforms.uCrTime = timeUniform;
     sh.uniforms.uCrGround = groundUniform;
     sh.vertexShader = sh.vertexShader
@@ -78,6 +88,8 @@ function hullMaterial(src: THREE.MeshStandardMaterial): THREE.MeshLambertMateria
 varying vec3 vCrW;
 varying vec3 vCrN;
 uniform vec4 uCrHole[5];
+uniform vec4 uCrBlast[${BLASTS_SHIP.length}];
+uniform vec4 uCrNose;
 uniform float uCrTime;
 uniform float uCrGround;
 float crHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
@@ -108,6 +120,19 @@ float crRim = 0.0, crHoleV = 0.0;
     crRim = max(crRim, smoothstep(0.72, 0.86, d) * (1.0 - smoothstep(0.9, 1.15, d)));
     soot = max(soot, 1.0 - smoothstep(0.95, 2.4, d));
   }
+  float scorch = 0.0;
+  // explosiones en el morro: manchas negras en estrella (rayos de hollín que salen del centro) y la punta entera ennegrecida
+  for (int i = 0; i < ${BLASTS_SHIP.length}; i++) {
+    vec3 dv = vCrW - uCrBlast[i].xyz;
+    float d = length(dv) / uCrBlast[i].w;
+    float rays = 0.5 + 0.5 * sin(atan(dv.z, dv.x) * 6.0 + dv.y * 1.3 + n1 * 5.0);
+    soot = max(soot, 0.93 * (1.0 - smoothstep(0.3 + 0.35 * rays, 1.1, d)));
+    scorch = max(scorch, 1.0 - smoothstep(0.9, 1.7, d)); // cerco marrón tostado alrededor
+  }
+  float nd = length(vCrW - uCrNose.xyz) / uCrNose.w + 0.35 * (n2 - 0.5) + 0.2 * (n1 - 0.5);
+  soot = max(soot, 0.85 * (1.0 - smoothstep(0.45, 1.0, nd)));
+  scorch = max(scorch, 1.0 - smoothstep(0.8, 1.3, nd));
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.24, 0.16, 0.1), scorch * 0.55);
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.06, 0.05, 0.045), soot);
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.012, 0.01, 0.009), crHoleV);
 }`)
@@ -123,11 +148,54 @@ totalEmissiveRadiance += vec3(0.85, 0.26, 0.05) * crRim * (0.7 + 0.3 * sin(uCrTi
   return m;
 }
 
+/** Clave de un triángulo (sus tres esquinas al centímetro, en cualquier orden): la cara y su espalda tienen la misma. */
+function triKey(p: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, a: number, b: number, c: number) {
+  return [a, b, c].map((i) => `${Math.round(p.getX(i) * 100)},${Math.round(p.getY(i) * 100)},${Math.round(p.getZ(i) * 100)}`).sort().join('|');
+}
+/** Cuántas veces sale cada triángulo en todo el modelo (2 = tiene su espalda, aunque sea de otro material). */
+function faceCounts(root: THREE.Object3D) {
+  const n = new Map<string, number>();
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const g = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld), idx = g.index!.array, p = g.attributes.position;
+    for (let t = 0; t < idx.length; t += 3) { const k = triKey(p, idx[t], idx[t + 1], idx[t + 2]); n.set(k, (n.get(k) ?? 0) + 1); }
+    g.dispose();
+  });
+  return n;
+}
+/** Las caras que no traen espalda se copian del revés (con la luz al revés), para que se vean por los dos lados dibujando solo la cara de delante. */
+function twoSided(g: THREE.BufferGeometry, twins: Map<string, number>): THREE.BufferGeometry {
+  const idx = g.index!.array, p = g.attributes.position, nrm = g.attributes.normal, uv = g.attributes.uv;
+  const single: number[] = [];
+  for (let t = 0; t < idx.length; t += 3) if ((twins.get(triKey(p, idx[t], idx[t + 1], idx[t + 2])) ?? 1) < 2) single.push(t);
+  if (!single.length) return g;
+  const n0 = p.count, n1 = n0 + single.length * 3;
+  const pos = new Float32Array(n1 * 3), nor = new Float32Array(n1 * 3), uvs = uv ? new Float32Array(n1 * 2) : null;
+  pos.set(p.array as Float32Array); nor.set(nrm.array as Float32Array); if (uvs) uvs.set(uv.array as Float32Array);
+  const out = Array.from(idx);
+  let v = n0;
+  for (const t of single) {
+    for (const k of [0, 2, 1]) { // orden al revés: mira hacia el otro lado
+      const i = idx[t + k];
+      pos.set([p.getX(i), p.getY(i), p.getZ(i)], v * 3);
+      nor.set([-nrm.getX(i), -nrm.getY(i), -nrm.getZ(i)], v * 3);
+      if (uvs) uvs.set([uv.getX(i), uv.getY(i)], v * 2);
+      out.push(v++);
+    }
+  }
+  const o = new THREE.BufferGeometry();
+  o.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  o.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  if (uvs) o.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  o.setIndex(out);
+  return o;
+}
+
 /** Copia la geometría de una pieza en coordenadas del modelo y la reparte: lo que cae en la caja del motor va aparte. */
-function splitPiece(mesh: THREE.Mesh): { hull: THREE.BufferGeometry | null; engine: THREE.BufferGeometry | null } {
-  const g = mesh.geometry.clone();
+function splitPiece(mesh: THREE.Mesh, twins: Map<string, number>): { hull: THREE.BufferGeometry | null; engine: THREE.BufferGeometry | null } {
   mesh.updateWorldMatrix(true, false);
-  g.applyMatrix4(mesh.matrixWorld);
+  const g = twoSided(mesh.geometry.clone().applyMatrix4(mesh.matrixWorld), twins);
   const idx = g.index!.array, p = g.attributes.position;
   const a: number[] = [], b: number[] = [];
   const c = new THREE.Vector3();
@@ -193,18 +261,21 @@ export function buildCruiserSite(scene: THREE.Scene, b: Builder): boolean {
   // brechas en el mundo
   HOLES_SHIP.forEach(([x, y, z, r], i) => { const w = shipW(x, y, z); holeUniform.value[i].set(w.x, w.y, w.z, r); });
   { const [x, y, z, r] = HOLE_ENGINE; const w = engW(x, y, z); holeUniform.value[4].set(w.x, w.y, w.z, r); }
+  BLASTS_SHIP.forEach(([x, y, z, r], i) => { const w = shipW(x, y, z); blastUniform.value[i].set(w.x, w.y, w.z, r); });
+  { const [x, y, z, r] = NOSE_BURN; const w = shipW(x, y, z); noseUniform.value.set(w.x, w.y, w.z, r); }
 
   const group = new THREE.Group();
   group.name = 'crucero';
   const mats = new Map<THREE.Material, THREE.MeshLambertMaterial>();
   model.updateMatrixWorld(true);
+  const twins = faceCounts(model);
   model.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
     const src = mesh.material as THREE.MeshStandardMaterial;
     if (!mats.has(src)) mats.set(src, hullMaterial(src));
     const mat = mats.get(src)!;
-    const { hull, engine } = splitPiece(mesh);
+    const { hull, engine } = splitPiece(mesh, twins);
     for (const [geo, mtx] of [[hull, M], [engine, engine ? EM.clone().multiply(toEngine) : null]] as const) {
       if (!geo || !mtx) continue;
       const placed = placeAndCull(geo, mtx);
