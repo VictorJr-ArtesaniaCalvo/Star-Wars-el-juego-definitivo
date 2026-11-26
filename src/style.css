@@ -328,6 +328,7 @@ h1.red { color: #ff7a60; }
 #handTuner .ht-copy, #voiceTuner .ht-copy { background: rgba(120, 200, 120, .3); }
 #handTuner .ht-out, #voiceTuner .ht-out { width: 100%; height: 70px; font-size: 10px; margin-top: 4px; color: #000; user-select: text; -webkit-user-select: text; }
 #handTuner .ht-sub, #voiceTuner .ht-sub { margin: 8px 0 2px; color: #ffcf9a; letter-spacing: 2px; font-size: 11px; border-top: 1px solid rgba(255,200,140,.25); padding-top: 6px; }
+#handTuner .ht-mini { margin: 6px 0 0; font-size: 11px; opacity: .75; text-transform: uppercase; letter-spacing: 1px; }
 #voiceTuner { z-index: 40; }
 
 /* ---------- Paso a la arena: fundido a negro suave con el nombre de la zona ---------- */

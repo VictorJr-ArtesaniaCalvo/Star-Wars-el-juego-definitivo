@@ -1,0 +1,12 @@
+Model Information:
+* title:	Star Wars Genesis - Thermal_detonator_low
+* source:	https://sketchfab.com/3d-models/star-wars-genesis-thermal-detonator-low-f5de6a0d138b4f1aab3596d1ffc03650
+* author:	Léonard_Doye / Leoskateman (https://sketchfab.com/leoskateman)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+(Datos copiados de la información que trae el propio archivo GLB; Víctor no envió license.txt.)
+
+This work is based on "Star Wars Genesis - Thermal_detonator_low" (https://sketchfab.com/3d-models/star-wars-genesis-thermal-detonator-low-f5de6a0d138b4f1aab3596d1ffc03650) by Léonard_Doye / Leoskateman (https://sketchfab.com/leoskateman) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

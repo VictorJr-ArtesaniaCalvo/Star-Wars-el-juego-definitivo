@@ -32,6 +32,13 @@ export class AudioEngine {
   private dekaClips: Array<{ howl: Howl; ok: boolean }> = [];
   private lastDeka = -1;
   private loadSound: { howl: Howl; ok: boolean } | null = null;
+  /** Detonador térmico (grabación de Víctor, preparada con tools/prepare-detonator-sound.py): pitido de armado (dura lo mismo que
+   *  la mecha) y explosión aparte, que suena en el instante en que estalla la granada. */
+  private detArmed: { howl: Howl; ok: boolean } | null = null;
+  private detBoom: { howl: Howl; ok: boolean } | null = null;
+  /** Pitidos de granadas que están sonando (para pararlos con la pausa). */
+  private armedIds = new Set<number>();
+  private heldArmed: number[] = [];
   private lastAppear = 0;
   private wind: Howl | null = null;
   private windId: number | undefined;
@@ -73,6 +80,13 @@ export class AudioEngine {
       clip.howl = new Howl({ src: [`${base}audio/deka-${i}.mp3`], preload: true, onload: () => { clip.ok = true; }, onloaderror: () => { clip.ok = false; } });
       this.dekaClips.push(clip);
     }
+    const clip = (file: string) => {
+      const c = { howl: null as unknown as Howl, ok: false };
+      c.howl = new Howl({ src: [`${base}audio/${file}`], preload: true, onload: () => { c.ok = true; }, onloaderror: () => { c.ok = false; } });
+      return c;
+    };
+    this.detArmed = clip('detonador-armado.mp3');
+    this.detBoom = clip('detonador-explosion.mp3');
     const ld = { howl: null as unknown as Howl, ok: false };
     ld.howl = new Howl({ src: [`${base}audio/b1-load.mp3`], preload: true, onload: () => { ld.ok = true; }, onloaderror: () => { ld.ok = false; } });
     this.loadSound = ld;
@@ -284,6 +298,9 @@ export class AudioEngine {
   suspend() {
     this.paused = true;
     this.applyVolumes();
+    // el pitido de las granadas se detiene con la partida (si no, al volver ya habría terminado antes de la explosión)
+    const h = this.detArmed?.howl;
+    if (h) { this.heldArmed = [...this.armedIds].filter((id) => h.playing(id)); for (const id of this.heldArmed) h.pause(id); }
   }
 
   resume() {
@@ -291,6 +308,8 @@ export class AudioEngine {
     if (ctx && ctx.state !== 'running') void ctx.resume();
     this.paused = false;
     this.applyVolumes();
+    for (const id of this.heldArmed) this.detArmed?.howl.play(id);
+    this.heldArmed = [];
   }
 
   /** Coloca al oyente donde está la cámara y mirando hacia donde mira. */
@@ -341,6 +360,31 @@ export class AudioEngine {
   grenadeThrow() { this.play('whoosh', 0.5, rnd(0.95, 1.05)); }
   grenadeBounce(x: number, y: number, z: number) { this.play('tink', 0.45, rnd(0.9, 1.15), [x, y, z], 4); }
   explosion(x: number, y: number, z: number) { this.play('explosion', 1.0, rnd(0.94, 1.04), [x, y, z], 12); }
+
+  /** Pone a sonar un sonido grabado en un punto del espacio (con dirección y distancia). */
+  private playAt(c: { howl: Howl; ok: boolean } | null, volume: number, pos: [number, number, number], ref: number, key: string) {
+    if (!this.started || !c?.ok) return undefined;
+    const sid = c.howl.play();
+    c.howl.volume(volume, sid);
+    c.howl.pos(pos[0], pos[1], pos[2], sid);
+    c.howl.pannerAttr({ panningModel: 'HRTF', distanceModel: 'inverse', refDistance: ref, rolloffFactor: 1.15, maxDistance: 400 }, sid);
+    this.played[key] = (this.played[key] ?? 0) + 1;
+    return sid;
+  }
+  /** Pitido de la granada armada (al lanzarla). Devuelve con qué número seguirla mientras vuela (o nada si no hay sonido). */
+  grenadeArmed(x: number, y: number, z: number) {
+    const sid = this.playAt(this.detArmed, 0.8, [x, y, z], 3, 'detonador-armado');
+    if (sid !== undefined) this.armedIds.add(sid);
+    return sid;
+  }
+  /** Mueve el pitido con la granada. */
+  grenadeArmedMove(sid: number, x: number, y: number, z: number) { this.detArmed?.howl.pos(x, y, z, sid); }
+  /** Corta el pitido (si la granada estalla o se quita antes de tiempo). */
+  grenadeArmedStop(sid: number) { this.detArmed?.howl.stop(sid); this.armedIds.delete(sid); }
+  /** Explosión de la granada (la grabada; si no cargó, la generada de siempre). */
+  grenadeExplosion(x: number, y: number, z: number) {
+    if (this.playAt(this.detBoom, 1.0, [x, y, z], 12, 'detonador-explosion') === undefined) this.explosion(x, y, z);
+  }
 
   /** Disparo de un droide, desde su posición. Se limita cuántos suenan a la vez para cuidar el móvil. */
   enemyShot(kind: Sfx, x: number, y: number, z: number, dist: number) {

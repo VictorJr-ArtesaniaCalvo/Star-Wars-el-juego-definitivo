@@ -64,5 +64,6 @@ export class GamepadInput implements InputSource {
   consumeCrouch() { const v = this.crouch; this.crouch = false; return v; }
   consumeJump() { const v = this.jump; this.jump = false; return v; }
   consumeGrenade() { const v = this.grenade; this.grenade = false; return v; }
+  grenadeHeld() { return !!this.prev[4]; } // LB / L1 pulsado
   consumePause() { const v = this.pause; this.pause = false; return v; }
 }

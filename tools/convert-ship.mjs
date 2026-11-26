@@ -1,6 +1,9 @@
-// Conversor de naves grandes (GLB de Sketchfab) a un GLB ligero para el juego. Son naves que solo se ven de lejos, en el cielo.
+// Conversor de modelos de Sketchfab (GLB) a un GLB ligero para el juego. Hecho para las naves grandes que se ven de lejos en el cielo;
+// sirve también para objetos pequeños (ver el detonador térmico abajo).
 //   node tools/convert-ship.mjs <entrada.glb> <salida.glb> --eslora=825 [--ejes=x,y,z] [--proporcion=0.15] [--error=0.01 | --metros=1]
-// - eslora: largo real de la nave (m); el modelo se escala a esa medida.
+//        [--color=512] [--brillo=256] [--relieve=0]
+// - eslora: largo real (m) del modelo a lo largo de z; el modelo se escala a esa medida y se centra.
+// - color / brillo / relieve: tamaño máximo (px) de las texturas de color, de brillo y de relieve (0 = quitarla; el relieve se quita por defecto).
 // - ejes: de qué eje del modelo sale cada eje final (x = estribor, y = arriba, z = proa); con «-» se invierte.
 //   Ej.: un modelo con la eslora en x hacia la proa y la altura en z → --ejes=y,z,x
 // - cada pieza se simplifica (por defecto a ~15 % de sus triángulos) sin desviarse más del 1 % de su tamaño,
@@ -10,6 +13,8 @@
 // Naves convertidas:
 //   Fragata Munificent → public/models/frigate.glb   --eslora=825
 //   Destructor Venator → public/models/venator.glb   --eslora=1137 --ejes=y,z,x --metros=2
+// Otros:
+//   Detonador térmico (granada en la mano) → public/models/detonator.glb   --eslora=0.1 --proporcion=1 --relieve=512
 // Necesita Python 3 con Pillow si el modelo tiene texturas.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -28,6 +33,7 @@ const MAX_ERR = Number(opt.error || 0.01); // desviación máxima permitida al s
 // o, con --metros, desviación máxima en metros reales (mejor cuando hay piezas que ocupan toda la nave)
 const ERR_M = opt.metros ? Number(opt.metros) : null;
 const errOpts = () => (ERR_M ? [ERR_M, ['ErrorAbsolute']] : [MAX_ERR, []]);
+const TEX = { color: Number(opt.color ?? 512), brillo: Number(opt.brillo ?? 256), relieve: Number(opt.relieve ?? 0) };
 const AXES = (opt.ejes || 'x,y,z').split(',').map((a) => ({ sign: a.startsWith('-') ? -1 : 1, k: 'xyz'.indexOf(a.replace('-', '')) }));
 
 // ---------- Leer el GLB ----------
@@ -70,7 +76,7 @@ for (const p of pieces) for (let i = 0; i < p.pos.length; i += 3) for (let k = 0
 const K = LENGTH / (mx[2] - mn[2]);
 const C = mn.map((v, k) => (v + mx[k]) / 2);
 for (const p of pieces) for (let i = 0; i < p.pos.length; i += 3) for (let k = 0; k < 3; k++) p.pos[i + k] = (p.pos[i + k] - C[k]) * K;
-console.log('tamaño final (m):', mx.map((v, k) => ((v - mn[k]) * K).toFixed(0)).join(' × '));
+console.log('tamaño final (m):', mx.map((v, k) => +((v - mn[k]) * K).toPrecision(3)).join(' × '));
 
 // ---------- Simplificar ----------
 // Piezas de color liso (sin textura): suelen venir partidas en muchas caras sueltas (una copia de cada vértice por cara), lo que
@@ -151,7 +157,11 @@ console.log('TOTAL', before, '→', after, 'triángulos');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nave-'));
 const texJobs = new Map(); // imagen original → {tamaño}
 const want = (tex, size) => { if (tex) { const img = g.textures[tex.index].source; texJobs.set(img, Math.max(texJobs.get(img) || 0, size)); } };
-for (const m of g.materials) { want(m.pbrMetallicRoughness?.baseColorTexture, 512); want(m.emissiveTexture, 256); }
+for (const m of g.materials) {
+  if (TEX.color) want(m.pbrMetallicRoughness?.baseColorTexture, TEX.color);
+  if (TEX.brillo) want(m.emissiveTexture, TEX.brillo);
+  if (TEX.relieve) want(m.normalTexture, TEX.relieve);
+}
 const list = []; if (!texJobs.size) if (list.length) fs.rmSync(tmp, { recursive: true, force: true });
 for (const [img, size] of texJobs) { const f = path.join(tmp, `${img}.png`); fs.writeFileSync(f, imageBytes(img)); list.push(`${f}:${size}`); }
 const py = `import sys
@@ -186,17 +196,18 @@ const meshes = parts.map((p) => {
   }, indices: acc(p.idx, 'SCALAR', 5123, 34963), material: p.material }] };
 });
 const imageViews = images.map((b) => push(b));
-const texOf = (t) => (t ? { index: imgIndex.get(g.textures[t.index].source) } : undefined);
+const texOf = (t) => (t && imgIndex.has(g.textures[t.index].source) ? { index: imgIndex.get(g.textures[t.index].source) } : undefined);
 const materials = g.materials.map((m) => {
   const pbr = m.pbrMetallicRoughness || {};
   const o = { name: m.name, doubleSided: true, pbrMetallicRoughness: { metallicFactor: 0.25, roughnessFactor: 0.7 } };
-  if (pbr.baseColorTexture) o.pbrMetallicRoughness.baseColorTexture = texOf(pbr.baseColorTexture);
+  if (texOf(pbr.baseColorTexture)) o.pbrMetallicRoughness.baseColorTexture = texOf(pbr.baseColorTexture);
+  if (texOf(m.normalTexture)) o.normalTexture = texOf(m.normalTexture);
   if (pbr.baseColorFactor) o.pbrMetallicRoughness.baseColorFactor = pbr.baseColorFactor;
-  if (m.emissiveTexture) { o.emissiveTexture = texOf(m.emissiveTexture); o.emissiveFactor = m.emissiveFactor || [1, 1, 1]; if (m.extensions?.KHR_materials_emissive_strength) o.extensions = { KHR_materials_emissive_strength: m.extensions.KHR_materials_emissive_strength }; }
+  if (texOf(m.emissiveTexture)) { o.emissiveTexture = texOf(m.emissiveTexture); o.emissiveFactor = m.emissiveFactor || [1, 1, 1]; if (m.extensions?.KHR_materials_emissive_strength) o.extensions = { KHR_materials_emissive_strength: m.extensions.KHR_materials_emissive_strength }; }
   return o;
 });
 const json = {
-  asset: { version: '2.0', generator: 'tools/convert-frigate.mjs', extras: g.asset.extras },
+  asset: { version: '2.0', generator: 'tools/convert-ship.mjs', extras: g.asset.extras },
   extensionsUsed: ['KHR_materials_emissive_strength'],
   scene: 0, scenes: [{ nodes: [0] }],
   nodes: [{ name: path.basename(out, '.glb'), children: meshes.map((_, i) => i + 1) }, ...meshes.map((m, i) => ({ name: m.name, mesh: i }))],

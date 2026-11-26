@@ -16,5 +16,7 @@ export interface InputSource {
   consumeCrouch(): boolean;
   consumeJump(): boolean;
   consumeGrenade(): boolean;
+  /** ¿Se mantiene pulsado el botón de granada? (se sujeta mientras se mantiene y se lanza al soltar) */
+  grenadeHeld(): boolean;
   consumePause(): boolean;
 }

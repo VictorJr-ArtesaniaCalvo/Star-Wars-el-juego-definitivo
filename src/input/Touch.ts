@@ -20,6 +20,7 @@ export class Touch implements InputSource {
   private crouch = false;
   private jump = false;
   private grenade = false;
+  private grenadeId: number | null = null; // dedo que mantiene pulsado el botón de granada
   private firing = false;
   private firingHip = false;
   /** Dos toques seguidos en la zona del joystick: sigue avanzando solo hacia delante (hasta que se toque otra vez o se mueva el joystick). */
@@ -126,12 +127,20 @@ export class Touch implements InputSource {
       this.used = true;
     }, opts);
 
+    // Granada: se sujeta mientras el dedo sigue en el botón y se lanza al levantarlo.
     btnGrenade.addEventListener('touchstart', (e) => {
       if (e.cancelable) e.preventDefault();
       e.stopPropagation();
       this.grenade = true;
+      this.grenadeId = e.changedTouches[0].identifier;
+      btnGrenade.classList.add('on');
       this.used = true;
     }, opts);
+    const endGrenade = (e: TouchEvent) => {
+      for (const t of Array.from(e.changedTouches)) if (t.identifier === this.grenadeId) { this.grenadeId = null; btnGrenade.classList.remove('on'); }
+    };
+    btnGrenade.addEventListener('touchend', endGrenade);
+    btnGrenade.addEventListener('touchcancel', endGrenade);
 
     // Evita zoom y menús del navegador mientras se juega.
     document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -141,10 +150,11 @@ export class Touch implements InputSource {
   reset() {
     this.autoForward = false; this.autoHold = false;
     this.mx = this.mz = this.dx = this.dy = 0;
-    this.lookId = this.mainId = this.hipId = null;
+    this.lookId = this.mainId = this.hipId = this.grenadeId = null;
     this.firing = this.firingHip = false;
     document.getElementById('btnFire')?.classList.remove('on');
     document.getElementById('btnHip')?.classList.remove('on');
+    document.getElementById('btnGrenade')?.classList.remove('on');
   }
 
   move() { return { x: this.mx, z: this.mz }; }
@@ -162,5 +172,6 @@ export class Touch implements InputSource {
   consumeCrouch() { const v = this.crouch; this.crouch = false; return v; }
   consumeJump() { const v = this.jump; this.jump = false; return v; }
   consumeGrenade() { const v = this.grenade; this.grenade = false; return v; }
+  grenadeHeld() { return this.grenadeId !== null; }
   consumePause() { return false; }
 }

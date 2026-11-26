@@ -74,5 +74,6 @@ export class KeyboardMouse implements InputSource {
   consumeCrouch() { const v = this.crouch; this.crouch = false; return v; }
   consumeJump() { const v = this.jump; this.jump = false; return v; }
   consumeGrenade() { const v = this.grenade; this.grenade = false; return v; }
+  grenadeHeld() { return this.keys.has('KeyG'); }
   consumePause() { const v = this.pause; this.pause = false; return v; }
 }

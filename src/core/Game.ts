@@ -27,7 +27,7 @@ import { Blaster, BLASTER } from '../weapons/Blaster';
 import { GRENADE, GrenadeSystem } from '../weapons/Grenade';
 import { MEDKIT, MedkitSystem } from '../weapons/Medkits';
 import { Effects } from '../weapons/Effects';
-import { ViewModel, loadBlasterModel } from '../weapons/ViewModel';
+import { ViewModel, loadBlasterModel, loadDetonatorModel } from '../weapons/ViewModel';
 import { World } from '../world/World';
 import { SUN_DIR } from '../world/sky';
 import { QUALITY, Settings, type Quality } from './Settings';
@@ -95,6 +95,8 @@ export class Game {
     toggleAim: () => { this.adsToggled = !this.adsToggled; },
     look: (d) => { this.pitch = d * 0.75; },
     close: () => this.closeHandTuner(),
+    freezeGrenade: (on) => { this.viewModel.grenadeFreeze(on); return this.viewModel.grenadeFrozen; },
+    previewGrenade: () => this.viewModel.grenadePreview(),
   });
 
   private state: GameState = { players: [], enemies: [], round: 0, kills: 0 };
@@ -110,9 +112,7 @@ export class Game {
   private prevLocked = false;
   private grenadeSys!: GrenadeSystem;
   private grenadeCd = 0;
-  private weapon: 'blaster' | 'grenade' = 'blaster';
   private swapT = 0;
-  private prevFire = false;
   private shake = 0;
   private medkits!: MedkitSystem;
   private jumpBuffer = 0;
@@ -182,7 +182,7 @@ export class Game {
 
   async init() {
     await RAPIER.init();
-    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`), loadWorldTextures(import.meta.env.BASE_URL), loadParticleAtlas(import.meta.env.BASE_URL), loadCommandoModel(`${import.meta.env.BASE_URL}models/commando.glb`), loadTrooperModel('clone', `${import.meta.env.BASE_URL}models/clone/clone.fbx`), loadClips(import.meta.env.BASE_URL, ANIM_CLIPS), loadCapitalShips(import.meta.env.BASE_URL)]);
+    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`), loadWorldTextures(import.meta.env.BASE_URL), loadParticleAtlas(import.meta.env.BASE_URL), loadCommandoModel(`${import.meta.env.BASE_URL}models/commando.glb`), loadTrooperModel('clone', `${import.meta.env.BASE_URL}models/clone/clone.fbx`), loadClips(import.meta.env.BASE_URL, ANIM_CLIPS), loadCapitalShips(import.meta.env.BASE_URL), loadDetonatorModel(`${import.meta.env.BASE_URL}models/detonator.glb`)]);
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = TICK;
     this.audio.init();
@@ -195,7 +195,11 @@ export class Game {
     this.effects = new Effects(this.scene);
     this.medkits = new MedkitSystem(this.scene);
     const pl = this.localPlayer;
-    this.grenadeSys = new GrenadeSystem(this.scene, this.physics, pl.body, (at) => this.explodeGrenade(at), (at) => this.audio.grenadeBounce(at.x, at.y, at.z));
+    this.grenadeSys = new GrenadeSystem(this.scene, this.physics, pl.body, (at) => this.explodeGrenade(at), (at) => this.audio.grenadeBounce(at.x, at.y, at.z), {
+      start: (at) => this.audio.grenadeArmed(at.x, at.y, at.z),
+      move: (id, at) => this.audio.grenadeArmedMove(id, at.x, at.y, at.z),
+      stop: (id) => this.audio.grenadeArmedStop(id),
+    });
     this.enemies = new EnemyManager(this.scene, RAPIER, this.physics, this.state, {
       effects: this.effects,
       player: () => pl.state,
@@ -215,6 +219,8 @@ export class Game {
     });
     this.scene.add(this.camera);
     this.viewModel = new ViewModel(this.camera, SUN_DIR);
+    // la granada sale de la mano a mitad del gesto de lanzar (las pruebas del panel de ajuste no lanzan de verdad)
+    this.viewModel.onGrenadeRelease = (at, preview) => { if (!preview) this.throwGrenade(at); };
     this.cine = new Cinematic({ scene: this.scene, camera: this.camera, renderer: this.renderer, audio: this.audio, effects: this.effects, onEnd: () => this.endCinematic() });
     this.cine.voices.preload(Cinematic.voiceIds()); // las voces que existan (public/audio/voces); si no hay, solo subtítulos
     this.cine2 = new ArenaCinematic({
@@ -314,9 +320,8 @@ export class Game {
     this.grenadeSys.clear();
     this.grenadeCd = 0;
     this.shake = 0;
-    this.weapon = 'blaster';
+    this.viewModel.grenadeReset();
     this.swapT = 0;
-    this.prevFire = false;
     this.hud.setWeapon('blaster');
     this.hud.setGrenades(p.grenades);
     this.adsToggled = false;
@@ -455,7 +460,7 @@ export class Game {
     p.grenades = GRENADE.perGame;
     this.hud.setHealth(p.health);
     this.hud.setGrenades(p.grenades);
-    this.weapon = 'blaster';
+    this.viewModel.grenadeReset();
     this.swapT = 0;
     this.hud.setWeapon('blaster');
     this.wantCrouch = false;
@@ -654,6 +659,7 @@ export class Game {
 
   private closeHandTuner() {
     this.tuner.hide();
+    if (this.viewModel.grenadeFrozen) this.viewModel.grenadeFreeze(false); // la mano vuelve al rifle sin lanzar
     this.waves.start(Math.max(1, this.waves.round));
   }
 
@@ -683,7 +689,7 @@ export class Game {
     const p = this.state.players[0];
     p.health = 100;
     p.grenades = GRENADE.perGame;
-    this.weapon = 'blaster';
+    this.viewModel.grenadeReset();
     this.swapT = 0;
     this.grenadeCd = 0;
     this.hud.setWeapon('blaster');
@@ -747,34 +753,28 @@ export class Game {
     return out;
   }
 
-  /** Saca la granada (o la guarda y vuelve al bláster si ya la llevas). */
-  private toggleGrenade() {
-    if (this.mode !== 'playing') return;
-    if (this.weapon === 'grenade') { this.setWeapon('blaster'); return; }
-    if (this.state.players[0].grenades > 0 && this.grenadeCd <= 0) this.setWeapon('grenade');
+  /** Botón de granada pulsado: la mano izquierda suelta el rifle y coge una granada del cinturón (se lanza al soltar el botón). */
+  private startGrenade() {
+    if (this.mode !== 'playing' || this.state.players[0].grenades <= 0 || this.grenadeCd > 0) return;
+    this.viewModel.grenadeStart();
   }
 
-  private setWeapon(w: 'blaster' | 'grenade') {
-    this.weapon = w;
-    this.swapT = 0.3;
-    this.hud.setWeapon(w);
-  }
-
-  /** Lanza la granada que llevas en la mano hacia donde miras y vuelve al bláster. */
-  private throwGrenade() {
+  /** La granada sale de la mano (`from`, en el mundo; null = desde los ojos) hacia donde miras. */
+  private throwGrenade(from: THREE.Vector3 | null) {
     const p = this.state.players[0];
-    if (this.mode !== 'playing' || p.grenades <= 0 || this.grenadeCd > 0) return;
+    if (this.mode !== 'playing' || p.grenades <= 0) return;
     p.grenades--;
     this.grenadeCd = GRENADE.cooldown;
     this.hud.setGrenades(p.grenades);
     const eye = this.eyePos(this.v1);
     const cp = Math.cos(this.pitch);
     const dir = this.v2.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
-    this.grenadeSys.throwFrom(eye, dir);
+    if (from) {
+      // desde la mano, hacia el punto al que apunta la mira (a 25 m), para que caiga donde miras aunque salga de la izquierda
+      const aim = this.v3.copy(eye).addScaledVector(dir, 25);
+      this.grenadeSys.throwFrom(from, dir.copy(aim).sub(from).normalize());
+    } else this.grenadeSys.throwFrom(eye, dir);
     this.audio.grenadeThrow();
-    this.viewModel.throwAnim();
-    this.setWeapon('blaster');
-    this.swapT = 0.45; // el bláster tarda un poco en volver a estar listo
   }
 
   /** Explosión de área: daño a los droides (y a ti si estás cerca), menos si hay rocas o muros por medio. */
@@ -813,7 +813,7 @@ export class Game {
     this.shake = Math.max(this.shake, Math.min(1, 1.2 - dp / 28));
     this.effects.explosion(at.x, at.y, at.z, R);
     this.hud.flash(Math.max(0, 1 - dp / 18)); // fogonazo en pantalla si estalla cerca
-    this.audio.explosion(at.x, at.y, at.z);
+    this.audio.grenadeExplosion(at.x, at.y, at.z); // la explosión grabada del detonador, en el mismo instante
   }
 
   /** Una baja más. */
@@ -889,7 +889,8 @@ export class Game {
       if (inp.aimToggled) this.adsToggled = !this.adsToggled;
       // Con la granada en la mano no se apunta con zoom ni se dispara el bláster.
       const ready = this.swapT <= 0;
-      this.ads = this.weapon === 'blaster' && (this.adsToggled || inp.aimHeld || (inp.fire && ready));
+      const nadeBusy = this.viewModel.grenadeBusy;
+      this.ads = !nadeBusy && (this.adsToggled || inp.aimHeld || (inp.fire && ready));
       this.adsZoom += ((this.ads ? 1 : 0) - this.adsZoom) * Math.min(1, dt * 14);
       if (Math.abs(this.adsZoom - (this.ads ? 1 : 0)) < 0.002) this.adsZoom = this.ads ? 1 : 0;
       const fov = FOV_HIP + (FOV_ADS - FOV_HIP) * this.adsZoom;
@@ -903,19 +904,18 @@ export class Game {
       this.yaw -= inp.yaw;
       this.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.pitch - inp.pitch));
       if (inp.crouchPressed) this.wantCrouch = !this.wantCrouch;
-      if (inp.grenadePressed) this.toggleGrenade();
+      // Granada: al pulsar se coge con la mano izquierda; al soltar se lanza (desde el panel de ajuste no, si está congelada).
+      if (inp.grenadePressed && !this.tuner.open) this.startGrenade();
+      if (nadeBusy && !inp.grenadeHeld && !this.tuner.open) this.viewModel.grenadeRelease();
       this.swapT = Math.max(0, this.swapT - dt);
       const fireNow = inp.fire || inp.fireHip;
-      // Con la granada en la mano, cada pulsación de disparo la lanza (y vuelve el bláster).
-      if (this.weapon === 'grenade' && this.swapT <= 0 && fireNow && !this.prevFire) this.throwGrenade();
-      this.prevFire = fireNow;
       this.grenadeCd = Math.max(0, this.grenadeCd - dt);
       this.shake = Math.max(0, this.shake - dt * 2.6);
       // Saltar: si estás agachado, primero te levantas.
       if (inp.jumpPressed) { if (this.wantCrouch) this.wantCrouch = false; else this.jumpBuffer = 0.14; }
       this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
 
-      const cmd: InputCommand = { moveX: inp.moveX * moveK, moveZ: inp.moveZ * moveK, yaw: this.yaw, pitch: this.pitch, crouch: this.wantCrouch, jump: this.jumpBuffer > 0, fire: fireNow && this.weapon === 'blaster' && this.swapT <= 0 };
+      const cmd: InputCommand = { moveX: inp.moveX * moveK, moveZ: inp.moveZ * moveK, yaw: this.yaw, pitch: this.pitch, crouch: this.wantCrouch, jump: this.jumpBuffer > 0, fire: fireNow && !nadeBusy && this.swapT <= 0 };
       this.acc += dt;
       let steps = 0;
       while (this.acc >= TICK && steps < 5) {
@@ -957,7 +957,7 @@ export class Game {
       this.effects.update(dt);
       this.world.tick(dt);
       this.audio.setWindLevel(this.world.gust);
-      this.viewModel.update(dt, this.blaster.heat, this.adsZoom, this.weapon);
+      this.viewModel.update(dt, this.blaster.heat, this.adsZoom);
       this.dirty = true;
     }
 
@@ -1185,6 +1185,6 @@ export class Game {
 
   /** Solo para pruebas automáticas. */
   debug() {
-    return { cine: this.activeCine === 'arena' ? this.cine2?.debug() : this.cine?.debug(), kits: this.medkits.list().length, audio: { jugados: this.audio.played, estadisticas: this.audio.stats }, arma: this.weapon, grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
+    return { cine: this.activeCine === 'arena' ? this.cine2?.debug() : this.cine?.debug(), kits: this.medkits.list().length, audio: { jugados: this.audio.played, estadisticas: this.audio.stats }, arma: this.viewModel?.grenadeBusy ? 'granada' : 'blaster', grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
   }
 }

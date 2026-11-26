@@ -211,14 +211,48 @@ export const FP_HANDS = {
 /** Sube cada vez que cambian los ajustes (los dedos se recalculan). */
 export const FP_STATE = { version: 0, corteVisible: false, debug: [] as string[] };
 
+/** Postura de la mano izquierda que no está en el rifle (sujetando la granada, cogiéndola del cinturón, lanzando),
+ *  en el sistema de la CÁMARA: `pos` = centro de la palma (m; x derecha, y arriba, z hacia atrás); `rot` = giro extra (grados)
+ *  sobre la postura de partida de sujetar (palma hacia el centro de la pantalla, dedos hacia delante); `lado`/`abajo` como en HandSetup. */
+export interface FreePose { pos: [number, number, number]; rot: [number, number, number]; lado: number; abajo: number }
+
+/** Ajustes de la mano izquierda con la granada (los cambia en directo la sección «Granada» del panel de ajuste). */
+export const FP_GRENADE = {
+  /** La mano que la sujeta (en el sistema de la cámara). */
+  mano: { pos: [-0.13, -0.17, -0.4], rot: [0, -30, 90], lado: -35, abajo: 50 } as FreePose, // valores de partida (pendiente de Víctor)
+  /** La granada dentro de la mano (en el sistema de la mano: x hacia el pulgar, y saliendo de la palma, z hacia los dedos; m y grados). */
+  granada: { pos: [0, 0.058, 0.012], rot: [0, 90, 0] as [number, number, number] },
+  /** Cuánto se cierran los dedos y el pulgar alrededor de la granada (se paran al tocarla). */
+  dedos: 1,
+  pulgar: 1,
+  /** El rifle mientras sujetas la granada: cuánto baja (m), se aparta a la derecha (m) y se inclina (grados). */
+  rifle: { baja: 0.07, aparta: 0.04, gira: 10 },
+};
+/** Radio de la granada para que los dedos se paren al tocarla (10 cm de diámetro). */
+export const GRENADE_RADIUS = 0.05;
+
+/** La mano izquierda fuera del rifle: dónde está (`pose`), cuánto pesa frente al agarre del rifle (`w`: 0 = en el rifle, 1 = en `pose`)
+ *  y cómo están los dedos (`open`: 0 = cerrados en el rifle, 1 = abiertos; `grip`: 0..1 = cerrados en la granada). */
+export interface LeftFree { w: number; pose: FreePose; open: number; grip: number }
+
 export interface FirstPersonArms {
   root: THREE.Group;
   /**
    * Coloca las dos manos en sus agarres. `gun` = el arma (su sistema define los agarres); `camera` = la cámara de los brazos;
-   * `hits` dice si un tramo (de a a b, en el mundo) toca el arma.
+   * `hits` dice si un tramo (de a a b, en el mundo) toca el arma. `left` = la mano izquierda fuera del rifle (granada).
    */
-  solve(gun: THREE.Object3D, camera: THREE.Camera, hits: (a: THREE.Vector3, b: THREE.Vector3) => boolean): void;
+  solve(gun: THREE.Object3D, camera: THREE.Camera, hits: (a: THREE.Vector3, b: THREE.Vector3) => boolean, left?: LeftFree): void;
+  /** Centro de la palma de la mano izquierda y su giro (ejes: x pulgar, y fuera de la palma, z dedos), tras `solve`. */
+  leftPalm: { pos: THREE.Vector3; q: THREE.Quaternion };
 }
+
+/** Desplazamiento de la granada respecto al centro de la palma, en el mundo (`pos` en ejes de la mano: x pulgar, y fuera de la palma, z dedos). */
+export function grenadeOffset(pos: readonly number[], palmQ: THREE.Quaternion) {
+  return new THREE.Vector3(pos[0], pos[1], pos[2]).applyQuaternion(palmQ);
+}
+
+/** Postura de partida de la mano izquierda sujetando la granada, en el sistema de la cámara: dedos hacia delante, palma hacia la derecha. */
+const FREE_BASE = { f: new THREE.Vector3(0.15, 0.1, -1).normalize(), n: new THREE.Vector3(1, 0.25, 0).normalize() };
 
 /** Postura de partida de cada mano en el sistema del arma: hacia dónde apuntan los dedos (f) y hacia dónde mira la palma (n). */
 const BASE = {
@@ -260,7 +294,11 @@ export function createFirstPersonArms(height: number, eye: number): FirstPersonA
     side: 'r' | 'l'; arm: THREE.Bone; elbow: THREE.Bone; wrist: THREE.Bone;
     basisInv: THREE.Quaternion; palm: THREE.Vector3;
     fingers: THREE.Bone[][]; thumb: THREE.Bone[]; index: THREE.Bone[];
+    /** dedos cerrados en el rifle y en la granada (giros locales de cada falange), y con qué versión de los ajustes se calcularon */
     cache: Map<THREE.Bone, THREE.Quaternion> | null; version: number;
+    nade: Map<THREE.Bone, THREE.Quaternion> | null; nadeVersion: number;
+    /** dedos estirados (postura de origen) */
+    rest: Map<THREE.Bone, THREE.Quaternion>;
   };
   const chain = (name: string, s: string) => [1, 2, 3].map((i) => b[`${name}${i}${s}`]).concat([b[`${name}3${s}end`]]).filter(Boolean);
   const makeHand = (s: 'r' | 'l'): Hand => {
@@ -296,10 +334,13 @@ export function createFirstPersonArms(height: number, eye: number): FirstPersonA
     const basis = new THREE.Matrix4().makeBasis(t, n, f);
     const basisInv = new THREE.Quaternion().setFromRotationMatrix(basis).invert();
     const palm = mid.clone().multiplyScalar(0.55); // centro de la palma
+    const fingers = ['indexfinger', 'middlefinger', 'ringfinger', 'littlefinger'].map((nm) => chain(nm, s));
+    const thumb = chain('thumb', s);
+    const rest = new Map<THREE.Bone, THREE.Quaternion>();
+    for (const ch of [...fingers, thumb]) for (const bn of ch) rest.set(bn, bn.quaternion.clone());
     return {
       side: s, arm: b[`${side}arm`], elbow: b[`${side}elbow`], wrist, basisInv, palm,
-      fingers: ['indexfinger', 'middlefinger', 'ringfinger', 'littlefinger'].map((nm) => chain(nm, s)),
-      thumb: chain('thumb', s), index: chain('indexfinger', s), cache: null, version: -1,
+      fingers, thumb, index: chain('indexfinger', s), cache: null, version: -1, nade: null, nadeVersion: -1, rest,
     };
   };
   const hands = [makeHand('r'), makeHand('l')];
@@ -308,8 +349,11 @@ export function createFirstPersonArms(height: number, eye: number): FirstPersonA
   const _v = new THREE.Vector3(), _s = new THREE.Vector3();
 
 
-  /** Cierra los dedos de una mano alrededor del arma: cada falange gira hacia la palma hasta tocar el arma (o hasta su máximo). */
-  const curl = (h: Hand, setup: HandSetup, hits: (a: THREE.Vector3, b: THREE.Vector3) => boolean) => {
+  /** Cierra los dedos de una mano alrededor de lo que sujeta (el arma o la granada): cada falange gira hacia la palma hasta tocarlo
+   *  (o hasta su máximo). Empieza con los dedos estirados y devuelve los giros resultantes de cada falange. */
+  const curl = (h: Hand, setup: Pick<HandSetup, 'dedos' | 'pulgar' | 'indice'>, hits: (a: THREE.Vector3, b: THREE.Vector3) => boolean) => {
+    for (const [bn, q] of h.rest) bn.quaternion.copy(q);
+    h.wrist.updateMatrixWorld(true);
     if (h.side === 'r') FP_STATE.debug.length = 0;
     const palmN = new THREE.Vector3(0, 1, 0);
     const wq = h.wrist.getWorldQuaternion(new THREE.Quaternion());
@@ -345,43 +389,66 @@ export function createFirstPersonArms(height: number, eye: number): FirstPersonA
     bend(h.thumb, setup.pulgar, true, true);
     const cache = new Map<THREE.Bone, THREE.Quaternion>();
     for (const ch of [...h.fingers, h.thumb]) for (const bn of ch) cache.set(bn, bn.quaternion.clone());
-    h.cache = cache;
+    return cache;
   };
+  /** ¿Toca un tramo (de a a b) la granada? (una esfera de su tamaño, en `ball`) */
+  const ball = new THREE.Vector3();
+  const _seg = new THREE.Line3(), _cp = new THREE.Vector3();
+  const hitsBall = (a: THREE.Vector3, bq: THREE.Vector3) => _seg.set(a, bq).closestPointToPoint(ball, true, _cp).distanceTo(ball) < GRENADE_RADIUS;
+  const leftPalm = { pos: new THREE.Vector3(), q: new THREE.Quaternion() };
+  const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
 
   return {
     root: rig.root,
-    solve(gun, camera, hits) {
+    leftPalm,
+    solve(gun, camera, hits, left) {
       rig.reset();
       rig.root.scale.setScalar(FP_HANDS.tamano);
       rig.root.updateMatrixWorld(true);
       gun.updateMatrixWorld(true);
+      camera.updateMatrixWorld();
       const gunQ = gun.getWorldQuaternion(new THREE.Quaternion());
+      const camQ = camera.getWorldQuaternion(new THREE.Quaternion());
+      const fromAngles = (ladoDeg: number, abajoDeg: number) => {
+        const lado = THREE.MathUtils.degToRad(ladoDeg), abajo = THREE.MathUtils.degToRad(abajoDeg);
+        return new THREE.Vector3(Math.sin(lado) * Math.cos(abajo), -Math.sin(abajo), Math.cos(lado) * Math.cos(abajo)).transformDirection(camera.matrixWorld);
+      };
+      /** giro de una postura de partida (dedos f, palma n) con un giro extra en grados, todo dentro del sistema `sysQ` */
+      const handQ = (sysQ: THREE.Quaternion, f0: THREE.Vector3, n0: THREE.Vector3, rot: number[]) => {
+        const nD = n0.clone(), fD = f0.clone();
+        fD.addScaledVector(nD, -fD.dot(nD)).normalize(); // dedos perpendiculares a la palma
+        _m.makeBasis(new THREE.Vector3().crossVectors(nD, fD), nD, fD);
+        const qExtra = new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot.map((d) => THREE.MathUtils.degToRad(d)) as [number, number, number], 'XYZ'));
+        return sysQ.clone().multiply(qExtra).multiply(new THREE.Quaternion().setFromRotationMatrix(_m));
+      };
       FP_STATE.corteVisible = false;
       for (const h of hands) {
         const setup = h.side === 'r' ? FP_HANDS.derecha : FP_HANDS.izquierda;
+        const free = h.side === 'l' && left && left.w > 0 ? left : null;
         // antebrazo alargado (a lo largo de su hueso); la muñeca vuelve a su sitio de origen dentro del antebrazo
         h.elbow.scale.set(1, FP_HANDS.largo, 1);
         h.wrist.matrixAutoUpdate = false;
         h.wrist.matrix.compose(h.wrist.position, h.wrist.quaternion, h.wrist.scale);
         h.arm.updateMatrixWorld(true);
         const base = BASE[h.side];
-        // 1) giro de la mano: postura de partida (dedos f, palma n en el arma) + giro extra, todo en el sistema del arma
-        const nD = base.n.clone(), fD = base.f.clone();
-        fD.addScaledVector(nD, -fD.dot(nD)).normalize(); // dedos perpendiculares a la palma
-        const t = new THREE.Vector3().crossVectors(nD, fD);
-        _m.makeBasis(t, nD, fD);
-        const qBase = new THREE.Quaternion().setFromRotationMatrix(_m);
-        const qExtra = new THREE.Quaternion().setFromEuler(new THREE.Euler(...setup.rot.map((d) => THREE.MathUtils.degToRad(d)) as [number, number, number], 'XYZ'));
-        const qWrist = gunQ.clone().multiply(qExtra).multiply(qBase).multiply(h.basisInv);
-        // 2) dónde va la muñeca: el centro de la palma en el agarre
+        // 1) giro de la mano (ejes: x pulgar, y palma, z dedos): postura de partida + giro extra, en el sistema del arma.
+        //    Si la mano izquierda está fuera del rifle (granada), se mezcla con su postura libre (en el sistema de la cámara).
+        const qHand = handQ(gunQ, base.f, base.n, setup.rot);
+        // 2) dónde va la muñeca: el centro de la palma en el agarre (o en la postura libre)
         const grip = gun.localToWorld(_v.set(...setup.pos)).clone();
+        let back = fromAngles(setup.lado, setup.abajo);
+        if (free) {
+          qHand.slerp(handQ(camQ, FREE_BASE.f, FREE_BASE.n, free.pose.rot), free.w);
+          grip.lerp(camera.localToWorld(_v.set(...free.pose.pos)), free.w);
+          back.lerp(fromAngles(free.pose.lado, free.pose.abajo), free.w).normalize();
+        }
+        const qWrist = qHand.clone().multiply(h.basisInv);
+        if (h.side === 'l') { leftPalm.pos.copy(grip); leftPalm.q.copy(qHand); }
         h.arm.getWorldScale(_s); // escala del brazo sin el alargamiento (la mano mantiene su tamaño)
         const wristPos = grip.clone().sub(h.palm.clone().multiply(_s).applyQuaternion(qWrist));
         // 3) codo: sale de la muñeca hacia su esquina de abajo, con el largo real del antebrazo
         const L2 = h.elbow.getWorldPosition(new THREE.Vector3()).distanceTo(h.wrist.getWorldPosition(new THREE.Vector3()));
         const L1 = h.arm.getWorldPosition(new THREE.Vector3()).distanceTo(h.elbow.getWorldPosition(new THREE.Vector3()));
-        const lado = THREE.MathUtils.degToRad(setup.lado), abajo = THREE.MathUtils.degToRad(setup.abajo);
-        const back = new THREE.Vector3(Math.sin(lado) * Math.cos(abajo), -Math.sin(abajo), Math.cos(lado) * Math.cos(abajo)).transformDirection(camera.matrixWorld);
         const elbowPos = wristPos.clone().addScaledVector(back, L2);
         // hombro (no se ve): en la misma línea, algo doblado, para que el codo quede justo donde queremos
         const shoulder = elbowPos.clone().addScaledVector(back, L1 * 0.98).addScaledVector(new THREE.Vector3(0, -1, 0).transformDirection(camera.matrixWorld), L1 * 0.2);
@@ -400,9 +467,18 @@ export function createFirstPersonArms(height: number, eye: number): FirstPersonA
         const want = new THREE.Matrix4().compose(wp, qWrist, _s);
         h.wrist.matrix.copy(new THREE.Matrix4().copy(h.elbow.matrixWorld).invert().multiply(want));
         h.wrist.updateMatrixWorld(true);
-        // 5) dedos: se recalculan solo si cambiaron los ajustes; si no, se reponen los de antes
-        if (h.version !== FP_STATE.version || !h.cache) { curl(h, setup, hits); h.version = FP_STATE.version; }
-        else for (const [bn, q] of h.cache) bn.quaternion.copy(q);
+        // 5) dedos: se recalculan solo si cambiaron los ajustes; si no, se reponen los de antes.
+        //    Los del rifle solo con la mano en el rifle (se cierran hasta tocarlo); los de la granada, en cualquier sitio (la granada va con la mano).
+        if (!h.cache || (h.version !== FP_STATE.version && !free)) { h.cache = curl(h, setup, hits); h.version = FP_STATE.version; }
+        if (h.side === 'l' && left && (left.grip > 0 || left.open > 0)) {
+          if (!h.nade || h.nadeVersion !== FP_STATE.version) {
+            ball.copy(grenadeOffset(FP_GRENADE.granada.pos, leftPalm.q)).add(leftPalm.pos);
+            h.nade = curl(h, { dedos: FP_GRENADE.dedos, pulgar: FP_GRENADE.pulgar, indice: 0 }, hitsBall);
+            h.nadeVersion = FP_STATE.version;
+          }
+          // rifle → abiertos (open) → alrededor de la granada (grip)
+          for (const [bn, q] of h.cache) bn.quaternion.copy(_q1.copy(q).slerp(h.rest.get(bn)!, left.open).slerp(_q2.copy(h.nade.get(bn)!), left.grip));
+        } else for (const [bn, q] of h.cache) bn.quaternion.copy(q);
         // ¿se ve el corte del brazo? (el codo dentro de la imagen)
         const ndc = elbowPos.clone().project(camera);
         if (ndc.z < 1 && ndc.z > -1 && Math.abs(ndc.x) < 1 && Math.abs(ndc.y) < 1) FP_STATE.corteVisible = true;
@@ -413,4 +489,5 @@ export function createFirstPersonArms(height: number, eye: number): FirstPersonA
 }
 
 // Para pruebas: ajustes y estado de los brazos accesibles desde la consola del navegador
-(globalThis as unknown as { __fp: unknown }).__fp = { FP_HANDS, FP_STATE };
+(globalThis as unknown as { __fp: unknown; __fpg: unknown }).__fp = { FP_HANDS, FP_STATE, FP_GRENADE };
+(globalThis as unknown as { __fpg: unknown }).__fpg = FP_GRENADE;

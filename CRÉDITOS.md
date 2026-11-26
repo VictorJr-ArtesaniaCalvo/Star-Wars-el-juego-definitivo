@@ -54,6 +54,13 @@ Cambios hechos para el juego (herramienta `tools/convert-b2.mjs`): se ha enderez
 se ha dividido en huesos para animarlo, se ha simplificado de ~49.000 a ~9.000 triángulos (y ~3.400 a distancia) y las texturas del autor se han reunido
 en una sola imagen (atlas) de menor tamaño. No se usan los mapas de relieve. El personaje es propiedad de Lucasfilm Ltd. / Disney.
 
+**Detonador térmico** (granada en la mano, `public/models/detonator.glb`): este trabajo se basa en
+«[Star Wars Genesis - Thermal_detonator_low](https://sketchfab.com/3d-models/star-wars-genesis-thermal-detonator-low-f5de6a0d138b4f1aab3596d1ffc03650)»
+de [Léonard Doye / Leoskateman](https://sketchfab.com/leoskateman), con licencia
+[CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/) (hay que citar al autor; se permite el uso comercial; ver `public/models/LICENCIA-DETONADOR.txt`).
+Modelo aportado por el autor del proyecto. Cambios (herramienta `tools/convert-ship.mjs`): escalado a 10 cm, texturas de color y relieve a 512 px y de brillo a 256 px,
+sin la de metal/rugosidad. La granada que vuela al lanzarla es una bola gris sencilla con una bombilla roja, hecha por código.
+
 **Destructor de la República, clase Venator** (`public/models/venator.glb`): este trabajo se basa en
 «[Venator Class Star Destroyer](https://sketchfab.com/3d-models/venator-class-star-destroyer-af3648043a5b4fd394adfc32baee369e)»
 de [Digital Sock](https://sketchfab.com/DigitalSock), con licencia
@@ -102,6 +109,9 @@ Todas de dominio público (CC0 1.0); se citan por cortesía. Detalles completos 
   conviene confirmar que se puede usar o sustituirla. En el juego se puede bajar o quitar desde el menú (Música).
 - **Música de la pantalla principal** (`public/audio/menu.mp3`): aportada por el autor del proyecto (audio de un vídeo, `videoplayback.mp4`);
   igualada de volumen, recortado el final y pasada a MP3 de 80 kbps. **Autoría y derechos por confirmar** (mismas condiciones que la anterior).
+- **Sonido del detonador térmico** (`public/audio/detonador-armado.mp3` y `detonador-explosion.mp3`): aportado por el autor del proyecto (original en
+  `assets/audio/efectos/thermal_detonator.mp4`; autoría y derechos por confirmar). Preparado con `tools/prepare-detonator-sound.py`: partido en el pitido de
+  armado y la explosión, en mono y con la explosión a −1 dB.
 - **Sonidos de la cañonera** (`public/audio/laat-pasada.mp3` y `laat-interior.mp3`): aportados por el autor del proyecto (originales en
   `assets/audio/efectos/laat_paso_rasante.mp3` y `laat_interior_vuelo.mp3`). Preparados con `tools/prepare-laat-sounds.py`: recortados, igualados de
   volumen (la pasada a −17 LUFS; el interior a −26 LUFS, por debajo de las voces) y el interior convertido en bucle sin cortes. **Origen y licencia por confirmar.**
