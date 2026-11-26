@@ -3,11 +3,11 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Builder, place } from './builder';
 import { boulderGeometry } from './rocks';
 import { SoftPoints, SPRITES } from './crashFx';
-import { CRUISER, CRUISER_ENGINE, CRUISER_FURROW, cruiserFurrowX, makeRng, terrainHeight } from './terrain';
+import { CRUISER, CRUISER_ENGINE, CRUISER_FURROW, cruiserFurrowX, cruiserFurrowZ, makeRng, terrainHeight } from './terrain';
 import { cruiserSiteOn } from './materials';
 import type { Quality } from '../core/Settings';
 
-// Crucero consular de la República estrellado al fondo del valle (sur, pasada la grieta). Solo para mirar: no tiene cuerpo sólido.
+// Crucero consular de la República estrellado al fondo norte del valle (donde estaba la imitación de la Lucrehulk, pasada la grieta). Solo para mirar: no tiene cuerpo sólido.
 // Modelo real: «Consular cruiser» de Cpt.Kirk (CC-BY 4.0), aligerado con tools/convert-ship.mjs → public/models/consular.glb.
 //  · Postura (morro hundido, inclinada, tumbada) y huella en el suelo (surco, arena amontonada): CRUISER en terrain.ts.
 //  · Un motor se ha desprendido y está tirado en el surco (CRUISER_ENGINE). Lo enterrado no se dibuja.
@@ -25,6 +25,12 @@ export async function loadConsular(base: string) {
     model = null;
   }
 }
+
+/**
+ * Vista de revisión (pedida por Víctor): desde el borde norte de la zona de juego, a la altura de los ojos, mirando al crucero
+ * (la equivalente a su captura del sur). Posición [x, altura sobre el suelo, z] y hacia dónde mira (grados: 0 = norte, + = hacia el oeste).
+ */
+export const CRUISER_REVIEW_VIEW = { pos: [20, 1.7, -93] as [number, number, number], rumbo: -1, inclina: 2 };
 
 /** Neblina máxima sobre el crucero (0 a 1): así se ve siempre, como una silueta pálida al fondo. */
 export const CRUISER_FOG_CAP = 0.5;
@@ -46,10 +52,10 @@ const ENGINE_CENTER = new THREE.Vector3(-32.6, -0.5, -46);
 const ENGINE_R = 9.3;
 /** Brechas del casco (en el sistema de la nave): centro y radio. La última se coloca en el motor caído. */
 const HOLES_SHIP: Array<[number, number, number, number]> = [
-  [1.5, 6.0, 12, 3.6], // arriba, en medio del casco
-  [7.5, 1.0, 33, 3.0], // costado, hacia el morro
+  [1.5, 6.0, 12, 3.6], // cubierta, en medio del casco
+  [-2.5, 5.0, 31, 3.0], // cubierta, hacia el morro
   [-22, 0.5, -45, 5.5], // donde estaba el motor arrancado
-  [9, 4.5, -24, 3.2], // arriba, hacia los motores
+  [9, 4.5, -24, 3.2], // cubierta, hacia los motores
 ];
 const HOLE_ENGINE: [number, number, number, number] = [9.5, 2, 2, 5]; // en el motor caído (sistema del motor, centrado), por donde se partió
 
@@ -161,7 +167,7 @@ export function cruiserMatrix(): THREE.Matrix4 {
 /** Matriz del motor caído (su geometría va centrada en su eje). */
 function engineMatrix(): THREE.Matrix4 {
   const E = CRUISER_ENGINE;
-  const x = cruiserFurrowX(E.s) + E.dx, z = CRUISER.z + E.s;
+  const x = cruiserFurrowX(E.s) + E.dx, z = cruiserFurrowZ(E.s);
   const y = terrainHeight(x, z) + ENGINE_R - E.hunde;
   return new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.12, E.yaw, E.roll, 'YXZ')), new THREE.Vector3(1, 1, 1));
 }
@@ -238,7 +244,7 @@ function buildFurrowDebris(b: Builder) {
   // restos: chapas del casco (casi planas y medio enterradas, con polvo), bloques y tubos; más cerca de la nave
   for (let i = 0; i < 40; i++) {
     const s = CRUISER_FURROW.largo * 0.9 * Math.pow(range(0.03, 1), 1.4);
-    const x = cruiserFurrowX(s) + range(-1.4, 1.4) * W, z = CRUISER.z + s;
+    const x = cruiserFurrowX(s) + range(-1.4, 1.4) * W, z = cruiserFurrowZ(s);
     const y = terrainHeight(x, z);
     const k = rng();
     if (k < 0.62) {
@@ -256,7 +262,7 @@ function buildFurrowDebris(b: Builder) {
   for (let i = 0; i < 20; i++) {
     const s = range(4, CRUISER_FURROW.largo * 0.85);
     const side = rng() < 0.5 ? -1 : 1;
-    const x = cruiserFurrowX(s) + side * (W * 1.3 + range(0, 7)), z = CRUISER.z + s;
+    const x = cruiserFurrowX(s) + side * (W * 1.3 + range(0, 7)), z = cruiserFurrowZ(s);
     const sc = range(1.2, 3.6) * (1 - 0.4 * (s / CRUISER_FURROW.largo));
     const y = terrainHeight(x, z) + sc * 0.25;
     b.addDecor(boulderGeometry(100 + i, 1), place(x, y, z, range(0, 6.3), range(-0.3, 0.3), range(-0.3, 0.3), new THREE.Vector3(sc * range(1, 1.5), sc * range(0.6, 0.9), sc)), rng() < 0.5 ? 0x8a4a30 : 0x6a4b3c, range(0.8, 1), 1);

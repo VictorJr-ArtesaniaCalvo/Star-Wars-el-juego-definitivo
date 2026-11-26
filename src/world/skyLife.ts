@@ -4,7 +4,7 @@ import { glowTexture } from './atmosphere';
 import { makeRng } from './terrain';
 
 // Vida en el cielo (solo decoración, no afecta a la partida):
-//  - un destructor de la República (Venator) detrás de ti, sobre el crucero estrellado, y una fragata separatista (Munificent)
+//  - un destructor de la República (Venator) detrás de ti, sobre la nave núcleo, y una fragata separatista (Munificent)
 //    delante (donde estaba el castillo); altos, lejos y quietos, intercambiando disparos por encima del cañón.
 //    Modelos reales (public/models/venator.glb y frigate.glb, hechos con tools/convert-ship.mjs); si no cargan,
 //    las naves sencillas hechas por código de antes;
@@ -217,7 +217,7 @@ class SkyBattle {
       return { body, hull, half: box.getSize(new THREE.Vector3()).multiplyScalar(0.5), center: box.getCenter(new THREE.Vector3()) };
     };
 
-    // Destructor de la República: detrás de ti, sobre el crucero estrellado del fondo del valle, con el morro hacia la derecha. Quieto.
+    // Destructor de la República: detrás de ti, sobre la nave núcleo separatista, con el morro hacia la derecha. Quieto.
     this.republic = makeShip('venator', venator, 1.45, [[-17, 0, 78, 20], [0, 0, 78, 20], [17, 0, 78, 20]]);
     this.republic.body.position.set(25, 265, 300);
     this.republic.body.rotation.y = -Math.PI / 2 + 0.28;

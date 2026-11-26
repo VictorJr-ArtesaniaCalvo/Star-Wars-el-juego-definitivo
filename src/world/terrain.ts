@@ -20,25 +20,30 @@ const CHASM_Z = 105; // centro, medido desde tu posición
 const CHASM_HALF = 6.5; // medio ancho
 const CHASM_DEPTH = 34;
 
-/** Dónde quedó la nave droide estrellada (al fondo del cañón, por delante, tras la grieta). */
-export const WRECK = { x: 40, z: -168, yaw: 0.28 };
 const WALL_H = 34; // altura de las paredes
 const WALL_SPAN = 16; // grosor de la pared (de la base a la cima)
 
 /**
- * Crucero consular de la República estrellado al fondo del valle (sur, pasada la grieta; solo para mirar, no se puede llegar).
- * Entró rasante desde el sur, se arrastró a lo largo del valle y al frenar se cruzó: el morro mira hacia el cañón, girado hacia el este.
+ * Crucero consular de la República estrellado al fondo norte del valle, en el lado este (donde estaba la imitación de la Lucrehulk;
+ * pasada la grieta: solo para mirar, no se puede llegar). Delante de ti al empezar.
+ * Entró rasante desde el norte, se arrastró a lo largo del valle y al frenar se cruzó: el morro mira hacia el cañón (hacia ti), girado hacia el oeste.
+ * Tumbada hacia el lado que mira al cañón: enseña la cubierta (Víctor); ese costado queda clavado en la arena.
  * Lo comparten el terreno (surco y arena amontonada) y el modelo (`src/world/consular.ts`).
- *  · x, z: centro de la nave · yaw: hacia dónde mira el morro (π = norte; más = hacia el este)
- *  · pitch: morro hacia abajo (rad) · roll: tumbada hacia un lado (rad) · entierro: cuánto se hunde la punta del morro (m)
+ *  · x, z: centro de la nave · yaw: hacia dónde mira el morro (0 = sur, hacia el cañón; menos = hacia el oeste)
+ *  · pitch: morro hacia abajo (rad) · roll: tumbada hacia un lado (rad; negativo = cubierta hacia el cañón) · entierro: cuánto se hunde la punta del morro (m)
  */
-export const CRUISER = { x: -5, z: 172, yaw: Math.PI - 0.45, pitch: 0.24, roll: 0.35, entierro: 6 };
-/** Surco que dejó al arrastrarse: largo (m, hacia el sur desde el centro de la nave), medio ancho, hondo junto a la nave y altura de los bordes. */
+export const CRUISER = { x: 18, z: -173, yaw: -0.45, pitch: 0.24, roll: -0.45, entierro: 3 };
+/** Hacia dónde va el surco desde la nave: −1 = hacia el norte (hacia el fondo del valle). */
+const CR_DIR = -1;
+/** Surco que dejó al arrastrarse: largo (m, hacia el fondo desde el centro de la nave), medio ancho, hondo junto a la nave y altura de los bordes. */
 export const CRUISER_FURROW = { largo: 150, ancho: 10, hondo: 3.4, borde: 2.6 };
 /** Motor que se desprendió: tirado en el surco, a `s` m del centro de la nave. */
 export const CRUISER_ENGINE = { s: 84, dx: 5, yaw: 0.75, roll: 0.5, hunde: 3.2 };
-/** Línea central del surco a una distancia `s` hacia el sur del centro de la nave. */
-export const cruiserFurrowX = (s: number) => CRUISER.x - 0.12 * s + 2.5 * Math.sin(s * 0.045);
+/** Línea central del surco a una distancia `s` (hacia el fondo) del centro de la nave: x y z. */
+export const cruiserFurrowX = (s: number) => CRUISER.x + 0.12 * s + 2.5 * Math.sin(s * 0.045);
+export const cruiserFurrowZ = (s: number) => CRUISER.z + CR_DIR * s;
+/** Costado que queda abajo (clavado en la arena): +1 = el derecho de la nave, −1 = el izquierdo. */
+const CR_LOW = CRUISER.roll < 0 ? 1 : -1;
 const CR_SY = Math.sin(CRUISER.yaw), CR_CY = Math.cos(CRUISER.yaw);
 /**
  * Huella del crucero en el suelo: surco hondo con bordes de tierra levantada, arena empujada contra el morro y a los lados
@@ -46,11 +51,11 @@ const CR_SY = Math.sin(CRUISER.yaw), CR_CY = Math.cos(CRUISER.yaw);
  */
 export function cruiserField(x: number, z: number) {
   const out = { h: 0, sand: 0, soot: 0 };
-  if (z < 111 || Math.abs(x - CRUISER.x) > 120) return out;
-  const lip = smoothstep(111, 119, z); // junto a la grieta se funde (no la rellena)
+  if (z * CR_DIR < 111 || Math.abs(x - CRUISER.x) > 120) return out;
+  const lip = smoothstep(111, 119, z * CR_DIR); // junto a la grieta se funde (no la rellena)
   const F = CRUISER_FURROW;
-  // surco (va casi a lo largo del valle: hacia el sur)
-  const s = z - CRUISER.z;
+  // surco (va casi a lo largo del valle, hacia el fondo)
+  const s = (z - CRUISER.z) * CR_DIR;
   if (s > -20 && s < F.largo) {
     const w = F.ancho * (1 + 0.08 * Math.sin(s * 0.13));
     const av = Math.abs(x - cruiserFurrowX(s));
@@ -69,14 +74,17 @@ export function cruiserField(x: number, z: number) {
   const v = dx * CR_CY - dz * CR_SY; // de lado
   const pu = (u - 61) / 9, pv = v / 17;
   const pile = Math.exp(-(pu * pu + pv * pv));
-  out.h += 6 * pile * lip;
+  out.h += 3.5 * pile * lip; // bajo: si no, desde el cañón tapaba la nave
   const along = smoothstep(-5, 25, u) * (1 - smoothstep(48, 64, u));
-  const side = Math.exp(-(((Math.abs(v) - 13) / 4.5) ** 2)) * (v > 0 ? 1 : 0.55); // más del lado hacia el que giró
-  out.h += 3.2 * along * side * (0.8 + 0.2 * Math.sin(u * 0.4)) * lip;
-  out.sand = Math.max(out.sand, Math.min(1, pile * 1.2), along * side * 0.9);
+  // el costado que queda abajo, clavado en la arena: loma alta y pegada a él; el de arriba, loma baja
+  const low = Math.sign(v) === CR_LOW;
+  const side = Math.exp(-(((Math.abs(v) - (low ? 11 : 13)) / (low ? 5.5 : 4.5)) ** 2)) * (low ? 1 : 0.45);
+  const alongLow = low ? smoothstep(-40, -10, u) * (1 - smoothstep(48, 64, u)) : along;
+  out.h += 3.4 * alongLow * side * (0.8 + 0.2 * Math.sin(u * 0.4)) * lip;
+  out.sand = Math.max(out.sand, Math.min(1, pile * 1.2), alongLow * side * 0.9);
   out.soot = Math.max(out.soot, 0.7 * (1 - smoothstep(20, 45, Math.hypot(dx, dz))));
   // montón de arena alrededor del motor caído
-  const es = CRUISER_ENGINE.s, ex = cruiserFurrowX(es) + CRUISER_ENGINE.dx, ez = CRUISER.z + es;
+  const es = CRUISER_ENGINE.s, ex = cruiserFurrowX(es) + CRUISER_ENGINE.dx, ez = cruiserFurrowZ(es);
   const er = Math.hypot(x - ex, (z - ez) * 0.8);
   const ring = Math.exp(-(((er - 10) / 3.5) ** 2));
   out.h += 1.6 * ring;
@@ -90,11 +98,11 @@ export function cruiserField(x: number, z: number) {
  * no se ponen (la nave se las llevó por delante); el resto del mapa no cambia.
  */
 export function cruiserKeepOut(x: number, z: number, r = 0) {
-  if (z < 108 - r) return false;
+  if (z * CR_DIR < 108 - r) return false;
   const dx = x - CRUISER.x, dz = z - CRUISER.z;
   const u = dx * CR_SY + dz * CR_CY, v = dx * CR_CY - dz * CR_SY;
   if (u > -66 - r && u < 72 + r && Math.abs(v) < 46 + r) return true; // la nave, la arena del morro y lo que tapaba su vista desde el cañón
-  const s = z - CRUISER.z;
+  const s = (z - CRUISER.z) * CR_DIR;
   if (s > -10 && s < CRUISER_FURROW.largo && Math.abs(x - cruiserFurrowX(s)) < CRUISER_FURROW.ancho * 2.4 + r) return true; // surco y bordes
   return false;
 }
@@ -401,7 +409,7 @@ function refineAxis(list: number[], a: number, b: number, step: number): number[
 
 export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics: RAPIER.World) {
   const xs = axis(X_FINE, X_MAX);
-  const zs = refineAxis(axis(Z_FINE, Z_MAX), 118, 326, 4.5); // más filas donde está el crucero estrellado (surco y arena)
+  const zs = refineAxis(axis(Z_FINE, Z_MAX), -326, -118, 4.5); // más filas donde está el crucero estrellado (surco y arena)
   const nx = xs.length, nz = zs.length;
   const positions = new Float32Array(nx * nz * 3);
   const uvs = new Float32Array(nx * nz * 2);
@@ -469,7 +477,7 @@ export function buildTerrain(scene: THREE.Scene, rapier: typeof RAPIER, physics:
     const cr = cruiserField(x, z); // surco y arena del crucero estrellado
     if (cr.sand > 0.01) tmp.lerp(SAND, Math.min(0.7, cr.sand * 0.75));
     if (cr.soot > 0.01) tmp.lerp(soot, Math.min(0.75, cr.soot));
-    const sc = Math.max(cf.scorch, 0.8 * (1 - smoothstep(10, 34, Math.hypot(x - WRECK.x, z - WRECK.z))));
+    const sc = cf.scorch;
     if (sc > 0.01) tmp.lerp(soot, Math.min(0.88, sc));
     // La grieta se oscurece con la profundidad.
     const cz = chasm(x, z);

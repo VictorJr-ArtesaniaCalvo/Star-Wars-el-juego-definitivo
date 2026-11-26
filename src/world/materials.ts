@@ -192,10 +192,10 @@ const bumpUniform = { value: 1 };
 export const setWorldBump = (on: boolean) => { bumpUniform.value = on ? 1 : 0; };
 
 /**
- * Zona del crucero consular estrellado (fondo sur del valle): centro y radios en x y z. Allí el suelo, los restos y las rocas
+ * Zona del crucero consular estrellado (fondo norte del valle): centro y radios en x y z. Allí el suelo, los restos y las rocas
  * se ven a través de la neblina igual que la nave (como una silueta pálida al fondo), aunque estén más lejos de lo que llega la vista.
  */
-export const CRUISER_SITE = { x: -10, z: 222, rx: 70, rz: 112, cap: 0.72, top: 34 };
+export const CRUISER_SITE = { x: 30, z: -217, rx: 72, rz: 112, cap: 0.72, top: 34 };
 /** 1 mientras está el cañón; 0 en la arena (allí no hay crucero). */
 export const cruiserSiteOn = { value: 1 };
 const CRUISER_FOG_GLSL = `

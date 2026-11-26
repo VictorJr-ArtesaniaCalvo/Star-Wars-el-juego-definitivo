@@ -4,7 +4,6 @@ import { Builder } from './builder';
 import { Atmosphere } from './atmosphere';
 import { DesertAir } from './desertAir';
 import type { DesertFog } from './desertFog';
-import { buildDroidWreck, WRECK_FIRES, WRECK_LIGHTS } from './wreck';
 import { GUNSHIP_FIRES, GUNSHIP_LIGHTS, CrashFx } from './crashFx';
 import { laatReady } from './laat';
 import { buildDefenseZone } from './defenseZone';
@@ -17,6 +16,7 @@ import { buildTerrain, CRASH, paintRock, terrainHeight, wallDetailOn } from './t
 import { WallBlocks } from './wallBlocks';
 import { Wreckage } from './wreckage';
 import { buildCruiserSite, CruiserFx, CRUISER_FIRES } from './consular';
+import { Landmarks } from './landmarks';
 import { buildContactDecals } from './contact';
 import { setDroidMetal } from '../enemies/droidWear';
 import { buildScorch } from './scorch';
@@ -37,6 +37,7 @@ export class World {
   private ledges: Ledges;
   private wallBlocks: WallBlocks | null = null;
   private cruiserFx: CruiserFx | null = null;
+  private landmarks: Landmarks;
   private time = 0;
   /** Lo que es del cañón (piezas dibujadas y cuerpos sólidos): se borra entero al pasar a la arena. Cielo y luces se quedan. */
   private canyonObjects: THREE.Object3D[] = [];
@@ -67,9 +68,9 @@ export class World {
     const b = new Builder(rapier, physics);
     buildRocks(b);
     buildDefenseZone(b);
-    buildDroidWreck(b);
-    const cruiser = buildCruiserSite(scene, b); // crucero consular estrellado al fondo del valle (sur), con su surco, restos y rocas
+    const cruiser = buildCruiserSite(scene, b); // crucero consular estrellado al fondo norte del valle (donde estaba la imitación de la Lucrehulk), con su surco, restos y rocas
     b.finish(scene);
+    this.landmarks = new Landmarks(scene); // nave núcleo separatista al sur (solo para mirar)
     new Wreckage(scene, rapier, physics); // restos de la cañonera, chapas, muros de chapa y cajas de la República
     buildCaveWorld(scene, rapier, physics); // entrada de la cueva en la pared oeste (por ella huye el comando hacia la arena)
     buildContactDecals(scene, b.feet); // manchas de contacto bajo rocas, muros y cajas
@@ -77,7 +78,7 @@ export class World {
     this.scatter = new Scatter(scene, b.spots); // lajas de piedra y piedrecitas (calidad media y alta)
     this.ledges = new Ledges(scene, rapier, physics); // repisas de roca en capas (calidad media y alta)
     if (wallDetailOn()) this.wallBlocks = new WallBlocks(scene); // bloques apilados y escombros en las paredes (calidad media y alta)
-    this.atmosphere = new Atmosphere(scene, [...WRECK_FIRES, ...GUNSHIP_FIRES, ...CRUISER_FIRES], [...WRECK_LIGHTS, ...GUNSHIP_LIGHTS]);
+    this.atmosphere = new Atmosphere(scene, [...GUNSHIP_FIRES, ...CRUISER_FIRES], GUNSHIP_LIGHTS);
     this.skyLife = new SkyLife(scene, hooks.skyFire);
     // humo, columna de humo alta, brasas, chispas y llamas de la cañonera derribada (si falta el modelo, solo la columna desde el casco sencillo)
     this.crashFx = new CrashFx(scene, undefined, laatReady() ? undefined : { x: CRASH.x - 5, y: terrainHeight(CRASH.x - 5, CRASH.z) + 2.6, z: CRASH.z });
@@ -137,6 +138,7 @@ export class World {
       this.ledges.setQuality(q);
       this.wallBlocks?.setQuality(q);
       this.cruiserFx?.setQuality(q);
+      this.landmarks.setQuality(q);
     }
     setDroidMetal(q !== 'low'); // brillo metálico de los droides (en baja, mate)
     setWorldBump(q !== 'low');
@@ -153,6 +155,7 @@ export class World {
     this.skyLife.update(dt);
     this.crashFx?.tick(dt);
     this.cruiserFx?.tick(dt);
+    this.landmarks.update(dt);
   }
 
   /** El cielo y la luz del sol acompañan al jugador. */
