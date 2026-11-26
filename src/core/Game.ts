@@ -270,6 +270,7 @@ export class Game {
     this.audio.setVolume(this.settings.data.volume);
     this.audio.setSfxVolume(this.settings.data.sfxVolume);
     this.audio.setMusicVolume(this.settings.data.musicVolume);
+    this.audio.setNewAmbience(this.settings.data.newAmbience !== false); // modo de pruebas: comparar el ambiente nuevo con el de antes
     // Ultra: se dibuja con resplandor (bloom) en las luces fuertes
     if (q.bloom && !this.composer) {
       const w = window.innerWidth, h = window.innerHeight;
@@ -868,6 +869,8 @@ export class Game {
     this.last = t;
 
     const inp = this.input.poll(dt, this.settings.data.sensitivity);
+    // ambiente: cañón, túnel (en la toma del túnel del paso a la arena) o arena; el cambio se hace con fundido cruzado
+    this.audio.setAmbienceScene(currentZone() === 'canyon' ? 'canyon' : this.mode === 'cinematic' && this.activeCine === 'arena' && this.cine2.shotId === 'tunel' ? 'tunnel' : 'arena');
     if (inp.pausePressed) {
       if (this.mode === 'playing') this.pause();
       else if (this.mode === 'paused' && this.input.gamepadActive) this.resume();
@@ -883,6 +886,8 @@ export class Game {
         this.audio.setWindLevel(this.world.gust);
         const gustHit = this.world.consumeGust(); // golpe de viento al empezar cada ráfaga
         if (gustHit > 0) this.audio.windGust(gustHit);
+        const plan = this.world.consumeGustPlan(); // la próxima ráfaga: el sonido grabado empieza antes, con su subida
+        if (plan) this.audio.windGustPlanned(plan.k, plan.inSec);
         this.world.follow(this.camera.position);
         const f = this.camera.getWorldDirection(this.v3);
         this.audio.listener(this.camera.position.x, this.camera.position.y, this.camera.position.z, Math.atan2(-f.x, -f.z), Math.asin(Math.max(-1, Math.min(1, f.y))));
@@ -971,6 +976,8 @@ export class Game {
       this.audio.setWindLevel(this.world.gust);
       const gustHit = this.world.consumeGust(); // golpe de viento al empezar cada ráfaga
       if (gustHit > 0) this.audio.windGust(gustHit);
+      const plan = this.world.consumeGustPlan(); // la próxima ráfaga: el sonido grabado empieza antes, con su subida
+      if (plan) this.audio.windGustPlanned(plan.k, plan.inSec);
       this.viewModel.update(dt, this.blaster.heat, this.adsZoom);
       this.dirty = true;
     }

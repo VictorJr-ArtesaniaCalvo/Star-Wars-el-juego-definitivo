@@ -123,6 +123,9 @@ Todas de dominio público (CC0 1.0); se citan por cortesía. Detalles completos 
 - **Sonidos de la cañonera** (`public/audio/laat-pasada.mp3` y `laat-interior.mp3`): aportados por el autor del proyecto (originales en
   `assets/audio/efectos/laat_paso_rasante.mp3` y `laat_interior_vuelo.mp3`). Preparados con `tools/prepare-laat-sounds.py`: recortados, igualados de
   volumen (la pasada a −17 LUFS; el interior a −26 LUFS, por debajo de las voces) y el interior convertido en bucle sin cortes. **Origen y licencia por confirmar.**
+- **Sonidos de ambiente** (`public/audio/ambiente/`: viento del cañón y de la arena en 3 versiones cada uno, y 3 ráfagas del cañón): hechos por el
+  autor del proyecto con ElevenLabs (originales en `assets/audio/efectos/amb_*.mp3`). Preparados con `tools/prepare-ambience.py`: sin silencios ni
+  fundidos en los fondos, igualados de volumen (fondos −30 LUFS, ráfagas −24 LUFS) y en MP3 de 128 kbps. **Condiciones de uso de ElevenLabs por confirmar.**
 - **Música de la arena** (`public/audio/arena.mp3`): «Jango's Escape» (banda sonora de *Star Wars: Episodio II*, de John Williams; © Lucasfilm Ltd.),
   aportada por el autor del proyecto (audio de un vídeo; original en `assets/audio/musica/Jango_s_Escape_THEME.mp4`). Recortado el silencio final
   (3:44), igualada al volumen de las otras (−20 LUFS) y pasada a MP3 de 96 kbps. Suena en bucle en la arena. **Obra con derechos de autor:**

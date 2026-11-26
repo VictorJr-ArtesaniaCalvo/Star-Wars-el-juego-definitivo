@@ -122,6 +122,8 @@ export class World {
   get gust() { return this.air.gust; }
   /** Si acaba de empezar una ráfaga, su fuerza (para el golpe de viento); si no, 0. */
   consumeGust() { return this.air.consumeGust(); }
+  /** Si se acaba de programar la próxima ráfaga: su fuerza y dentro de cuántos segundos empieza. */
+  consumeGustPlan() { return this.air.consumeGustPlan(); }
 
   setQuality(q: Quality) {
     const cfg = QUALITY[q];

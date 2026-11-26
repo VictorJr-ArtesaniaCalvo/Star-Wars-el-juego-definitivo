@@ -32,7 +32,7 @@ const LEVELS: Record<Quality, Level | null> = {
 /** Cómo es el aire en cada zona. */
 const ZONES = {
   canyon: {
-    every: [10, 20], dur: [2, 4], strength: 1, // ráfagas: cada cuánto (s), cuánto duran (s), fuerza
+    every: [8, 20], dur: [2, 4], strength: 1, // ráfagas: cada cuánto (s; Víctor: 8–20), cuánto duran (s), fuerza
     sheetDrift: 1.6, sheetW: [26, 36], sheetH: [9, 13], sheetDist: [32, 95], sheetOpacity: 0.3, sheetsMax: 5,
     streakLen: [14, 26], streakW: [1.6, 3.2], streakSpeed: 9, devilEvery: [25, 50],
   },
@@ -237,6 +237,15 @@ export class DesertAir {
 
   /** Si acaba de empezar una ráfaga, su fuerza (para el golpe de viento); si no, 0. Se lee una vez. */
   consumeGust() { const g = this.gustEvent; this.gustEvent = 0; return g; }
+  /** Si se acaba de decidir la próxima ráfaga: su fuerza y dentro de cuántos segundos empieza (para que el sonido llegue a tiempo). */
+  consumeGustPlan() { const p = this.gustPlan; this.gustPlan = null; return p; }
+  private gustPlan: { k: number; inSec: number } | null = null;
+  private nextStr = -1;
+  private planGust(inSec: number) {
+    const Z = ZONES[this.zone];
+    this.nextStr = Z.strength * rnd(0.75, 1);
+    this.gustPlan = { k: this.nextStr, inSec };
+  }
 
   /** Al cambiar de zona o de calidad: qué piezas se usan y cómo. */
   private applyZone() {
@@ -411,13 +420,15 @@ export class DesertAir {
     const Z = ZONES[this.zone], L = this.level, f = this.focus;
 
     // Ráfagas: espera al azar, sube en 0,6 s, se mantiene y baja en 1,2 s
+    if (this.nextStr < 0 && this.gustT < 0) this.planGust(this.nextGust); // la primera
     this.nextGust -= dt;
     if (this.gustT < 0 && this.nextGust <= 0) {
       this.gustT = 0;
       this.gustDur = rnd(Z.dur[0], Z.dur[1]);
-      this.gustStr = Z.strength * rnd(0.75, 1);
+      this.gustStr = this.nextStr >= 0 ? this.nextStr : Z.strength * rnd(0.75, 1);
       this.gustEvent = this.gustStr;
       this.nextGust = rnd(Z.every[0], Z.every[1]);
+      this.planGust(this.nextGust);
       this.startStreaks();
     }
     if (this.gustT >= 0) {

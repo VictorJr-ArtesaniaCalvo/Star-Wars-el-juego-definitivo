@@ -1,0 +1,74 @@
+{
+ "amb_arena_viento_1": {
+  "tipo": "fondo",
+  "grupo": "amb_arena_viento",
+  "dura": 20.297,
+  "recorte": [
+   2.25,
+   2.53
+  ]
+ },
+ "amb_arena_viento_2": {
+  "tipo": "fondo",
+  "grupo": "amb_arena_viento",
+  "dura": 15.778,
+  "recorte": [
+   2.0,
+   7.28
+  ]
+ },
+ "amb_arena_viento_3": {
+  "tipo": "fondo",
+  "grupo": "amb_arena_viento",
+  "dura": 18.547,
+  "recorte": [
+   2.0,
+   4.53
+  ]
+ },
+ "amb_canon_rafaga_1": {
+  "tipo": "rafaga",
+  "grupo": "amb_canon_rafaga",
+  "dura": 16.75,
+  "golpe": 7.125
+ },
+ "amb_canon_rafaga_2": {
+  "tipo": "rafaga",
+  "grupo": "amb_canon_rafaga",
+  "dura": 23.0,
+  "golpe": 9.625
+ },
+ "amb_canon_rafaga_3": {
+  "tipo": "rafaga",
+  "grupo": "amb_canon_rafaga",
+  "dura": 23.0,
+  "golpe": 7.875
+ },
+ "amb_canon_viento_1": {
+  "tipo": "fondo",
+  "grupo": "amb_canon_viento",
+  "dura": 24.529,
+  "recorte": [
+   0.25,
+   0.28
+  ]
+ },
+ "amb_canon_viento_2": {
+  "tipo": "fondo",
+  "grupo": "amb_canon_viento",
+  "dura": 24.529,
+  "recorte": [
+   0.25,
+   0.28
+  ]
+ },
+ "amb_canon_viento_3": {
+  "tipo": "fondo",
+  "grupo": "amb_canon_viento",
+  "dura": 24.529,
+  "recorte": [
+   0.25,
+   0.28
+  ]
+ }
+}

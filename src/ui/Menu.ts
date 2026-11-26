@@ -90,6 +90,7 @@ export class Menu {
     this.bindToggle('#assist', 'a', () => settings.data.aimAssist, (v) => settings.set({ aimAssist: v }));
     this.bindToggle('#god', 'v', () => settings.data.invincible, (v) => settings.set({ invincible: v }));
     this.bindToggle('#fpsOpt', 'v', () => settings.data.showFps, (v) => settings.set({ showFps: v }));
+    this.bindToggle('#ambOpt', 'v', () => settings.data.newAmbience !== false, (v) => settings.set({ newAmbience: v }));
 
     // Menú oculto: 5 toques seguidos sobre el título.
     let taps = 0, last = 0;

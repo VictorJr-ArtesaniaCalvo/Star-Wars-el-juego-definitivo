@@ -13,6 +13,8 @@ export interface SettingsData {
   testRound: number;
   invincible: boolean;
   showFps: boolean;
+  /** Ambiente: los audios de Víctor (true) o el viento generado de antes (false), para comparar. */
+  newAmbience: boolean;
 }
 
 const KEY = 'geonosis.settings.v1';
@@ -27,6 +29,7 @@ const DEFAULTS: SettingsData = {
   testRound: 1,
   invincible: false,
   showFps: false,
+  newAmbience: true,
 };
 
 export class Settings {

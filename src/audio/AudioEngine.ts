@@ -1,5 +1,6 @@
 import { Howl, Howler } from 'howler';
 import { synthesizeAll, type SoundId, type SynthSet } from './Synth';
+import { Ambience, type AmbScene } from './Ambience';
 
 export type Sfx = 'b1' | 'b2' | 'droideka';
 
@@ -44,6 +45,10 @@ export class AudioEngine {
   private lastAppear = 0;
   private wind: Howl | null = null;
   private windId: number | undefined;
+  /** Ambiente con los audios de Víctor (fondos en bucle con fundido cruzado y ráfagas grabadas). Si no carga o en el modo de
+   *  comparar se elige «antes», suena el viento generado de antes. */
+  readonly ambience = new Ambience();
+  private ambScene: AmbScene = 'canyon';
   private started = false;
   private recentEnemyShots: number[] = [];
   private lastBoom = 0;
@@ -72,6 +77,7 @@ export class AudioEngine {
     }
     this.wind = this.howls.wind[0];
     const base = import.meta.env.BASE_URL;
+    void this.ambience.load(base).then(() => { if (this.started) this.ambience.setScene(this.ambScene); });
     for (let i = 1; i <= 6; i++) {
       const clip = { howl: null as unknown as Howl, ok: false };
       clip.howl = new Howl({ src: [`${base}audio/clon-${i}.mp3`], preload: true, onload: () => { clip.ok = true; }, onloaderror: () => { clip.ok = false; } });
@@ -280,7 +286,27 @@ export class AudioEngine {
 
   /** El viento suena más fuerte durante las ráfagas de tormenta de arena (`k` de 0 a 1). */
   setWindLevel(k: number) {
-    if (this.wind && this.windId !== undefined) this.wind.volume((0.2 + 0.3 * k) * WIND_VOLUME, this.windId);
+    // con el ambiente nuevo, el viento generado de antes calla (se puede volver a él para comparar: modo de pruebas)
+    const old = this.ambience.active ? 0 : 1;
+    this.oldWind += (old - this.oldWind) * 0.03; // cambio suave entre los dos, sin cortes
+    if (this.wind && this.windId !== undefined) this.wind.volume((0.2 + 0.3 * k) * WIND_VOLUME * this.oldWind, this.windId);
+    this.ambience.setGust(k);
+  }
+  private oldWind = 0;
+
+  /** Escena del ambiente: cañón, túnel (cinemática de paso) o arena. El cambio se hace con fundido cruzado. */
+  setAmbienceScene(s: AmbScene) {
+    this.ambScene = s;
+    if (this.started) this.ambience.setScene(s);
+  }
+
+  /** Modo de pruebas: ambiente nuevo (audios de Víctor) o el de antes (generado). */
+  setNewAmbience(on: boolean) { this.ambience.setEnabled(on); }
+
+  /** Se acaba de programar la próxima ráfaga de polvo: empieza dentro de `inSec` s con fuerza `k`. Con las ráfagas grabadas, su golpe
+   *  más fuerte coincide con la ráfaga que se ve (empiezan a sonar antes, con su subida). */
+  windGustPlanned(k: number, inSec: number) {
+    if (this.started) this.ambience.gust(this.ambScene, k, inSec);
   }
 
   /** Arranca el ambiente. Debe llamarse tras un toque del jugador (iOS no deja sonar antes). */
@@ -289,8 +315,9 @@ export class AudioEngine {
     if (this.paused) this.resume();
     if (!this.started) {
       this.started = true;
-      this.wind.volume(0.2 * WIND_VOLUME);
+      this.wind.volume(0.2 * WIND_VOLUME * this.oldWind);
       this.windId = this.wind.play();
+      this.ambience.setScene(this.ambScene);
     } else if (this.windId !== undefined && !this.wind.playing(this.windId)) {
       this.windId = this.wind.play();
     }
@@ -325,6 +352,7 @@ export class AudioEngine {
 
   /** Golpe de viento de una ráfaga (`k` = su fuerza, 0–1): llega desde el oeste, de donde sopla el viento. */
   windGust(k: number) {
+    if (this.ambience.hasGusts(this.ambScene)) return; // ya suena la ráfaga grabada (programada con windGustPlanned)
     const e = this.ear;
     this.play('gust', Math.min(1, 0.55 * k + 0.15) * WIND_VOLUME * 2.2 * GUST_VOLUME, 0.92 + Math.random() * 0.16, [e.x - 14, e.y + 2, e.z], 10);
   }

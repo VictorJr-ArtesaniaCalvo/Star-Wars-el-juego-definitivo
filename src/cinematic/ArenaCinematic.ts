@@ -942,5 +942,8 @@ export class ArenaCinematic {
   }
 
   /** Solo para pruebas. */
+  /** Toma que se está viendo (su id), o null si no hay cinemática. */
+  get shotId(): string | null { return this.active ? TOMAS2[this.shot]?.id ?? null : null; }
+
   debug() { return { active: this.active, t: +this.t.toFixed(2), toma: this.shot + 1, nombre: TOMAS2[this.shot]?.nombre, total: +this.total.toFixed(1), arena: this.swapped }; }
 }
