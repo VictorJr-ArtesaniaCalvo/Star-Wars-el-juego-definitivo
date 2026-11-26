@@ -288,6 +288,11 @@ h1.red { color: #ff7a60; }
   font-size: clamp(30px, 7vw, 64px); font-weight: 300; letter-spacing: .5em; text-indent: .5em; color: #ffd9ad;
   text-shadow: 0 0 18px rgba(255, 150, 70, .35);
 }
+#cineLoc {
+  position: absolute; left: calc(22px + env(safe-area-inset-left)); bottom: calc(9vh + 18px); opacity: 0;
+  font-size: clamp(12px, 1.9vw, 16px); font-weight: 400; letter-spacing: .28em; color: #ffe2bf;
+  text-shadow: 0 0 6px rgba(0,0,0,.7), 0 1px 2px #000; border-left: 2px solid rgba(255, 194, 122, .7); padding-left: 10px;
+}
 #cineSub {
   position: absolute; left: 50%; bottom: calc(9vh + 14px); transform: translateX(-50%); width: min(86vw, 760px);
   text-align: center; font-size: clamp(14px, 2.3vw, 19px); line-height: 1.35; color: #fff;

@@ -138,6 +138,14 @@ function insidePoly(pts: Array<[number, number]>, x: number, y: number) {
   return c;
 }
 
+/** Boca de la cueva: centro del hueco a ras de suelo y hacia dónde mira (hacia el centro del cañón). Para la cinemática de paso a la arena. */
+export function caveMouth() {
+  const foot = wallFootX(CUEVA.lado, CUEVA.z);
+  const ox = -CUEVA.lado;
+  const x = foot + ox * CUEVA.portada.sale;
+  return { x, y: terrainHeight(x + ox * 0.5, CUEVA.z), z: CUEVA.z, out: [ox, 0] as [number, number] };
+}
+
 export interface CaveBuild { group: THREE.Group; triangles: number; mouth: THREE.Vector3; out: THREE.Vector3 }
 
 /** Construye la entrada de la cueva (dibujo solo; los cuerpos sólidos se añadirán al meterla en el juego). */

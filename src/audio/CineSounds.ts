@@ -1,12 +1,13 @@
 import { Howler } from 'howler';
 
 // Sonidos propios de la cinemática, generados en el momento con Web Audio (sin archivos):
-// motor de la cañonera en vuelo, golpe con los nudillos en el casco y crepitar del fuego.
+// motor de la cañonera en vuelo (con volumen y tono para las pasadas), golpe con los nudillos en el casco, crepitar del fuego,
+// escudo de droideka encendiéndose y pasos con eco en el túnel.
 // Todos pasan por el volumen general del juego.
 
 export class CineSounds {
   private noise: AudioBuffer | null = null;
-  private engine: { stop: (fade: number) => void } | null = null;
+  private engine: { stop: (fade: number) => void; set: (level: number, pitch: number) => void } | null = null;
   private live: AudioScheduledSourceNode[] = [];
 
   private get ctx(): AudioContext | null { return Howler.ctx ?? null; }
@@ -68,7 +69,16 @@ export class CineSounds {
     wind.connect(whp).connect(wng).connect(master);
     for (const s of [rumble, whine, wind]) s.start(t0, Math.random() * 2);
     for (const s of [lfo, ...oscs]) s.start(t0);
+    const baseF = [62, 63.4];
     this.engine = {
+      // volumen (0..1) y tono (1 = normal; más alto al acercarse, más bajo al alejarse) para la pasada rasante
+      set: (lv: number, pitch: number) => {
+        const t = ctx.currentTime;
+        master.gain.setTargetAtTime(Math.max(0.0001, 0.55 * lv), t, 0.05);
+        oscs.forEach((o, i) => o.frequency.setTargetAtTime(baseF[i] * pitch, t, 0.05));
+        bp.frequency.setTargetAtTime(1150 * pitch, t, 0.05);
+        rumble.playbackRate.setTargetAtTime(pitch, t, 0.05);
+      },
       stop: (fade: number) => {
         const t = ctx.currentTime;
         master.gain.cancelScheduledValues(t);
@@ -77,6 +87,79 @@ export class CineSounds {
         for (const s of [rumble, whine, wind, lfo, ...oscs]) s.stop(t + fade + 0.05);
       },
     };
+  }
+
+  /** Cambia el volumen y el tono del motor que ya suena (la cañonera se acerca y se aleja). */
+  setEngine(level: number, pitch = 1) { this.engine?.set(level, pitch); }
+
+  /**
+   * Escudo de droideka encendiéndose: un zumbido eléctrico que sube de tono y se queda vibrando, con chisporroteo al principio.
+   * `level` 0..1 (dos droidekas a la vez: algo más fuerte).
+   */
+  shieldOn(level = 1) {
+    const ctx = this.ctx, out = this.out;
+    if (!ctx || !out) return;
+    const t0 = ctx.currentTime + 0.01, dur = 1.6;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, t0);
+    master.gain.exponentialRampToValueAtTime(0.5 * level, t0 + 0.08);
+    master.gain.setValueAtTime(0.5 * level, t0 + 0.7);
+    master.gain.exponentialRampToValueAtTime(0.16 * level, t0 + 1.1);
+    master.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    master.connect(out);
+    // barrido que sube (dos tonos algo desafinados, como un generador que arranca)
+    for (const [a, b, type, g0] of [[90, 420, 'sawtooth', 0.12], [92, 426, 'square', 0.05]] as const) {
+      const o = this.track(ctx.createOscillator());
+      o.type = type;
+      o.frequency.setValueAtTime(a, t0);
+      o.frequency.exponentialRampToValueAtTime(b, t0 + 0.55);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(400, t0); lp.frequency.exponentialRampToValueAtTime(2600, t0 + 0.5);
+      const g = ctx.createGain(); g.gain.value = g0;
+      // vibración del campo de energía
+      const lfo = this.track(ctx.createOscillator()); lfo.frequency.value = 23;
+      const lg = ctx.createGain(); lg.gain.value = g0 * 0.6;
+      lfo.connect(lg).connect(g.gain);
+      o.connect(lp).connect(g).connect(master);
+      o.start(t0); o.stop(t0 + dur + 0.05); lfo.start(t0); lfo.stop(t0 + dur + 0.05);
+    }
+    // chisporroteo eléctrico al encenderse
+    const n = this.track(ctx.createBufferSource());
+    n.buffer = this.noiseBuffer(ctx); n.loop = true; n.playbackRate.value = 4;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2200;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0, t0);
+    for (let t = 0; t < 0.6; t += 0.02 + Math.random() * 0.05) { ng.gain.setValueAtTime((0.5 + Math.random()) * (1 - t / 0.6), t0 + t); ng.gain.setValueAtTime(0, t0 + t + 0.008 + Math.random() * 0.01); }
+    n.connect(hp).connect(ng).connect(master);
+    n.start(t0, Math.random()); n.stop(t0 + 0.7);
+  }
+
+  /** Un paso en el túnel: golpe sordo de la bota y su eco contra la roca (tres rebotes que se apagan). `level` 0..1. */
+  echoStep(level = 1) {
+    const ctx = this.ctx, out = this.out;
+    if (!ctx || !out) return;
+    const t0 = ctx.currentTime + 0.005;
+    for (const [dt, k, f] of [[0, 1, 520], [0.13, 0.42, 420], [0.27, 0.22, 360], [0.42, 0.11, 300]] as const) {
+      const src = this.track(ctx.createBufferSource());
+      src.buffer = this.noiseBuffer(ctx);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = f;
+      const g = ctx.createGain();
+      const t = t0 + dt;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(1.3 * k * level, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09 + dt * 0.25);
+      src.connect(lp).connect(g).connect(out);
+      src.start(t, Math.random() * 2); src.stop(t + 0.2 + dt * 0.3);
+      // el crujido de la grava bajo la bota (solo el golpe, no el eco)
+      if (dt === 0) {
+        const c = this.track(ctx.createBufferSource());
+        c.buffer = this.noiseBuffer(ctx); c.playbackRate.value = 3;
+        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1700; bp.Q.value = 0.8;
+        const cg = ctx.createGain();
+        cg.gain.setValueAtTime(0.0001, t); cg.gain.exponentialRampToValueAtTime(0.5 * level, t + 0.004); cg.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+        c.connect(bp).connect(cg).connect(out);
+        c.start(t, Math.random() * 2); c.stop(t + 0.07);
+      }
+    }
   }
 
   stopEngine(fade = 0.6) {

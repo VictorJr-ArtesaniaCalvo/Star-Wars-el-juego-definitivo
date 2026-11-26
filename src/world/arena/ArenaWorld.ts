@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { Obstacle } from '../rocks';
 import { TUNNEL_DEPTH } from '../zone';
-import { buildArena } from './arena';
+import { buildArena, buildArenaSteps, type ArenaBuild } from './arena';
 import { ARENA_A, ARENA_B, COVERS, DOOR, DOORS, PILLAR, PILLARS, floorHeight, ovalPoint } from './layout';
 
 // LA ARENA EN EL JUEGO: la monta (dibujo), le pone cuerpos sólidos (suelo, muro, túneles de las puertas, pilares y coberturas)
@@ -15,9 +15,48 @@ const yawQuat = (yaw: number) => ({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.co
 export function buildArenaWorld(scene: THREE.Scene, rapier: typeof RAPIER, physics: RAPIER.World): ArenaWorld {
   const t0 = performance.now();
   const built = buildArena();
-  const group = built.group;
+  scene.add(built.group);
+  const obstacles = addArenaPhysics(built.group, rapier, physics);
+  return { group: built.group, obstacles, triangles: built.triangles, buildMs: performance.now() - t0 };
+}
+
+/**
+ * Prepara la arena (solo el dibujo) poco a poco, imagen a imagen, sin pasarse de `budgetMs` milisegundos cada vez.
+ * La usa la cinemática de paso: mientras se ve el cañón, la arena se va montando escondida.
+ */
+export class ArenaPrep {
+  private it = buildArenaSteps();
+  private built: ArenaBuild | null = null;
+  /** Tiempo de trabajo de verdad (ms) y número de imágenes que ha usado. */
+  workMs = 0;
+  frames = 0;
+
+  get done() { return !!this.built; }
+  get result() { return this.built; }
+
+  /** Avanza hasta gastar `budgetMs` (o acabar). */
+  step(budgetMs: number) {
+    if (this.built) return true;
+    const t0 = performance.now();
+    this.frames++;
+    while (performance.now() - t0 < budgetMs) {
+      const r = this.it.next();
+      if (r.done) { this.built = r.value; for (const o of this.built.group.children) o.castShadow = false; break; }
+    }
+    this.workMs += performance.now() - t0;
+    return !!this.built;
+  }
+
+  /** Acaba de golpe lo que falte (si la cinemática llega a la cortinilla antes de tiempo, en un móvil lento). */
+  finishNow() {
+    while (!this.step(1e9)) { /* nada */ }
+    return this.built!;
+  }
+}
+
+/** Cuerpos sólidos de la arena (suelo, muro, túneles, pilares y coberturas) y su lista de coberturas para los droides. */
+export function addArenaPhysics(group: THREE.Group, rapier: typeof RAPIER, physics: RAPIER.World): Obstacle[] {
   for (const o of group.children) o.castShadow = false; // sus sombras ya van pintadas (las de los droides sí se ven encima)
-  scene.add(group);
 
   const fixed = (desc: RAPIER.ColliderDesc) => physics.createCollider(desc);
   // suelo (con el surco de impacto): la misma forma que se dibuja
@@ -82,6 +121,5 @@ export function buildArenaWorld(scene: THREE.Scene, rapier: typeof RAPIER, physi
     }
   }
   for (const p of PILLARS) obstacles.push({ x: p.x, z: p.z, radius: 0.75, height: PILLAR.height });
-
-  return { group, obstacles, triangles: built.triangles, buildMs: performance.now() - t0 };
+  return obstacles;
 }

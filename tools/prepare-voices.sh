@@ -13,3 +13,7 @@ NORM="loudnorm=I=-16:TP=-1.5:LRA=11"
 ffmpeg -hide_banner -loglevel error -y -i $IN/t2a_soldado.m4a -ac 1 -af "$TRIM,$NORM" -ar 44100 -b:a 64k $OUT/soldado-1.mp3
 ffmpeg -hide_banner -loglevel error -y -i $IN/t2b_comandante.m4a -ac 1 -af "$TRIM,asetrate=48000*0.917,aresample=48000,atempo=1/0.917,$NORM" -ar 44100 -b:a 64k $OUT/comandante-1.mp3
 ffmpeg -hide_banner -loglevel error -y -i $IN/t5_comando.m4a -ac 1 -af "$TRIM,$NORM" -ar 44100 -b:a 64k $OUT/comando-1.mp3
+# Cinemática de paso a la arena (se preparan solo si ya están grabadas): assets/audio/voces/c2_*.m4a → public/audio/voces/c2_*.mp3
+for v in c2_piloto_1 c2_piloto_2 c2_comando; do
+  if [ -f $IN/$v.m4a ]; then ffmpeg -hide_banner -loglevel error -y -i $IN/$v.m4a -ac 1 -af "$TRIM,$NORM" -ar 44100 -b:a 64k $OUT/$v.mp3; fi
+done

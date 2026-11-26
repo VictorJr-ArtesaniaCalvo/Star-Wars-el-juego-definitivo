@@ -839,11 +839,20 @@ class SunBake {
   private readonly dir: THREE.Vector3;
   private readonly hx: number; private readonly hz: number; private readonly tan: number;
 
-  constructor(topH: (t: number) => number, columns: ColumnInfo[], private small: Array<{ x: number; z: number; r: number; h: number }>) {
+  constructor(private small: Array<{ x: number; z: number; r: number; h: number }>) {
     this.nx = Math.ceil((-2 * this.x0) / this.step) + 1;
     this.nz = Math.ceil((-2 * this.z0) / this.step) + 1;
     this.h = new Float32Array(this.nx * this.nz);
-    for (let j = 0; j < this.nz; j++) for (let i = 0; i < this.nx; i++) {
+    this.dir = new THREE.Vector3(ARENA_SUN.x, ARENA_SUN.y, ARENA_SUN.z).normalize();
+    const hl = Math.hypot(this.dir.x, this.dir.z);
+    this.hx = this.dir.x / hl; this.hz = this.dir.z / hl; this.tan = this.dir.y / hl;
+  }
+
+  /** Rellena el mapa de alturas (a trozos: cada `yield` es una pausa posible, para prepararlo durante la cinemática). */
+  *fill(topH: (t: number) => number, columns: ColumnInfo[]): Generator<void, void, void> {
+    for (let j = 0; j < this.nz; j++) {
+      if (j % 24 === 23) yield;
+      for (let i = 0; i < this.nx; i++) {
       const x = this.x0 + i * this.step, z = this.z0 + j * this.step;
       const d = ovalDist(x, z);
       let y = d < 0 ? floorHeight(x, z) : standsHeight(d);
@@ -854,6 +863,7 @@ class SunBake {
         if (s > -1.4 && s < tierFront(DOOR_TIERS) + 0.5 && lat < DOOR.width / 2 + 2.4) y = Math.max(y, ROOF_TOP);
       }
       this.h[j * this.nx + i] = y;
+      }
     }
     const disc = (cx: number, cz: number, r: number, top: number) => {
       for (let j = Math.floor((cz - r - this.z0) / this.step); j <= Math.ceil((cz + r - this.z0) / this.step); j++) {
@@ -865,9 +875,6 @@ class SunBake {
     };
     for (const c of columns) disc(c.x, c.z, c.r, c.top);
     disc(PALCO.x, PALCO.z, 4.6, PALCO.height + 3);
-    this.dir = new THREE.Vector3(ARENA_SUN.x, ARENA_SUN.y, ARENA_SUN.z).normalize();
-    const hl = Math.hypot(this.dir.x, this.dir.z);
-    this.hx = this.dir.x / hl; this.hz = this.dir.z / hl; this.tan = this.dir.y / hl;
   }
 
   private height(x: number, z: number): number | null {
@@ -979,37 +986,52 @@ function floorAO(x: number, z: number, small: Array<{ x: number; z: number; r: n
 
 export interface ArenaBuild { group: THREE.Group; triangles: number; bakeMs: number }
 
-/** Monta la arena con materiales, luz y profundidad. */
+/** Monta la arena con materiales, luz y profundidad (de una vez). */
 export function buildArena(): ArenaBuild {
-  const t0 = performance.now();
+  const it = buildArenaSteps();
+  for (;;) { const r = it.next(); if (r.done) return r.value; }
+}
+
+/**
+ * Lo mismo, pero a trozos: cada `yield` es un buen momento para parar y seguir en la imagen siguiente.
+ * Así la arena se puede preparar durante la cinemática de paso sin que el juego se trabe (ver ArenaPrep en ArenaWorld.ts).
+ */
+export function* buildArenaSteps(): Generator<void, ArenaBuild, void> {
+  let busy = 0; // tiempo de trabajo de verdad (sin contar las pausas)
+  let mark = performance.now();
+  const pause = function* () { busy += performance.now() - mark; yield; mark = performance.now(); };
   const group = new THREE.Group();
   group.name = 'arena';
   const extras = new THREE.Group();
   const parts = new Parts();
-  buildFloor(parts);
-  buildPebbles(parts);
-  buildWallAndTiers(parts);
-  buildStairs(parts);
-  buildPosts(parts);
-  buildDoors(parts, extras);
-  const topH = buildCliff(parts);
-  const columns = buildColumns(parts, topH);
-  buildRubble(parts);
-  buildPillars(parts);
-  buildRocks(parts);
-  buildPalco(parts);
+  buildFloor(parts); yield* pause();
+  buildPebbles(parts); yield* pause();
+  buildWallAndTiers(parts); yield* pause();
+  buildStairs(parts); yield* pause();
+  buildPosts(parts); yield* pause();
+  buildDoors(parts, extras); yield* pause();
+  const topH = buildCliff(parts); yield* pause();
+  const columns = buildColumns(parts, topH); yield* pause();
+  buildRubble(parts); yield* pause();
+  buildPillars(parts); yield* pause();
+  buildRocks(parts); yield* pause();
+  buildPalco(parts); yield* pause();
 
   const small = blockers();
-  const sun = new SunBake(topH, columns, small);
+  const sun = new SunBake(small);
+  for (const _ of sun.fill(topH, columns)) yield* pause();
+  yield* pause();
   const col = new THREE.Color();
   const dustC = new THREE.Color(ARENA_COLORS.dust);
   let triangles = 0;
   for (const [part, list] of parts.geos) {
     const cfg = PARTS[part];
     const g = mergeGeometries(list);
+    yield* pause();
     const p = g.attributes.position, n = g.attributes.normal, ao = g.attributes.ao, du = g.attributes.dust;
     const colors = new Float32Array(p.count * 3);
     for (let i = 0; i < p.count; i++) {
+      if (i % 2500 === 2499) yield* pause();
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
       partColor(part, x, y, z, col);
       const dust = du.getX(i);
@@ -1046,5 +1068,6 @@ export function buildArena(): ArenaBuild {
   group.add(under);
   group.add(extras);
   void FURROW;
-  return { group, triangles, bakeMs: performance.now() - t0 };
+  busy += performance.now() - mark;
+  return { group, triangles, bakeMs: busy };
 }

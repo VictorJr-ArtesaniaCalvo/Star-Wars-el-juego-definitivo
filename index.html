@@ -64,12 +64,13 @@
     </button>
   </div>
 
-  <!-- Cinemática inicial: barras negras, fundidos, título, subtítulos y botón de omitir -->
+  <!-- Cinemáticas (inicial y paso a la arena): barras negras, fundidos, título, rótulo de lugar, subtítulos y botón de omitir -->
   <div id="cine" hidden>
     <div class="bar top"></div>
     <div class="bar bottom"></div>
     <div id="cineFade"></div>
     <div id="cineTitle"></div>
+    <div id="cineLoc"></div>
     <div id="cineSub"><span id="cineWho"></span><span id="cineText"></span></div>
     <button id="btnSkip" aria-label="Omitir cinemática">OMITIR ▸▸</button>
   </div>
@@ -102,7 +103,7 @@
           </div>
         </div>
         <div id="quickRounds" class="quick">
-          <button data-r="1">1</button><button data-r="4">4 · B2</button><button data-r="7">7 · Deka</button><button data-r="8">8 · Arena</button><button data-r="10">10</button><button data-r="15">15</button><button data-r="20">20</button>
+          <button data-r="1">1</button><button data-r="4">4 · B2</button><button data-r="6">6</button><button data-r="7">7 · Arena</button><button data-r="10">10</button><button data-r="15">15</button><button data-r="20">20</button>
         </div>
         <button id="btnArena" class="big go">EMPEZAR EN LA ARENA</button>
         <button id="btnGoRound" class="big go" hidden>IR A LA RONDA <span id="goRoundNum">1</span> AHORA</button>
@@ -110,6 +111,10 @@
         <div class="row"><span>Ver una toma de la cinemática</span></div>
         <div id="cineShots" class="quick">
           <button data-s="1">1</button><button data-s="2">2A</button><button data-s="3">2B</button><button data-s="4">3</button><button data-s="5">4</button><button data-s="6">5</button><button data-s="7">6</button>
+        </div>
+        <div class="row"><span>Ver una toma del paso a la arena</span></div>
+        <div id="cine2Shots" class="quick">
+          <button data-s="1">1</button><button data-s="2">2</button><button data-s="3">3A</button><button data-s="4">3B</button><button data-s="5">4</button><button data-s="6">5</button><button data-s="7">6</button><button data-s="8">7</button><button data-s="9">8</button><button data-s="10">9</button><button data-s="11">10A</button><button data-s="12">10B</button><button data-s="13">11</button>
         </div>
         <button id="btnTuneHands" class="ghost">AJUSTAR MANOS EN PRIMERA PERSONA</button>
         <button id="btnTuneVoice" class="ghost">AJUSTAR FILTRO DE RADIO (VOCES)</button>

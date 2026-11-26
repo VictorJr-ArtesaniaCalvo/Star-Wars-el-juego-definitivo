@@ -2,7 +2,7 @@ import { CANYON_HALF_L, CANYON_HALF_W, terrainHeight } from './terrain';
 import { OBSTACLES, type Obstacle } from './rocks';
 import { DOOR, DOORS, floorHeight, ovalDist } from './arena/layout';
 
-// ZONA ACTUAL DEL COMBATE: el cañón (rondas 1–7) o la arena (desde la ronda 8). Todo lo que se mueve por el suelo (jugador, droides,
+// ZONA ACTUAL DEL COMBATE: el cañón (rondas 1–6) o la arena (desde la ronda 7, ARENA_ROUND). Todo lo que se mueve por el suelo (jugador, droides,
 // kits médicos) pregunta aquí por la altura del suelo, por dónde se puede andar y qué coberturas hay, sin saber en qué zona está.
 
 export type ZoneName = 'canyon' | 'arena';

@@ -657,6 +657,65 @@ export class CommandoModel {
     return q;
   }
 
+  /**
+   * Postura de una animación (o dos mezcladas, `b.w` de 0 a 1) más unos retoques encima, para la cinemática de paso a la arena:
+   * `helmet` 0..1 = la mano izquierda suelta el arma y va al lado del casco (la radio) · `lookUp` = levanta la cabeza (rad) ·
+   * `lookSide` = gira la cabeza (rad, + hacia su izquierda) · `leftOnGun` = cuánto se ajusta la mano izquierda a la empuñadura.
+   */
+  animateMix(a: { clip: BakedClip; t: number; loop?: boolean }, b: { clip: BakedClip; t: number; loop?: boolean; w: number; hips?: boolean } | null,
+    o: { helmet?: number; lookUp?: number; lookSide?: number; leftOnGun?: number } = {}) {
+    const r = this.rig, bn = r.bones;
+    r.reset();
+    applyClip(r, a.clip, a.t, a.loop ?? false);
+    if (b && b.w > 0.001) applyClip(r, b.clip, b.t, b.loop ?? false, Math.min(1, b.w), b.hips ?? true);
+    this.group.updateMatrixWorld(true);
+    const right = new THREE.Vector3(1, 0, 0).transformDirection(this.group.matrixWorld);
+    const up = new THREE.Vector3(0, 1, 0).transformDirection(this.group.matrixWorld);
+    const lu = o.lookUp ?? 0, ls = o.lookSide ?? 0;
+    if (lu) { turnWorld(bn.chest, right, lu * 0.18); turnWorld(bn.neck, right, lu * 0.35); turnWorld(bn.head, right, lu * 0.5); }
+    if (ls) { turnWorld(bn.neck, up, ls * 0.4); turnWorld(bn.head, up, ls * 0.6); }
+    const helmet = Math.min(1, Math.max(0, o.helmet ?? 0));
+    this.holdRifle((o.leftOnGun ?? 1) * (1 - helmet));
+    if (helmet > 0) {
+      // la mano izquierda al lado izquierdo del casco, a la altura de la oreja (donde va la radio)
+      const head = bn.head.getWorldPosition(new THREE.Vector3());
+      const fwd = new THREE.Vector3().crossVectors(up, right).normalize();
+      const target = head.clone().addScaledVector(right, -0.16).addScaledVector(up, 0.07).addScaledVector(fwd, 0.02);
+      const wl = bn.leftwrist.getWorldPosition(new THREE.Vector3());
+      const pole = bn.leftelbow.getWorldPosition(new THREE.Vector3()).addScaledVector(right, -0.4).addScaledVector(up, -0.2);
+      reach(bn.leftarm, bn.leftelbow, bn.leftwrist, wl.lerp(target, helmet), pole);
+      aimBone(bn.leftwrist, bn.middlefinger1l, up.clone().multiplyScalar(0.8).addScaledVector(fwd, 0.4).addScaledVector(right, 0.2)); // dedos hacia arriba, la palma contra el casco
+    }
+    r.root.updateMatrixWorld(true);
+  }
+
+  /** Oscurece al comando (1 = normal, 0 = negro): a contraluz en el túnel se ve como una silueta. Sus materiales son propios (no afecta a nadie más). */
+  setShade(k: number) {
+    if (!this.shadeMats) {
+      this.shadeMats = [];
+      for (const m of this.rig.meshes) {
+        const list = Array.isArray(m.material) ? m.material : [m.material];
+        const own = list.map((mat) => {
+          const c = mat.clone() as THREE.MeshLambertMaterial;
+          this.shadeMats!.push({ m: c, c: c.color.clone(), e: c.emissive ? c.emissive.clone() : null });
+          return c;
+        });
+        m.material = Array.isArray(m.material) ? own : own[0];
+      }
+    }
+    for (const s of this.shadeMats) { s.m.color.copy(s.c).multiplyScalar(k); if (s.e) s.m.emissive.copy(s.e).multiplyScalar(Math.max(k, 0.6)); }
+  }
+  private shadeMats: Array<{ m: THREE.MeshLambertMaterial; c: THREE.Color; e: THREE.Color | null }> | null = null;
+
+  /** Punta del cañón del bláster en el mundo (de donde salen los disparos). */
+  muzzle(out: THREE.Vector3) {
+    this.rifle.updateMatrixWorld(true);
+    return out.set(0, 0, -RIFLE_HOLD.largo * 0.56).applyMatrix4(this.rifle.matrixWorld);
+  }
+
+  /** Posición de la cadera en el mundo (para medir cuánto avanza una animación). */
+  hipsWorld(out: THREE.Vector3) { return this.rig.bones.hips.getWorldPosition(out); }
+
   /** Solo para pruebas: los huesos del comando. */
   get debugBones() { return this.rig.bones;
   }

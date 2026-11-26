@@ -152,7 +152,7 @@ export class WaveManager {
       : this.round === DROIDEKA_FROM ? '¡Llegan los droidekas! Escudos: usa las granadas'
       : this.round === 1 ? 'Vienen por los dos extremos del cañón'
       : '¡Vigila tu espalda!';
-    if (currentZone() === 'arena') sub = this.pickDoors() ?? sub;
+    if (currentZone() === 'arena') { const doors = this.pickDoors(); if (doors && this.round !== DROIDEKA_FROM) sub = doors; } // en la 7 (primera de la arena) manda el aviso de los droidekas
     this.ev.onBanner(`RONDA ${this.round}`, sub, INTRO_TIME);
   }
 
@@ -230,6 +230,15 @@ export class WaveManager {
         this.spawnTimer = Math.max(0.7, 1.6 - 0.05 * this.round);
       }
       if (this.queue.length === 0 && this.enemies.aliveCount() === 0) {
+        // última ronda del cañón: al caer el último droide se pasa a la arena en el acto (empieza la cinemática de paso, sin esperar)
+        if (this.round + 1 >= ARENA_ROUND && currentZone() === 'canyon' && this.ev.onEnterArena) {
+          this.enemies.context.rush = false;
+          this.ev.onRoundCleared(this.round);
+          this.round++;
+          this.phase = 'idle';
+          this.ev.onEnterArena(this.round);
+          return;
+        }
         this.phase = 'clear';
         this.enemies.context.rush = false;
         this.timer = CLEAR_TIME;

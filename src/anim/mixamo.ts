@@ -168,9 +168,9 @@ const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _va = new THRE
 
 /**
  * Pone el comando en la postura de la animación en el segundo `t` (con `loop`, se repite; si no, se queda en la última imagen).
- * `weight` < 1 mezcla con la postura que ya tenga (para pasar suavemente de una animación a otra).
+ * `weight` < 1 mezcla con la postura que ya tenga (para pasar suavemente de una animación a otra); `moveHips` = false deja la cadera donde está.
  */
-export function applyClip(rig: CommandoRig, c: BakedClip, t: number, loop = false, weight = 1) {
+export function applyClip(rig: CommandoRig, c: BakedClip, t: number, loop = false, weight = 1, moveHips = true) {
   const dur = clipDuration(c);
   let ft = (loop ? ((t % dur) + dur) % dur : Math.min(Math.max(t, 0), dur)) * c.fps;
   const f0 = Math.min(Math.floor(ft), c.frames - 1), f1 = Math.min(f0 + 1, c.frames - 1);
@@ -184,7 +184,9 @@ export function applyClip(rig: CommandoRig, c: BakedClip, t: number, loop = fals
     _qa.slerp(_qb, ft);
     if (weight >= 1) b.quaternion.copy(_qa); else b.quaternion.slerp(_qa, weight);
   }
-  _va.fromArray(c.hp, f0 * 3).lerp(_vb.fromArray(c.hp, f1 * 3), ft);
-  if (weight >= 1) rig.bones.hips.position.copy(_va); else rig.bones.hips.position.lerp(_va, weight);
+  if (moveHips) {
+    _va.fromArray(c.hp, f0 * 3).lerp(_vb.fromArray(c.hp, f1 * 3), ft);
+    if (weight >= 1) rig.bones.hips.position.copy(_va); else rig.bones.hips.position.lerp(_va, weight);
+  }
   rig.root.updateMatrixWorld(true);
 }

@@ -1,8 +1,8 @@
 // ARENA DE GEONOSIS — todas las medidas en un solo sitio (metros). Norte = −z, este = +x.
 // Cambiando estos números cambia la arena entera (suelo, muro, gradas, puertas, coberturas).
 
-/** Ronda en la que el combate pasa del cañón a la arena (al completar la 7). */
-export const ARENA_ROUND = 8;
+/** Ronda en la que el combate pasa del cañón a la arena (al completar la 6; los droidekas salen por primera vez aquí, en la 7). */
+export const ARENA_ROUND = 7;
 
 /** Suelo ovalado: medio ancho (este-oeste) y medio largo (norte-sur). 64,4 × 82,8 m (un 15 % más que la primera maqueta, de 56 × 72). */
 export const ARENA_A = 32.2;

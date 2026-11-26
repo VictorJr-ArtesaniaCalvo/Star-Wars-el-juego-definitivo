@@ -10,7 +10,7 @@ import { Howler } from 'howler';
 //   y, en paralelo, un siseo de estática con chasquidos sueltos, más un «clic» de la radio al empezar y al acabar cada frase.
 // Hay dos intensidades: `radio` (comunicaciones entre naves: más sucia) y `casco` (lo que dice el protagonista dentro de su casco: más limpia).
 
-export type VoiceFilter = 'radio' | 'casco';
+export type VoiceFilter = 'radio' | 'casco' | 'piloto';
 
 /** Ajustes de cada filtro (fáciles de cambiar al oírlo). */
 export interface FilterSetup { graves: number; agudos: number; medios: number; saturacion: number; compresion: number; estatica: number; clic: number; volumen: number }
@@ -21,6 +21,8 @@ export const RADIO_FILTERS: Record<VoiceFilter, FilterSetup> = {
   // valores de Víctor (panel de ajuste, sin estática de fondo)
   radio: { graves: 480, agudos: 3000, medios: 8, saturacion: 3.1, compresion: 10, estatica: 0, clic: 1, volumen: 1.15 },
   casco: { graves: 340, agudos: 4600, medios: 5, saturacion: 3, compresion: 7.5, estatica: 0, clic: 0.5, volumen: 1.05 },
+  // piloto de la cañonera Tres-Siete (cinemática de paso a la arena): más marcado que «radio», como pidió Víctor (banda más estrecha, más saturado y con algo de estática de fondo)
+  piloto: { graves: 650, agudos: 2500, medios: 10, saturacion: 4.6, compresion: 12, estatica: 0.012, clic: 1.2, volumen: 1.2 },
 };
 
 /** Volumen de la ráfaga de estática tras el golpe al casco (toma 5): va aparte de la estática de fondo, para que suene aunque esta sea 0. */
@@ -128,6 +130,34 @@ export class Voices {
     }
     g.gain.setValueAtTime(v, t0 + seconds - 0.06);
     g.gain.linearRampToValueAtTime(0, t0 + seconds);
+    src.connect(bp).connect(g).connect(c.out);
+    src.start(t0, Math.random());
+    src.stop(t0 + seconds + 0.05);
+    this.track(src);
+  }
+
+  /**
+   * Estática que se va limpiando: empieza fuerte (`from`) y baja hasta `to` en `seconds`, con chasquidos que se espacian.
+   * Para «la radio vuelve» (toma 3 de la cinemática de paso a la arena).
+   */
+  staticFade(kind: VoiceFilter, seconds: number, from: number, to: number) {
+    const ctx = this.ctx, c = this.chain(kind);
+    if (!ctx || !c) return;
+    const t0 = ctx.currentTime + 0.01;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuffer(ctx);
+    src.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2600; bp.Q.value = 0.6;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(from, t0 + 0.05);
+    for (let t = 0.08; t < seconds - 0.1; t += 0.06 + (t / seconds) * 0.5 * Math.random() + 0.05 * Math.random()) {
+      const lv = from + (to - from) * (t / seconds);
+      g.gain.setValueAtTime(lv * (1.5 + Math.random() * 3 * (1 - t / seconds)), t0 + t);
+      g.gain.setValueAtTime(lv * (0.5 + Math.random() * 0.6), t0 + t + 0.02 + Math.random() * 0.03);
+    }
+    g.gain.setValueAtTime(Math.max(0.0001, to), t0 + seconds - 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + seconds);
     src.connect(bp).connect(g).connect(c.out);
     src.start(t0, Math.random());
     src.stop(t0 + seconds + 0.05);

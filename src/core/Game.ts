@@ -37,7 +37,8 @@ import { HandTuner } from '../ui/HandTuner';
 import { VoiceTuner } from '../ui/VoiceTuner';
 import { COMANDO } from '../cinematic/script';
 import { currentZone, groundHeight, setZone } from '../world/zone';
-import { buildArenaWorld } from '../world/arena/ArenaWorld';
+import { addArenaPhysics, ArenaPrep } from '../world/arena/ArenaWorld';
+import { ArenaCinematic } from '../cinematic/ArenaCinematic';
 import { buildCave, CUEVA } from '../world/cave';
 import { ARENA_ENTRY, ARENA_ROUND, ARENA_SUN } from '../world/arena/layout';
 
@@ -45,6 +46,8 @@ type Mode = 'menu' | 'cinematic' | 'playing' | 'paused' | 'gameover' | 'transiti
 /** Fundido a negro al cambiar de zona (segundos): bajar, texto en negro, subir. */
 const ZONE_FADE_OUT = 1.6;
 const ZONE_HOLD = 2.2;
+/** La cinemática de paso a la arena ya se ha visto en esta sesión (al reintentar no se repite). */
+const CINE2_SEEN = 'geonosis.cine2Seen';
 const ZONE_FADE_IN = 1.6;
 // Apuntar: acerca la vista y afina la puntería; desde la cadera se mueve más rápido pero el disparo se abre.
 const FOV_HIP = 72;
@@ -73,6 +76,11 @@ export class Game {
   private waves!: WaveManager;
   private testMode = false;
   private cine!: Cinematic;
+  /** Cinemática de paso a la arena (al acabar la ronda 6) y la arena que se va preparando mientras se ve. */
+  private cine2!: ArenaCinematic;
+  private activeCine: 'intro' | 'arena' = 'intro';
+  private arenaPrep: ArenaPrep | null = null;
+  private arenaRound = 0;
   private voiceTuner = new VoiceTuner({
     retune: () => this.cine.voices.retune(),
     play: (what) => { this.audio.resume(); this.cine.testVoice(what); },
@@ -132,6 +140,7 @@ export class Game {
       onTuneHands: () => this.openHandTuner(),
       onTuneVoice: () => { this.audio.resume(); this.voiceTuner.show(); },
       onCinematic: (shot) => { if (this.mode === 'menu' || this.mode === 'gameover') this.startRun(true, shot); },
+      onArenaCinematic: (shot) => this.testArenaCinematic(shot),
       onQuit: () => this.quitToMenu(),
       onGoRound: (round) => this.jumpToRound(round),
       onArena: () => (this.mode === 'paused' ? this.jumpToRound(this.settings.data.testRound) : this.mode === 'menu' || this.mode === 'gameover' ? this.startRun(true) : undefined),
@@ -160,7 +169,8 @@ export class Game {
     window.addEventListener('pagehide', () => this.pause());
     window.addEventListener('blur', () => this.pause());
     document.addEventListener('pointerlockchange', () => {
-      if (!document.pointerLockElement && !this.input.hasTouch && !this.input.gamepadActive && !this.tuner.open) this.pause();
+      // (en una cinemática se suelta el ratón a propósito: eso no es una pausa)
+      if (!document.pointerLockElement && !this.input.hasTouch && !this.input.gamepadActive && !this.tuner.open && this.mode !== 'cinematic') this.pause();
     });
   }
 
@@ -190,7 +200,7 @@ export class Game {
       appear: (kind, x, y, z) => { if (kind === 'b1' || kind === 'b2') this.audio.droidAppear(x, y, z); },
     });
     this.waves = new WaveManager(this.enemies, {
-      onEnterArena: (round) => this.enterArena(round),
+      onEnterArena: (round) => this.arenaReached(round),
       onBanner: (title, sub, sec) => this.hud.showBanner(title, sub, sec),
       onRoundCleared: () => {
         const p = this.state.players[0];
@@ -201,6 +211,14 @@ export class Game {
     this.viewModel = new ViewModel(this.camera, SUN_DIR);
     this.cine = new Cinematic({ scene: this.scene, camera: this.camera, renderer: this.renderer, audio: this.audio, effects: this.effects, onEnd: () => this.endCinematic() });
     this.cine.voices.preload(Cinematic.voiceIds()); // las voces que existan (public/audio/voces); si no hay, solo subtítulos
+    this.cine2 = new ArenaCinematic({
+      scene: this.scene, camera: this.camera, renderer: this.renderer, audio: this.audio, effects: this.effects,
+      wipe: (covered) => this.wipe.run(covered),
+      prepStep: (ms) => (this.arenaPrep ??= new ArenaPrep()).step(ms),
+      swap: () => this.swapToArena(),
+      onEnd: (at) => this.endArenaCinematic(at),
+    });
+    this.cine2.voices.preload(ArenaCinematic.voiceIds()); // c2_piloto_1, c2_piloto_2, c2_comando (aún sin grabar: subtítulos)
     this.physics.step();
 
     this.applySettings();
@@ -365,8 +383,102 @@ export class Game {
   }
 
   /**
-   * PASO A LA ARENA (provisional, sin cinemática): fundido suave a negro con el nombre de la arena; en negro se borra el cañón entero
-   * y se monta la arena; entras por la puerta sur con la vida y las granadas repuestas, y vuelve la imagen con la ronda siguiente.
+   * Se ha completado la última ronda del cañón. La primera vez en esta sesión: la cinemática de paso a la arena (si están el modelo
+   * del comando y sus animaciones). Si no (al reintentar, o si faltan archivos): el fundido a negro de siempre.
+   */
+  private arenaReached(round: number) {
+    let seen = false;
+    try { seen = sessionStorage.getItem(CINE2_SEEN) === '1'; } catch { /* sin almacenamiento: se pone */ }
+    if (!seen && ArenaCinematic.ready() && (this.mode === 'playing' || this.mode === 'paused')) {
+      try { sessionStorage.setItem(CINE2_SEEN, '1'); } catch { /* nada */ }
+      this.beginArenaCinematic(round, 0);
+    }
+    else this.enterArena(round);
+  }
+
+  /** Cinemática de paso a la arena: sin controles ni HUD; la arena se prepara mientras se ve el cañón. */
+  private beginArenaCinematic(round: number, shot: number) {
+    this.mode = 'cinematic';
+    this.activeCine = 'arena';
+    this.arenaRound = round;
+    this.waves.stop();
+    this.enemies.clear();
+    this.effects.clear();
+    this.grenadeSys.clear();
+    this.menu.hide();
+    this.gameOver.hide();
+    this.hud.hideBanner();
+    this.hud.setVisible(false, false);
+    this.input.touch?.reset();
+    if (document.pointerLockElement) document.exitPointerLock();
+    this.viewModel.lowerNow();
+    this.audio.start();
+    if (!this.arenaPrep && currentZone() === 'canyon') this.arenaPrep = new ArenaPrep();
+    this.cine2.start(shot);
+    this.dirty = true;
+  }
+
+  /** Fin de la cinemática de paso (o se ha omitido): empieza la ronda en la arena desde donde se quedó el comando. */
+  private endArenaCinematic(at: { x: number; z: number; yaw: number }) {
+    this.resetForArena();
+    this.localPlayer.teleport(at.x, at.z);
+    this.yaw = at.yaw;
+    this.pitch = 0;
+    this.eye = EYE_STAND;
+    this.camera.fov = FOV_HIP;
+    this.camera.updateProjectionMatrix();
+    this.viewModel.lowerNow();
+    this.physics.step();
+    this.mode = 'menu'; // para que resume() haga todo el arranque
+    this.waves.start(this.arenaRound || ARENA_ROUND);
+    this.resume();
+    this.hud.fadeIn();
+    this.syncCamera(1);
+  }
+
+  /** Vida llena, granadas repuestas y el bláster en la mano (al llegar a la arena). */
+  private resetForArena() {
+    const p = this.state.players[0];
+    p.health = 100;
+    p.grenades = GRENADE.perGame;
+    this.hud.setHealth(p.health);
+    this.hud.setGrenades(p.grenades);
+    this.weapon = 'blaster';
+    this.swapT = 0;
+    this.hud.setWeapon('blaster');
+    this.wantCrouch = false;
+  }
+
+  /**
+   * Cambia el cañón por la arena (sin fundido; quien llama ya tiene la pantalla en negro): borra el cañón entero, pone la arena
+   * (preparada poco a poco durante la cinemática, o de golpe si no lo estaba), sus cuerpos sólidos, su sol y la zona.
+   */
+  private swapToArena() {
+    if (currentZone() === 'arena') return;
+    const t0 = performance.now();
+    const prep = this.arenaPrep ?? new ArenaPrep();
+    const wasDone = prep.done;
+    const built = prep.finishNow();
+    this.arenaPrep = null;
+    this.waves.stop();
+    this.enemies.clear();
+    this.effects.clear();
+    this.medkits.clear();
+    this.grenadeSys.clear();
+    this.world.disposeCanyon(this.physics);
+    this.scene.add(built.group);
+    const obstacles = addArenaPhysics(built.group, RAPIER, this.physics);
+    setZone('arena', obstacles);
+    this.enemies.changeZone();
+    SUN_DIR.set(ARENA_SUN.x, ARENA_SUN.y, ARENA_SUN.z).normalize();
+    this.viewModel.setSun(SUN_DIR);
+    this.world.setQuality(this.settings.data.quality);
+    console.info(`Arena: ${Math.round(built.triangles)} triángulos · montada en ${Math.round(built.bakeMs)} ms de trabajo` + (wasDone ? ` (a trozos, en ${prep.frames} imágenes)` : ' (de golpe)') + ` · cambio ${Math.round(performance.now() - t0)} ms`);
+  }
+
+  /**
+   * PASO A LA ARENA SIN CINEMÁTICA (al reintentar, en el modo de pruebas o si faltan archivos): fundido suave a negro con el nombre
+   * de la arena; en negro se borra el cañón y se monta la arena; entras por la puerta sur con la vida y las granadas repuestas.
    */
   private enterArena(round: number) {
     if (currentZone() === 'arena') return;
@@ -385,38 +497,17 @@ export class Game {
       // dos imágenes en negro antes del trabajo pesado (si no, el iPhone no llega a pintar el negro)
       requestAnimationFrame(() => requestAnimationFrame(() => {
         const t0 = performance.now();
-        this.waves.stop();
-        this.enemies.clear();
-        this.effects.clear();
-        this.medkits.clear();
-        this.grenadeSys.clear();
-        this.world.disposeCanyon(this.physics);
+        this.swapToArena();
         this.audio.setGameMusic('arena');
         this.audio.startMusic(); // «Jango's Escape», en bucle durante toda la arena
-        const arena = buildArenaWorld(this.scene, RAPIER, this.physics);
-        setZone('arena', arena.obstacles);
-        this.enemies.changeZone();
-        SUN_DIR.set(ARENA_SUN.x, ARENA_SUN.y, ARENA_SUN.z).normalize();
-        this.viewModel.setSun(SUN_DIR);
-        this.world.setQuality(this.settings.data.quality);
-        // vida llena y granadas repuestas
-        const p = this.state.players[0];
-        p.health = 100;
-        p.grenades = GRENADE.perGame;
-        this.hud.setHealth(p.health);
-        this.hud.setGrenades(p.grenades);
-        this.weapon = 'blaster';
-        this.swapT = 0;
-        this.hud.setWeapon('blaster');
+        this.resetForArena();
         this.localPlayer.teleport(ARENA_ENTRY.x, ARENA_ENTRY.z);
         this.yaw = ARENA_ENTRY.yaw;
         this.pitch = 0;
-        this.wantCrouch = false;
         this.physics.step();
         this.syncCamera(1);
         this.renderFrame();
         const spent = (performance.now() - t0) / 1000;
-        console.info(`Arena montada: ${Math.round(arena.triangles)} triángulos en ${Math.round(arena.buildMs)} ms`);
         window.setTimeout(() => {
           fade.style.transitionDuration = `${ZONE_FADE_IN}s`;
           fade.classList.remove('text');
@@ -429,6 +520,15 @@ export class Game {
         }, Math.max(300, (ZONE_HOLD - spent) * 1000));
       }));
     }, ZONE_FADE_OUT * 1000);
+  }
+
+  /** Modo de pruebas: ver la cinemática de paso a la arena desde una toma (las del cañón necesitan el cañón: si ya estás en la arena, se recarga). */
+  private testArenaCinematic(shot: number) {
+    if (this.mode === 'cinematic') return;
+    const tunnel = 7; // primera toma en la arena
+    if (currentZone() === 'arena' && shot < tunnel) { this.reloadForCanyon(); return; }
+    if (this.mode === 'menu' || this.mode === 'gameover') this.startRun();
+    this.beginArenaCinematic(ARENA_ROUND, shot);
   }
 
   /** Cinemática inicial: sin controles ni HUD; la música empieza ya y sigue en la partida. */
@@ -444,6 +544,7 @@ export class Game {
     this.viewModel.lowerNow();
     this.audio.start(); // tras el toque en JUGAR: iOS ya deja sonar
     this.audio.startMusic();
+    this.activeCine = 'intro';
     this.cine.start(shot);
     this.dirty = true;
   }
@@ -484,7 +585,7 @@ export class Game {
   /** La app vuelve a primer plano durante la cinemática: sigue donde estaba. */
   private unholdCinematic() {
     if (this.mode !== 'cinematic' || document.hidden) return;
-    this.cine.hold(false);
+    (this.activeCine === 'arena' ? this.cine2 : this.cine).hold(false);
     this.audio.resume();
   }
 
@@ -516,7 +617,7 @@ export class Game {
     this.hud.setTestTag(true);
     if (round >= ARENA_ROUND && currentZone() === 'canyon') {
       this.menu.hide();
-      this.enterArena(round);
+      this.arenaReached(round); // la cinemática de paso si aún no se ha visto en esta sesión; si no, el fundido
       return;
     }
     if (currentZone() === 'arena') this.localPlayer.teleport(ARENA_ENTRY.x, ARENA_ENTRY.z);
@@ -671,7 +772,7 @@ export class Game {
   }
 
   private pause() {
-    if (this.mode === 'cinematic') { this.cine.hold(true); this.audio.suspend(); return; }
+    if (this.mode === 'cinematic') { (this.activeCine === 'arena' ? this.cine2 : this.cine).hold(true); this.audio.suspend(); return; }
     if (this.mode === 'transition') return;
     if (this.mode !== 'playing') return;
     this.mode = 'paused';
@@ -694,8 +795,9 @@ export class Game {
     }
 
     if (this.mode === 'cinematic') {
-      if (inp.pausePressed || inp.jumpPressed) this.cine.skip(); // Esc / Espacio / botón del mando
-      this.cine.update(dt);
+      const cine = this.activeCine === 'arena' ? this.cine2 : this.cine;
+      if (inp.pausePressed || inp.jumpPressed) cine.skip(); // Esc / Espacio / botón del mando
+      cine.update(dt);
       if (this.mode === 'cinematic') {
         this.effects.update(dt);
         this.world.tick(dt);
@@ -1008,6 +1110,6 @@ export class Game {
 
   /** Solo para pruebas automáticas. */
   debug() {
-    return { cine: this.cine?.debug(), kits: this.medkits.list().length, audio: { jugados: this.audio.played, estadisticas: this.audio.stats }, arma: this.weapon, grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
+    return { cine: this.activeCine === 'arena' ? this.cine2?.debug() : this.cine?.debug(), kits: this.medkits.list().length, audio: { jugados: this.audio.played, estadisticas: this.audio.stats }, arma: this.weapon, grenades: this.state.players[0].grenades, grenadesInFlight: this.grenadeSys?.inFlight ?? 0, shake: this.shake, ads: this.ads, adsToggled: this.adsToggled, fov: this.camera.fov, round: this.waves?.round, phase: this.waves?.phase, remaining: this.waves?.remaining, kills: this.state.kills, health: this.state.players[0].health, testMode: this.testMode, heat: this.blaster.heat, locked: this.blaster.locked, shots: this.shots, hits: this.hits, enemies: this.state.enemies.map((e) => ({ ...e })), mode: this.mode, player: { ...this.localPlayer.state }, eye: this.eye, gamepad: this.input.gamepadActive };
   }
 }

@@ -295,6 +295,14 @@ export class Effects {
     sc.mesh.visible = true;
   }
 
+  /** Polvo levantado del suelo (el aire de los motores de una nave que pasa rasante): `n` nubecillas en un radio `spread` que salen hacia fuera. */
+  groundDust(x: number, y: number, z: number, n = 2, spread = 3, speed = 4) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, r = Math.random() * spread, s = speed * (0.5 + Math.random());
+      this.dust.emit(x + Math.cos(a) * r, y + 0.15, z + Math.sin(a) * r, Math.cos(a) * s, 0.5 + Math.random() * 1.3, Math.sin(a) * s, 1.3 + Math.random() * 0.9, 1.4, 5.2);
+    }
+  }
+
   /** Una bocanada de humo oscuro que sube despacio. */
   smokePuff(x: number, y: number, z: number) {
     this.smokeBig.emit(x, y, z, (Math.random() - 0.5) * 0.7, 0.9 + Math.random() * 0.9, (Math.random() - 0.5) * 0.7, 1.5 + Math.random() * 0.8, 0.6, 1.8);

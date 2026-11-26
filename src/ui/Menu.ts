@@ -15,6 +15,8 @@ export interface MenuActions {
   onSfxPreview?: () => void;
   /** Modo de pruebas: ver la cinemática desde la toma `shot` (0 = el principio) y después a jugar */
   onCinematic?: (shot: number) => void;
+  /** Modo de pruebas: ver una toma de la cinemática de paso a la arena (0 = la primera). */
+  onArenaCinematic?: (shot: number) => void;
   /** Abre el panel de ajuste de las manos en primera persona (modo de pruebas) */
   onTuneHands?: () => void;
   /** Abre el panel del filtro de radio de las voces (modo de pruebas) */
@@ -39,6 +41,7 @@ export class Menu {
     $('btnTuneHands').addEventListener('click', () => actions.onTuneHands?.());
     $('btnTuneVoice').addEventListener('click', () => actions.onTuneVoice?.());
     document.querySelectorAll<HTMLButtonElement>('#cineShots button').forEach((b) => b.addEventListener('click', () => actions.onCinematic?.(Number(b.dataset.s) - 1)));
+    document.querySelectorAll<HTMLButtonElement>('#cine2Shots button').forEach((b) => b.addEventListener('click', () => actions.onArenaCinematic?.(Number(b.dataset.s) - 1)));
     $('btnCredits').addEventListener('click', () => ($('creditsScreen').hidden = false));
     $('btnCreditsBack').addEventListener('click', () => ($('creditsScreen').hidden = true));
 
