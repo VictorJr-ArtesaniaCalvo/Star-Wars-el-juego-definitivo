@@ -336,7 +336,7 @@ h1.red { color: #ff7a60; }
 /* ---------- Pantalla principal (fondo de Geonosis) ---------- */
 #menu.main {
   justify-content: flex-end; padding-right: calc(4vw + env(safe-area-inset-right));
-  background: linear-gradient(90deg, rgba(0,0,0,0) 38%, rgba(0,0,0,.55) 66%, rgba(0,0,0,.72)), #000 url(./menu-fondo.jpg) left center / cover no-repeat;
+  background: linear-gradient(90deg, rgba(0,0,0,0) 38%, rgba(0,0,0,.55) 66%, rgba(0,0,0,.72)), #000 url(/menu-fondo.jpg) left center / cover no-repeat;
 }
 #menu.main .panel { width: min(400px, 46vw); }
 #menu.main #mainPanel h1 { font-size: clamp(30px, 5vw, 46px); text-shadow: 0 0 18px rgba(255, 120, 50, .45); }
