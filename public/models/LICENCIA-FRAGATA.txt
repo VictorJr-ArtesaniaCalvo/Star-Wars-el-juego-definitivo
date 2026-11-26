@@ -1,0 +1,11 @@
+Model Information:
+* title:	Munificent-Class Star Frigate
+* source:	https://sketchfab.com/3d-models/munificent-class-star-frigate-44d5db77bb1342e5a6e58c24a0dcb256
+* author:	A308 Digital (https://sketchfab.com/A308)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Munificent-Class Star Frigate" (https://sketchfab.com/3d-models/munificent-class-star-frigate-44d5db77bb1342e5a6e58c24a0dcb256) by A308 Digital (https://sketchfab.com/A308) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

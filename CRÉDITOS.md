@@ -54,6 +54,20 @@ Cambios hechos para el juego (herramienta `tools/convert-b2.mjs`): se ha enderez
 se ha dividido en huesos para animarlo, se ha simplificado de ~49.000 a ~9.000 triángulos (y ~3.400 a distancia) y las texturas del autor se han reunido
 en una sola imagen (atlas) de menor tamaño. No se usan los mapas de relieve. El personaje es propiedad de Lucasfilm Ltd. / Disney.
 
+**Destructor de la República, clase Venator** (`public/models/venator.glb`): este trabajo se basa en
+«[Venator Class Star Destroyer](https://sketchfab.com/3d-models/venator-class-star-destroyer-af3648043a5b4fd394adfc32baee369e)»
+de [Digital Sock](https://sketchfab.com/DigitalSock), con licencia
+[CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/) (hay que citar al autor; se permite el uso comercial; ver `public/models/LICENCIA-VENATOR.txt`).
+Modelo aportado por el autor del proyecto. Cambios (herramienta `tools/convert-ship.mjs`): simplificado de ~39.000 a ~16.000 triángulos (sin desviarse más de 2 m
+a escala real) y, en el juego, reducido de tamaño (×0,19) para verse lejos en el cielo de la primera fase. Viene sin texturas (colores lisos del autor).
+
+**Fragata separatista, clase Munificent** (`public/models/frigate.glb`): este trabajo se basa en
+«[Munificent-Class Star Frigate](https://sketchfab.com/3d-models/munificent-class-star-frigate-44d5db77bb1342e5a6e58c24a0dcb256)»
+de [A308 Digital](https://sketchfab.com/A308), con licencia
+[CC-BY 4.0](http://creativecommons.org/licenses/by/4.0/) (hay que citar al autor; se permite el uso comercial; ver `public/models/LICENCIA-FRAGATA.txt`).
+Modelo aportado por el autor del proyecto. Cambios (herramienta `tools/convert-ship.mjs`): simplificado de ~78.500 a ~12.300 triángulos, texturas de color reducidas
+a 512 px (las de brillo a 256 px), sin las de relieve ni metal/rugosidad, y en el juego reducida de tamaño (×0,19) para verse lejos en el cielo de la primera fase.
+
 **Droideka** (`public/models/droideka.bin`): este trabajo se basa en
 «[Droideka](https://sketchfab.com/3d-models/droideka-42b2a42130f94d73a29eda6ecfdce98f)»
 de [PokCat](https://sketchfab.com/PokCat), con licencia

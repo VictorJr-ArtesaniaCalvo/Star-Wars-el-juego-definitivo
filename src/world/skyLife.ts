@@ -1,10 +1,13 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { glowTexture } from './atmosphere';
 import { makeRng } from './terrain';
 
 // Vida en el cielo (solo decoración, no afecta a la partida):
-//  - un destructor de la República detrás de ti y una nave separatista delante,
-//    altos y lejos, intercambiando disparos por encima del cañón;
+//  - un destructor de la República (Venator) detrás de ti, sobre la nave núcleo, y una fragata separatista (Munificent)
+//    delante, sobre el castillo; altos, lejos y quietos, intercambiando disparos por encima del cañón.
+//    Modelos reales (public/models/venator.glb y frigate.glb, hechos con tools/convert-ship.mjs); si no cargan,
+//    las naves sencillas hechas por código de antes;
 //  - algún geonosiano que cruza el cañón de un lado a otro.
 
 // ---------- Utilidades para armar modelos sencillos ----------
@@ -57,6 +60,58 @@ function mergeAll(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
 // Con algo de brillo propio para que no queden negras a contraluz.
 const shipMat = () => new THREE.MeshLambertMaterial({ vertexColors: true, fog: false, flatShading: true, emissive: 0x4a3320 });
 
+// ---------- Naves reales (modelos 3D) ----------
+
+/** Escala de las dos naves: las dos a la misma, así guardan su proporción real (Venator 1137 m → 216 m; fragata 825 m → 157 m). */
+const SKY_SCALE = 0.19;
+/** Medidas de cada modelo en sus metros reales (proa hacia +z): motores (centro y radio) para el brillo. */
+const SHIP_INFO = {
+  venator: {
+    engines: [[-165, -87, -515, 37], [-94, -105, -515, 37], [94, -105, -515, 37], [165, -87, -515, 37], [-70, -61, -500, 15], [70, -61, -500, 15]],
+    glow: 0x80c0ff,
+  },
+  frigate: {
+    engines: [[0, 0, -315, 11], [0, 34, -315, 11], [-22, 0, -315, 11], [22, 0, -315, 11], [-33, -29, -315, 9], [33, -29, -315, 9], [-16, -37, -315, 9], [16, -37, -315, 9]],
+    glow: 0xffa050,
+  },
+};
+type ShipName = keyof typeof SHIP_INFO;
+const shipModels: Partial<Record<ShipName, THREE.Object3D>> = {};
+
+/** Carga las dos naves grandes del cielo. Si alguna falla, se usará la nave sencilla hecha por código. */
+export async function loadCapitalShips(base: string) {
+  const loader = new GLTFLoader();
+  await Promise.all((['venator', 'frigate'] as ShipName[]).map(async (name) => {
+    try { shipModels[name] = (await loader.loadAsync(`${base}models/${name}.glb`)).scene; } catch (e) { console.warn('no se pudo cargar la nave', name, e); }
+  }));
+}
+
+/** Pasa los materiales del modelo a otros más baratos (como el resto del escenario lejano), sin niebla y con algo de luz propia
+ *  para que desde abajo no se vean negras. Las ventanas y los motores conservan su brillo. */
+function prepareShip(model: THREE.Object3D): THREE.Object3D {
+  model.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    const src = m.material as THREE.MeshStandardMaterial;
+    const glows = !!src.emissiveMap || src.emissive.getHex() !== 0;
+    const mat = new THREE.MeshLambertMaterial({ map: src.map, color: src.color, side: THREE.DoubleSide, fog: false });
+    if (glows) {
+      mat.emissive.copy(src.emissive);
+      mat.emissiveMap = src.emissiveMap;
+      mat.emissiveIntensity = Math.min(src.emissiveIntensity, 2.5);
+    } else if (src.map) {
+      mat.emissiveMap = src.map; // la propia textura, un poco encendida (como una luz de relleno que no deja negras las sombras)
+      mat.emissive.setHex(0x5a4a3a);
+    } else {
+      mat.emissive.copy(src.color).multiply(new THREE.Color(0x5a4a3a));
+    }
+    m.material = mat;
+    m.frustumCulled = false;
+    m.renderOrder = 2;
+  });
+  return model;
+}
+
 /** Destructor de la República (tipo Venator): casco en cuña, torre de mando atrás, motores. Apunta a -Z. */
 function venator(): THREE.BufferGeometry {
   const hull = new THREE.ConeGeometry(1, 1, 3);
@@ -108,16 +163,19 @@ interface Flash { sprite: THREE.Sprite; life: number }
 
 const BOLT_SPEED = 300; // m/s
 
+/** Una nave del cielo: `body` es la pieza que se mueve en el mundo; `hull` el sistema de la nave (donde se sacan los puntos
+ *  de disparo e impacto), con `half` = medio tamaño de su casco en ese sistema. */
+interface SkyShip { body: THREE.Object3D; hull: THREE.Object3D; half: THREE.Vector3; center: THREE.Vector3 }
+
 class SkyBattle {
-  private republic: THREE.Mesh;
-  private sep: THREE.Mesh;
+  private republic: SkyShip;
+  private sep: SkyShip;
   private glows: Array<{ sprite: THREE.Sprite; base: number; phase: number }> = [];
   private bolts: Bolt[] = [];
   private flashes: Flash[] = [];
   private pending: Array<{ at: number; side: number }> = [];
   private t = 0;
   private nextVolley = [1.5, 3.2];
-  private pos = [new THREE.Vector3(), new THREE.Vector3()];
 
   constructor(
     scene: THREE.Scene,
@@ -125,34 +183,48 @@ class SkyBattle {
   ) {
     const glow = glowTexture();
 
-    // Destructor de la República: detrás de ti, alto, con el morro hacia la derecha.
-    this.republic = new THREE.Mesh(venator(), shipMat());
-    this.republic.position.set(25, 260, 300);
-    this.republic.rotation.y = -Math.PI / 2 + 0.28;
-    this.republic.scale.setScalar(1.45);
-    // Nave separatista: delante, algo más baja, mirando hacia el otro lado.
-    this.sep = new THREE.Mesh(separatist(), shipMat());
-    this.sep.position.set(-35, 235, -310);
-    this.sep.rotation.y = Math.PI / 2 - 0.22;
-    this.sep.scale.setScalar(1.6);
-    for (const m of [this.republic, this.sep]) {
-      m.frustumCulled = false;
-      m.renderOrder = 2;
-      scene.add(m);
-    }
-
-    // Brillo de los motores
-    const addGlow = (ship: THREE.Mesh, x: number, y: number, z: number, size: number, color: number) => {
+    const addGlow = (ship: THREE.Object3D, x: number, y: number, z: number, size: number, color: number) => {
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true }));
       sprite.position.set(x, y, z);
       sprite.scale.setScalar(size);
+      sprite.renderOrder = 3;
       ship.add(sprite);
       this.glows.push({ sprite, base: size, phase: Math.random() * 6 });
     };
-    for (const x of [-17, 0, 17]) addGlow(this.republic, x, 0, 78, 20, 0x80c0ff);
-    addGlow(this.sep, 0, 0, 56, 15, 0xffa050);
-    addGlow(this.sep, -6.5, 3.5, 56, 12, 0xffa050);
-    addGlow(this.sep, 6.5, 3.5, 56, 12, 0xffa050);
+    /** Nave real si cargó (girada para que la proa mire a −Z, como las sencillas), o la sencilla hecha por código. */
+    const makeShip = (name: ShipName, simple: () => THREE.BufferGeometry, simpleScale: number, simpleGlows: number[][]): SkyShip => {
+      const body = new THREE.Group();
+      const model = shipModels[name];
+      let hull: THREE.Object3D;
+      if (model) {
+        hull = prepareShip(model);
+        hull.rotation.y = Math.PI;
+        hull.scale.setScalar(SKY_SCALE);
+        for (const [x, y, z, r] of SHIP_INFO[name].engines) addGlow(hull, x, y, z - r * 0.3, r * 2.6, SHIP_INFO[name].glow);
+      } else {
+        hull = new THREE.Mesh(simple(), shipMat());
+        hull.frustumCulled = false;
+        hull.renderOrder = 2;
+        hull.scale.setScalar(simpleScale);
+        for (const [x, y, z, size] of simpleGlows) addGlow(hull, x, y, z, size, SHIP_INFO[name].glow);
+      }
+      body.add(hull);
+      scene.add(body);
+      // tamaño del casco medido en el sistema de `body` (aún sin colocar: su matriz es la identidad)
+      body.updateMatrixWorld(true);
+      const box = new THREE.Box3();
+      hull.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox!.clone().applyMatrix4(m.matrixWorld)); } });
+      return { body, hull, half: box.getSize(new THREE.Vector3()).multiplyScalar(0.5), center: box.getCenter(new THREE.Vector3()) };
+    };
+
+    // Destructor de la República: detrás de ti, sobre la nave núcleo separatista, con el morro hacia la derecha. Quieto.
+    this.republic = makeShip('venator', venator, 1.45, [[-17, 0, 78, 20], [0, 0, 78, 20], [17, 0, 78, 20]]);
+    this.republic.body.position.set(25, 265, 300);
+    this.republic.body.rotation.y = -Math.PI / 2 + 0.28;
+    // Fragata separatista: delante, sobre el castillo, algo más baja, mirando hacia el otro lado. Quieta.
+    this.sep = makeShip('frigate', separatist, 1.6, [[0, 0, 56, 15], [-6.5, 3.5, 56, 12], [6.5, 3.5, 56, 12]]);
+    this.sep.body.position.set(-35, 240, -310);
+    this.sep.body.rotation.y = Math.PI / 2 - 0.22;
 
     // Rayos: verdes los de la República, rojos los separatistas
     const boltGeo = new THREE.BoxGeometry(1.5, 1.5, 17);
@@ -179,12 +251,12 @@ class SkyBattle {
     }
   }
 
-  /** Punto al azar sobre el casco de una nave (en el mundo). */
-  private hullPoint(ship: THREE.Mesh, out: THREE.Vector3, towardZ: number) {
-    out.set((Math.random() * 2 - 1) * 12, Math.random() * 6, (Math.random() * 2 - 1) * 50);
-    ship.updateMatrixWorld();
-    ship.localToWorld(out);
-    void towardZ;
+  /** Punto al azar sobre el casco de una nave (en el mundo): por la parte central de arriba, a lo largo de casi toda la eslora. */
+  private hullPoint(ship: SkyShip, out: THREE.Vector3) {
+    const { half, center } = ship;
+    out.set(center.x + (Math.random() * 2 - 1) * half.x * 0.35, center.y + Math.random() * half.y * 0.4, center.z + (Math.random() * 2 - 1) * half.z * 0.7);
+    ship.body.updateMatrixWorld();
+    ship.body.localToWorld(out);
     return out;
   }
 
@@ -193,8 +265,8 @@ class SkyBattle {
     if (!b) return;
     const src = side === 0 ? this.republic : this.sep;
     const dst = side === 0 ? this.sep : this.republic;
-    this.hullPoint(src, b.from, 0);
-    this.hullPoint(dst, b.to, 0);
+    this.hullPoint(src, b.from);
+    this.hullPoint(dst, b.to);
     this.onFire?.(b.from.x, b.from.y, b.from.z);
     const dist = b.from.distanceTo(b.to);
     b.dur = dist / BOLT_SPEED;
@@ -214,11 +286,7 @@ class SkyBattle {
 
   update(dt: number) {
     this.t += dt;
-    // Las naves se mecen despacio
-    this.republic.position.y = 185 + Math.sin(this.t * 0.11) * 4;
-    this.republic.rotation.z = Math.sin(this.t * 0.17) * 0.025;
-    this.sep.position.y = 160 + Math.sin(this.t * 0.13 + 1) * 4;
-    this.sep.rotation.z = Math.sin(this.t * 0.15 + 2) * 0.03;
+    // (las naves están quietas; solo laten los motores)
     for (const g of this.glows) g.sprite.scale.setScalar(g.base * (0.9 + 0.1 * Math.sin(this.t * 9 + g.phase)));
 
     // Descargas de disparos: salvas de 2–4 rayos, alternando bandos
@@ -252,7 +320,6 @@ class SkyBattle {
       f.sprite.scale.setScalar(14 * (1.2 - f.life * 0.6));
       (f.sprite.material as THREE.SpriteMaterial).opacity = f.life;
     }
-    void this.pos;
   }
 }
 
