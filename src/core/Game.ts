@@ -314,7 +314,7 @@ export class Game {
     if (arenaStart && currentZone() === 'canyon') {
       this.menu.hide();
       this.audio.start();
-      this.audio.startMusic();
+      this.audio.unlock(); // la música de la arena empezará en negro, ya montada la arena
       this.enterArena(s.testRound);
       return;
     }
@@ -375,6 +375,7 @@ export class Game {
     this.hud.hideBanner();
     this.hud.setVisible(false, false);
     const fade = document.getElementById('zoneFade')!;
+    this.audio.fadeOutGameMusic(ZONE_FADE_OUT); // la música del cañón se apaga con el fundido; en negro empieza la de la arena
     fade.hidden = false;
     fade.style.transitionDuration = `${ZONE_FADE_OUT}s`;
     void fade.offsetWidth;
@@ -390,6 +391,8 @@ export class Game {
         this.medkits.clear();
         this.grenadeSys.clear();
         this.world.disposeCanyon(this.physics);
+        this.audio.setGameMusic('arena');
+        this.audio.startMusic(); // «Jango's Escape», en bucle durante toda la arena
         const arena = buildArenaWorld(this.scene, RAPIER, this.physics);
         setZone('arena', arena.obstacles);
         this.enemies.changeZone();

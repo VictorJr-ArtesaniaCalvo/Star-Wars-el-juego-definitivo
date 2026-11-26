@@ -2,11 +2,11 @@ import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { rockGeometry } from './arena/greybox';
-import { withLightFloor } from './lightFill';
+import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, rockJointsTexture, rockTexture, slabsTexture, strataTexture } from './materials';
 import { floorHalfWidth, makeRng, terrainHeight, wallDetailOn, wallOffset } from './terrain';
 
 // ============================================================================
-//  ENTRADA DE LA CUEVA (pared oeste del cañón, sitio C elegido por Víctor)
+//  ENTRADA DE LA CUEVA (pared oeste del cañón, sitio C elegido por Víctor; fachada con relieve y textura de roca)
 // ============================================================================
 // Por aquí huye el comando en la cinemática de paso a la arena. Una portada de roca que sale del pie de la pared, con el hueco en arco
 // (como las puertas de la arena), un marco grueso y abultado, rocas al pie y unos metros de túnel que se pierden en la oscuridad.
@@ -24,11 +24,13 @@ export const CUEVA = {
   alto: 6.2,
   punta: 0,
   /** Portada de roca alrededor del hueco: ancho, alto y cuánto sale por delante del pie de la pared. */
-  portada: { ancho: 14, alto: 10.5, sale: 3.2 },
+  portada: { ancho: 14, alto: 10.5, sale: 1.6 }, // sale: la mitad que antes (Víctor)
   /** Fondo del túnel que se ve (luego, oscuridad). */
   fondo: 9,
-  /** Color de la roca: rojiza como el muro, un tono algo más claro (pedido por Víctor). */
-  color: 0xc2643c,
+  /** Color de la roca: rojiza como el muro, un tono algo más claro (pedido por Víctor). Se multiplica por la textura de roca de las paredes. */
+  color: 0xd27a4c,
+  /** Relieve de la fachada (m): cuánto salen los abultamientos, las capas y las grietas. */
+  relieve: 1,
   /** Hasta dónde se puede entrar andando (m desde la boca): luego, una pared invisible. */
   pasa: 2.5,
 };
@@ -101,7 +103,39 @@ function paint(g: THREE.BufferGeometry, base: THREE.Color, dark?: (x: number, y:
     col.set([c.r, c.g, c.b], i * 3);
   }
   g2.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g2.setAttribute('texAmt', new THREE.BufferAttribute(new Float32Array(p.count).fill(1), 1)); // textura de roca de las paredes
+  g2.setAttribute('texKind', new THREE.BufferAttribute(new Float32Array(p.count), 1));
   return g2;
+}
+
+/** Ruido suave repetible (0..1) para el relieve de la roca. */
+function vnoise(x: number, y: number) {
+  const h = (i: number, j: number) => { const n = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return n - Math.floor(n); };
+  const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j;
+  const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+  return (h(i, j) * (1 - u) + h(i + 1, j) * u) * (1 - v) + (h(i, j + 1) * (1 - u) + h(i + 1, j + 1) * u) * v;
+}
+const fbm = (x: number, y: number) => 0.55 * vnoise(x, y) + 0.3 * vnoise(x * 2.1 + 5.2, y * 2.1 + 1.3) + 0.15 * vnoise(x * 4.3 + 9.7, y * 4.3 + 3.1);
+const sstep = (a: number, b: number, v: number) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+/** Distancia de un punto (x, y) al borde de un polígono cerrado. */
+function edgeDist(pts: Array<[number, number]>, x: number, y: number) {
+  let d = Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % pts.length];
+    const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+    const t = l2 > 0 ? Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / l2)) : 0;
+    d = Math.min(d, Math.hypot(x - ax - t * dx, y - ay - t * dy));
+  }
+  return d;
+}
+function insidePoly(pts: Array<[number, number]>, x: number, y: number) {
+  let c = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+  }
+  return c;
 }
 
 export interface CaveBuild { group: THREE.Group; triangles: number; mouth: THREE.Vector3; out: THREE.Vector3 }
@@ -132,11 +166,47 @@ export function buildCave(opts: Partial<typeof CUEVA> = {}): CaveBuild {
   face.closePath();
   face.holes.push(new THREE.Path(archPoints(hw, C.alto, C.punta, 18)));
   const fg = new THREE.ExtrudeGeometry(face, { depth: back, steps: 4, bevelEnabled: false, curveSegments: 6 });
-  fg.translate(0, 0, -back);
+  fg.translate(0, 0, -back - 0.3); // su cara queda algo por detrás: delante va la «piel» de roca con relieve
   // las paredes del hueco (dentro de la portada) se oscurecen igual que el túnel
   const holeTop = C.alto + 0.3;
-  const inHole = (x: number, y: number, z: number) => (Math.abs(x) < hw + 0.35 && y < holeTop && z < -0.25 ? Math.max(0.04, Math.pow(1 - Math.min(1, -z / C.fondo), 2.2) * 0.75) : 1);
-  parts.push(paint(lumpy(fg, 0.32, 0.55, 3), base, inHole));
+  const inHole = (x: number, y: number, z: number) => (Math.abs(x) < hw + 0.35 && y < holeTop && z < -0.25 ? Math.max(0.04, Math.pow(1 - Math.min(1, -z / C.fondo), 2.2) * 0.5) : 1);
+  parts.push(paint(lumpy(fg, 0.45, 0.5, 3), base, inHole));
+
+  // 1b) Piel de roca de la fachada: una malla fina que sigue el contorno, con capas que sobresalen, abultamientos y grietas.
+  //     Junto al arco el relieve se aplana (el marco tapa el borde y el arco conserva su forma); junto al contorno se mete por detrás.
+  const outline: Array<[number, number]> = [[-W, -1.5], [W, -1.5], ...edge];
+  const arch = archPoints(hw, C.alto, C.punta, 24).map((p) => [p.x, p.y] as [number, number]);
+  const R = C.relieve;
+  const relief = (x: number, y: number) => {
+    const wob = 0.5 * vnoise(x * 0.3 + 3, y * 0.15);
+    const band = (y + wob) / 1.35, bi = Math.floor(band), bf = band - bi;
+    const layer = (vnoise(bi * 3.7, 1.3) - 0.35) * 0.55 + 0.35 * sstep(0.72, 0.95, bf) * (1 - sstep(0.95, 1, bf)); // capas que sobresalen con su repisa
+    const bulge = 0.75 * (fbm(x * 0.22 + 7, y * 0.2) - 0.45); // abultamientos grandes
+    const crack = -0.32 * (1 - sstep(0.02, 0.16, Math.abs(Math.sin(x * 0.75 + 2.2 * vnoise(x * 0.2, y * 0.35) + 1.1)))); // grietas verticales
+    const grain = 0.12 * (fbm(x * 1.1, y * 1.3) - 0.5);
+    return R * (0.35 + layer + bulge + crack + grain);
+  };
+  const NX = 60, NY = 46;
+  const skin = new THREE.PlaneGeometry(2 * W + 1, H + 3.2, NX, NY);
+  skin.translate(0, (H + 3.2) / 2 - 1.6, 0);
+  const sp = skin.attributes.position;
+  const keep: boolean[] = [];
+  for (let i = 0; i < sp.count; i++) {
+    const x = sp.getX(i), y = sp.getY(i);
+    const inArch = insidePoly(arch, x, y) && y > -0.5;
+    const inOut = insidePoly(outline, x, y);
+    keep.push(inOut && !inArch);
+    const dArch = edgeDist(arch, x, y), dOut = edgeDist(outline, x, y);
+    let z = relief(x, y);
+    z = z * sstep(0.35, 1.9, inArch ? 0 : dArch); // junto al arco, plano
+    z = -0.4 + (z + 0.4) * sstep(0.15, 1.3, inOut ? dOut : 0); // junto al contorno, se mete por detrás de la masa
+    sp.setZ(i, z);
+  }
+  const si = skin.index!.array, kept: number[] = [];
+  for (let t = 0; t < si.length; t += 3) if (keep[si[t]] && keep[si[t + 1]] && keep[si[t + 2]]) kept.push(si[t], si[t + 1], si[t + 2]);
+  skin.setIndex(kept);
+  skin.computeVertexNormals();
+  parts.push(paint(skin, base, (x, y) => 0.88 + 0.12 * vnoise(x * 0.5, y * 0.8)));
 
   // 2) Marco: un lomo de roca grueso y abultado alrededor del arco, algo más claro (le da el sol)
   const frameR = 0.62;
@@ -161,7 +231,7 @@ export function buildCave(opts: Partial<typeof CUEVA> = {}): CaveBuild {
   const tg = new THREE.BufferGeometry();
   tg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   tg.setIndex(idx);
-  const inside = (_x: number, _y: number, z: number) => Math.max(0.04, Math.pow(1 - Math.min(1, -z / C.fondo), 2.2) * 0.75);
+  const inside = (_x: number, _y: number, z: number) => Math.max(0.04, Math.pow(1 - Math.min(1, -z / C.fondo), 2.2) * 0.5);
   parts.push(paint(lumpy(tg, 0.12, 1.4, 5), base, inside));
   const floor = new THREE.PlaneGeometry(C.ancho * 1.02, C.fondo, 4, 8);
   floor.rotateX(-Math.PI / 2);
@@ -182,9 +252,11 @@ export function buildCave(opts: Partial<typeof CUEVA> = {}): CaveBuild {
   rock(-hw - 2.4, 0.2, 0.9, 1.5); rock(hw + 2.6, 0.2, 0.7, 1.3); rock(-hw - 4.6, 0.1, 0.2, 1.1); rock(hw + 4.4, 0.1, 1.4, 0.9);
   rock(-hw - 1.6, 0.05, 2.2, 0.55); rock(hw + 1.7, 0.05, 2.6, 0.45); rock(-0.6, H - 0.8, -1.2, 1.6, 0.7); rock(2.6, H - 1.6, -0.8, 1.2, 0.7);
 
-  const geo = mergeGeometries(parts.map((g) => { for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'color'].includes(k)) g.deleteAttribute(k); return g.index ? g.toNonIndexed() : g; }))!;
+  const geo = mergeGeometries(parts.map((g) => { for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'color', 'texAmt', 'texKind'].includes(k)) g.deleteAttribute(k); return g.index ? g.toNonIndexed() : g; }))!;
   geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, withLightFloor(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+  // la misma textura de roca que los bloques de las paredes (arenisca en capas), por encima del color
+  const mat = applyWorldTextures(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), { ground: groundTexture(), groundX: groundExtraTexture(), slabs: slabsTexture(), strata: strataTexture(), pits: pitsTexture(), spire: { rock: rockTexture(), joints: rockJointsTexture() }, rockOnly: true, strataScale: 0.2 });
+  const mesh = new THREE.Mesh(geo, mat);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   const group = new THREE.Group();

@@ -88,6 +88,10 @@ Todas de dominio público (CC0 1.0); se citan por cortesía. Detalles completos 
   conviene confirmar que se puede usar o sustituirla. En el juego se puede bajar o quitar desde el menú (Música).
 - **Música de la pantalla principal** (`public/audio/menu.mp3`): aportada por el autor del proyecto (audio de un vídeo, `videoplayback.mp4`);
   igualada de volumen, recortado el final y pasada a MP3 de 80 kbps. **Autoría y derechos por confirmar** (mismas condiciones que la anterior).
+- **Música de la arena** (`public/audio/arena.mp3`): «Jango's Escape» (banda sonora de *Star Wars: Episodio II*, de John Williams; © Lucasfilm Ltd.),
+  aportada por el autor del proyecto (audio de un vídeo; original en `assets/audio/musica/Jango_s_Escape_THEME.mp4`). Recortado el silencio final
+  (3:44), igualada al volumen de las otras (−20 LUFS) y pasada a MP3 de 96 kbps. Suena en bucle en la arena. **Obra con derechos de autor:**
+  vale para un juego personal; si el proyecto se difunde, habría que sustituirla.
 
 ## Star Wars
 Star Wars, Geonosis y los personajes y vehículos que aparecen son marcas y propiedad de Lucasfilm Ltd. / Disney.

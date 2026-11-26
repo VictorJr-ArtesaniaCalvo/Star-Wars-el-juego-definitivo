@@ -16,7 +16,8 @@ const MUSIC_BASE = 0.7;
 /**
  * Sonido del juego: ambiente (viento y cañonazos lejanos), disparos y granadas.
  * Los disparos enemigos y las explosiones suenan «con dirección» (si te disparan por la espalda, suena por detrás).
- * Hay dos músicas: la de la partida (public/audio/musica.mp3) y la de la pantalla principal (public/audio/menu.mp3). Van aparte de los efectos, con su propio volumen: se lee como un archivo en streaming (no se decodifica entera en memoria,
+ * Hay tres músicas: la de la partida en el cañón (public/audio/musica.mp3), la de la arena (public/audio/arena.mp3, «Jango's Escape», elegida por Víctor)
+ * y la de la pantalla principal (public/audio/menu.mp3). Van aparte de los efectos, con su propio volumen: se lee como un archivo en streaming (no se decodifica entera en memoria,
  * que en el iPhone pesaría más de 100 MB) y se pasa por un control de volumen de Web Audio, porque el volumen del propio <audio> no funciona en iOS.
  */
 export class AudioEngine {
@@ -41,7 +42,11 @@ export class AudioEngine {
   private sfxVol = 1;
   private musicVol = 0.5;
   private paused = false; // en pausa/menú: los efectos callan y la música baja
-  private music: Track | null = null; // la de la partida (y la cinemática)
+  private music: Track | null = null; // la de la partida que suena ahora (la del cañón o la de la arena)
+  private canyonMusic: Track | null = null; // la del cañón (y la cinemática inicial)
+  private arenaMusic: Track | null = null; // la de la arena (segunda parte del combate), en bucle
+  private gameFade = 1; // la de la partida se apaga poco a poco al pasar a la arena (de 1 a 0)
+  private gameFadeTimer = 0;
   private menuMusic: Track | null = null; // la de la pantalla principal
   private menuFade = 1; // la de la pantalla principal se apaga poco a poco al pulsar JUGAR (de 1 a 0)
   private menuFadeTimer = 0;
@@ -84,11 +89,13 @@ export class AudioEngine {
       el.preload = 'none';
       return { el, gain: null, graph: false, wanted: false };
     };
-    this.music = track('musica.mp3');
+    this.canyonMusic = track('musica.mp3');
+    this.arenaMusic = track('arena.mp3');
+    this.music = this.canyonMusic;
     this.menuMusic = track('menu.mp3');
     // Al salir de la app (o cambiar de pestaña) la música se detiene; al volver, sigue
     document.addEventListener('visibilitychange', () => {
-      for (const m of [this.music, this.menuMusic]) {
+      for (const m of [this.canyonMusic, this.arenaMusic, this.menuMusic]) {
         if (!m) continue;
         if (document.hidden) m.el.pause();
         else if (m.wanted) void m.el.play().catch(() => undefined);
@@ -100,7 +107,7 @@ export class AudioEngine {
   private applyVolumes() {
     Howler.volume(this.paused ? 0 : this.volume * this.sfxVol);
     const g = Math.min(1, this.volume * this.musicVol * MUSIC_BASE);
-    this.setTrackGain(this.music, g * (this.paused ? 0.6 : 1));
+    this.setTrackGain(this.music, g * (this.paused ? 0.6 : 1) * this.gameFade);
     this.setTrackGain(this.menuMusic, g * this.menuFade);
   }
 
@@ -135,11 +142,39 @@ export class AudioEngine {
   unlock() {
     const ctx = Howler.ctx;
     if (ctx && ctx.state !== 'running') void ctx.resume();
-    const m = this.music;
-    if (m && m.el.paused && !m.wanted) {
-      m.el.muted = true;
-      void m.el.play().then(() => { if (!m.wanted) m.el.pause(); m.el.muted = false; }).catch(() => { m.el.muted = false; });
+    // se «despiertan» las dos músicas de la partida en el mismo toque: así la de la arena podrá empezar luego sin otro toque
+    for (const m of [this.canyonMusic, this.arenaMusic]) {
+      if (m && m.el.paused && !m.wanted) {
+        m.el.muted = true;
+        void m.el.play().then(() => { if (!m.wanted) m.el.pause(); m.el.muted = false; }).catch(() => { m.el.muted = false; });
+      }
     }
+  }
+
+  /** Apaga poco a poco la música de la partida que suena (al pasar a la arena, a la vez que el fundido a negro). */
+  fadeOutGameMusic(seconds: number) {
+    const m = this.music;
+    if (!m || !m.wanted) return;
+    window.clearInterval(this.gameFadeTimer);
+    const t0 = performance.now();
+    this.gameFadeTimer = window.setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / (seconds * 1000));
+      this.gameFade = (1 - k) * (1 - k);
+      this.applyVolumes();
+      if (k >= 1) window.clearInterval(this.gameFadeTimer);
+    }, 30);
+  }
+
+  /** Cambia la música de la partida (cañón o arena). Si sonaba otra, se para; la nueva empieza desde el principio con `startMusic`. */
+  setGameMusic(zone: 'canyon' | 'arena') {
+    const next = zone === 'arena' ? this.arenaMusic : this.canyonMusic;
+    if (!next || next === this.music) return;
+    this.stopMusic();
+    window.clearInterval(this.gameFadeTimer);
+    this.gameFade = 1;
+    this.music = next;
+    next.el.currentTime = 0;
+    this.applyVolumes();
   }
 
   /** Pasa el <audio> por un control de volumen de Web Audio (la primera vez que suena). */
