@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { caveKeepOut } from './cave';
 import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, rockJointsTexture, rockTexture, slabsTexture, strataTexture } from './materials';
 import { CANYON_HALF_L, floorHalfWidth, makeRng, terrainHeight, wallOffset, wallTop } from './terrain';
 import type { Quality } from '../core/Settings';
@@ -108,8 +109,10 @@ export class WallBlocks {
     const put = (v: number, x: number, y: number, z: number, sx: number, sy: number, sz: number, yaw: number, tilt = 0) => {
       e.set((rng() - 0.5) * tilt, yaw, (rng() - 0.5) * tilt, 'YXZ');
       q.setFromEuler(e);
+      const color = new THREE.Color().copy(PALETTE[Math.floor(rng() * PALETTE.length)]).multiplyScalar(range(0.85, 1.15));
+      if (caveKeepOut(x, z, Math.max(sx, sz) * 0.8, y - sy)) return; // no tapa la cueva (el azar se gasta igual: el resto no cambia)
       lists[v].push(new THREE.Matrix4().compose(pos.set(x, y, z), q, sc.set(sx, sy, sz)));
-      colors[v].push(new THREE.Color().copy(PALETTE[Math.floor(rng() * PALETTE.length)]).multiplyScalar(range(0.85, 1.15)));
+      colors[v].push(color);
     };
     /** Distancia al eje del cañón a la que la pared alcanza la altura y (la altura solo sube hacia fuera: se busca por bisección). */
     const surface = (side: number, z: number, y: number) => {

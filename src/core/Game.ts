@@ -32,11 +32,13 @@ import { SUN_DIR } from '../world/sky';
 import { QUALITY, Settings, type Quality } from './Settings';
 import { Cinematic } from '../cinematic/Cinematic';
 import { loadCommandoModel, loadTrooperModel } from '../player/commandoModel';
+import { ANIM_CLIPS, loadClips } from '../anim/mixamo';
 import { HandTuner } from '../ui/HandTuner';
 import { VoiceTuner } from '../ui/VoiceTuner';
 import { COMANDO } from '../cinematic/script';
 import { currentZone, groundHeight, setZone } from '../world/zone';
 import { buildArenaWorld } from '../world/arena/ArenaWorld';
+import { buildCave, CUEVA } from '../world/cave';
 import { ARENA_ENTRY, ARENA_ROUND, ARENA_SUN } from '../world/arena/layout';
 
 type Mode = 'menu' | 'cinematic' | 'playing' | 'paused' | 'gameover' | 'transition';
@@ -164,7 +166,7 @@ export class Game {
 
   async init() {
     await RAPIER.init();
-    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`), loadWorldTextures(import.meta.env.BASE_URL), loadParticleAtlas(import.meta.env.BASE_URL), loadCommandoModel(`${import.meta.env.BASE_URL}models/commando.glb`), loadTrooperModel('clone', `${import.meta.env.BASE_URL}models/clone/clone.fbx`)]);
+    await Promise.all([loadB1Model(`${import.meta.env.BASE_URL}models/b1.bin`), loadB2Model(`${import.meta.env.BASE_URL}models/b2.bin`), loadLaat(`${import.meta.env.BASE_URL}models/laat.bin`), loadBlasterModel(`${import.meta.env.BASE_URL}models/blaster.bin`), loadDekaModel(`${import.meta.env.BASE_URL}models/droideka.bin`), loadWorldTextures(import.meta.env.BASE_URL), loadParticleAtlas(import.meta.env.BASE_URL), loadCommandoModel(`${import.meta.env.BASE_URL}models/commando.glb`), loadTrooperModel('clone', `${import.meta.env.BASE_URL}models/clone/clone.fbx`), loadClips(import.meta.env.BASE_URL, ANIM_CLIPS)]);
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = TICK;
     this.audio.init();
@@ -918,6 +920,17 @@ export class Game {
   /** Solo para pruebas: altura del terreno en un punto. */
   debugHeight(x: number, z: number) {
     return groundHeight(x, z);
+  }
+
+  /** Solo para pruebas: pone (o quita, con null) la maqueta de la entrada de la cueva (src/world/cave.ts). */
+  private caveMock: THREE.Group | null = null;
+  debugCave(opts: Partial<typeof CUEVA> | null = {}) {
+    if (this.caveMock) { this.scene.remove(this.caveMock); this.caveMock = null; }
+    if (!opts) return null;
+    const c = buildCave(opts);
+    this.caveMock = c.group;
+    this.scene.add(c.group);
+    return { triangulos: c.triangles, boca: c.mouth.toArray().map((v) => +v.toFixed(2)) };
   }
 
   /** Solo para pruebas: dibuja el mapa visto desde arriba (arriba = hacia el enemigo). */

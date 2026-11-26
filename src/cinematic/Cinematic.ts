@@ -6,6 +6,7 @@ import { RAFAGA_ESTATICA, Voices } from '../audio/Voices';
 import type { Effects } from '../weapons/Effects';
 import { B1Walkers, buildCloneLegs, buildFlyingLaat, buildShipTroopers, Commando, CommandoModel } from './actors';
 import { commandoModelReady } from '../player/commandoModel';
+import { getClip } from '../anim/mixamo';
 import { COMANDO, DROIDES, ESTATURA, PIERNAS, SALIDA, TOMAS, VUELO, type Actor, type Camara, type Evento, type Postura, type Punto, type Toma, type Vista } from './script';
 
 // Reproductor de la cinemática inicial: sigue el guion (script.ts) segundo a segundo.
@@ -92,12 +93,15 @@ export class Cinematic {
     if (this.ship) return;
     const { scene } = this.d;
     this.ship = buildFlyingLaat();
+    this.commando = commandoModelReady() ? new CommandoModel(ESTATURA.comando) : new Commando(ESTATURA.comando);
+    // agarre del arma para las animaciones de Mixamo: el de la postura de disparo agachado (el arma recta al frente)
+    const ref = getClip('Crouch_Rapid_Fire');
+    if (ref && this.commando instanceof CommandoModel) this.commando.calibrateGrip(ref, 0);
     // los dos soldados de la puerta: los modelos de verdad (clon normal y comando); si no cargaron, las piernas provisionales
     const troopers = buildShipTroopers(ESTATURA, PIERNAS.separacion);
     this.legs = troopers.ready ? troopers : buildCloneLegs(ESTATURA.clon, PIERNAS.separacion);
     this.legs.group.position.set(PIERNAS.x, PIERNAS.suelo, PIERNAS.z); // en el suelo de la bahía, junto a la puerta
     this.ship.add(this.legs.group);
-    this.commando = commandoModelReady() ? new CommandoModel(ESTATURA.comando) : new Commando(ESTATURA.comando);
     this.commando.group.position.set(COMANDO.x, terrainHeight(COMANDO.x, COMANDO.z), COMANDO.z);
     this.droids = new B1Walkers(DROIDES);
     for (const o of [this.ship, this.commando.group, this.droids.group]) { o.visible = false; scene.add(o); }

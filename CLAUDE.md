@@ -21,12 +21,14 @@ Detalle técnico completo en **NOTAS.md** (estructura, decisiones, cómo probar)
   - Música propia (`public/audio/menu.mp3`, canción de Víctor, 11 min, en bucle); vuelve al abandonar partida. En el iPhone solo puede arrancar al **levantar** el dedo (por eso no sonaba la primera vez).
   - Al pulsar JUGAR: **cortinilla a negro de derecha a izquierda** al estilo Star Wars (punta difuminada, 1,1 s, `src/ui/Wipe.ts`) mientras la música se apaga poco a poco; luego la cinemática.
 - **HUD**: el indicador de ronda y droides se aparta mientras sale un aviso de ronda (que sale justo bajo la brújula); brújula un 10 % más pequeña; sin indicador «DE PIE/AGACHADO»; barra del bláster sin texto, más fina y más abajo.
+- **Animaciones de Mixamo** (Víctor las descarga a `assets/animaciones/mixamo/`): se traducen al clon comando y se guardan en `public/animations/*.json` (`node tools/bake-animations.cjs` con `npm run dev`; página de fotos `tools/anim-preview/`). Hay 6: correr, correr y pararse, agachado disparando, levantarse, reposo y apuntar de pie. El arma va en la mano derecha (centro del mango en la palma) y la izquierda se ajusta a la empuñadura. **Arma de las cinemáticas: 70 cm** (`RIFLE_HOLD.largo` y `SHIP_TROOPERS.largoArma`).
+- **Cueva** (sitio C, pared oeste, z −24; `src/world/cave.ts`): portada de roca con arco redondo como las puertas de la arena, algo más clara que la roca roja; se entra 2,5 m bajo el arco y no más. Las rocas, bloques y repisas que la tapaban se quitan sin mover el resto del mapa (`caveKeepOut`). Por ella huirá el comando en la cinemática de paso a la arena.
 - Menú oculto de pruebas (5 toques en el título): ronda, invencible, FPS, ver cada toma de la cinemática, **panel de manos/arma** y **panel del filtro de radio**, ambos con «Copiar valores».
 
 ## Cinemática inicial (unos 31 s, funcionando pero provisional)
 Guion en `src/cinematic/script.ts` (todo ajustable). Tomas: 1 GEONOSIS · 2A nave desde fuera · 2B desde dentro · 3 cañonera estrellada · 4 droides en la neblina · 5 el comando tras la caja · 6 paso a primera persona.
 - ✅ Toma 2 dividida en 2A (4 s) y 2B (7 s), con vuelo recto a lo largo del cañón.
-- ✅ Soldados de la nave: clon normal (sin arma, señala) y comandante (clon comando con DC-17m), agarrados a las asas, con gestos sincronizados con sus frases.
+- ✅ Soldados de la nave: clon normal (sin arma, señala) y comandante (clon comando con DC-17m), agarrados a las asas, con gestos sincronizados con sus frases. El comandante sigue la animación de reposo de Mixamo (opción B de Víctor): cuerpo y arma animados, mano izquierda en el asa, mirando al cañón.
 - ✅ Voces reales de Víctor (preparadas con `tools/prepare-voices.sh`) con filtro de radio en el juego («radio» para 2A/2B, «casco» para la toma 5) y valores ya ajustados por Víctor.
 - ⏳ **Pendiente de rematar**: posturas de los clones (más naturales; los dedos cierran en puño de forma aproximada), en 2A los soldados se ven pequeños, posturas del comando en las tomas 5 y 6, y revisión de Víctor en el iPhone (incluidos los FPS).
 
@@ -36,6 +38,11 @@ Guion en `src/cinematic/script.ts` (todo ajustable). Tomas: 1 GEONOSIS · 2A nav
   - ✅ Hecho: luz de relleno contra los contraluces, sombras de las paredes calculadas al cargar, rocas y agujas con más forma, paredes con bloques en capas, niebla pálida.
   - ⏳ No hecho: texturas del droideka (va con color por vértice), brazos del B1 sin textura, materiales completos (relieve, rugosidad, metal) y cielo HDRI, y revisar sombras y contraluces junto a la cañonera nueva.
 - Cajas y barriles de la República provisionales (generados por código), a la espera de los modelos de Víctor.
+
+## Cinemática de paso a la arena (en preparación, NO empezada)
+- Guion de Víctor (11 tomas, ~38 s): ver su mensaje; se reutiliza el sistema de la inicial. **Entra al acabar la ronda 6 y la ronda 7 se juega ya en la arena** (los droidekas se ven por primera vez ahí): `ARENA_ROUND` pasará de 8 a 7. Al reintentar: desde la ronda 1, sin cinemática.
+- Hecho: cueva en el cañón, animaciones de Mixamo. Usos previstos: agachado disparando (toma 2), levantarse (4), correr (5 y 7), correr y pararse (final de 7 → 9), reposo (10), apuntar de pie (11); en la inicial, levantarse en la toma 6.
+- Falta: la música de la arena (Víctor la pasará), voces `c2_piloto_1`, `c2_piloto_2`, `c2_comando` (por ahora, subtítulos) y **esperar su mensaje para empezar la cinemática**.
 
 ## Fase 2: la arena de Geonosis (en el juego, en pruebas)
 - **Cómo se llega**: al completar la **ronda 7** (cañón), fundido a negro suave con «ARENA DE GEONOSIS», el cañón se borra entero y se monta la arena; apareces **en la puerta sur** (a la entrada del túnel, mirando a la arena) con vida llena y 4 granadas; sigue la **ronda 8**. Sin cinemática de transición todavía. Número en `ARENA_ROUND` (`src/world/arena/layout.ts`).

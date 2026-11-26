@@ -7,6 +7,7 @@ import { GUNSHIP_FIRES, GUNSHIP_LIGHTS, CrashFx } from './crashFx';
 import { laatReady } from './laat';
 import { buildDefenseZone } from './defenseZone';
 import { buildRocks } from './rocks';
+import { buildCaveWorld } from './cave';
 import { buildSky, SUN_DIR } from './sky';
 import { setWorldBump, setWorldRich } from './materials';
 import { SkyLife } from './skyLife';
@@ -67,6 +68,7 @@ export class World {
     b.finish(scene);
     this.landmarks = new Landmarks(scene); // castillo geonosiano al norte y nave núcleo separatista al sur (solo para mirar)
     new Wreckage(scene, rapier, physics); // restos de la cañonera, chapas, muros de chapa y cajas de la República
+    buildCaveWorld(scene, rapier, physics); // entrada de la cueva en la pared oeste (por ella huye el comando hacia la arena)
     buildContactDecals(scene, b.feet); // manchas de contacto bajo rocas, muros y cajas
     paintRock(terrain, b.spots); // el suelo se vuelve rocoso alrededor de las coberturas
     this.scatter = new Scatter(scene, b.spots); // lajas de piedra y piedrecitas (calidad media y alta)

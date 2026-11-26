@@ -8,6 +8,7 @@ import { withDroidWear } from '../enemies/droidWear';
 import { terrainHeight } from '../world/terrain';
 import { createCommandoRig, createTrooperRig, reach, turnWorld, aimBone, trooperModelReady, type CommandoRig, type TrooperModel } from '../player/commandoModel';
 import { blasterModelData } from '../weapons/ViewModel';
+import { applyClip, getClip, type BakedClip } from '../anim/mixamo';
 
 // «Actores» de la cinemática: solo se ven durante ella y no son parte de la partida (no chocan, no disparan, no piensan).
 //  - La cañonera LAAT en vuelo (el mismo modelo que la estrellada, pero entera y limpia).
@@ -358,8 +359,13 @@ export const SHIP_TROOPERS = {
   torso: 8, cabeza: 24,
   /** Hacia dónde señala el soldado con la mano libre (x hacia el otro lado del cuerpo, altura, delante). */
   señala: [0.45, 0.8, -0.75] as [number, number, number],
-  /** Largo del DC-17m en las manos del comandante (m). */
-  largoArma: 0.5,
+  /** Largo del DC-17m en las manos del comandante (m): 70 cm, como el del comando de las cinemáticas (Víctor). */
+  largoArma: 0.7,
+  /**
+   * Animación de Mixamo del comandante (opción B de Víctor): el cuerpo, las piernas y el brazo derecho con el arma siguen «Rifle_Idle»;
+   * la mano izquierda sigue en el asa y la cabeza hace sus gestos. Si la animación no cargó, se usa la postura por código de antes.
+   */
+  animacion: 'Rifle_Idle',
 };
 
 class ShipTrooper {
@@ -367,6 +373,8 @@ class ShipTrooper {
   private rig: CommandoRig;
   private rifle: THREE.Group | null = null;
   private grip = new THREE.Vector3();
+  private rifleScale = 1;
+  private lastFt = 0;
   private B: (typeof BONES)[TrooperModel];
   private fingerCache: Array<[THREE.Bone, THREE.Quaternion]> = [];
   constructor(private set: TrooperSetup, height: number) {
@@ -385,6 +393,7 @@ class ShipTrooper {
       this.rifle.add(mesh);
       this.group.add(this.rifle);
       this.grip.set(0.02, -0.2, 0.15).multiplyScalar(s); // la empuñadura del DC-17m, en el sistema del arma
+      this.rifleScale = s;
     }
   }
 
@@ -393,6 +402,7 @@ class ShipTrooper {
 
   /** `t`: tiempo de la cinemática (balanceo); `ft`: segundos desde que empezó la pasada de la nave (gestos). */
   pose(t: number, ft: number, phase: number) {
+    this.lastFt = ft;
     const st = this.set, B = this.B, T = SHIP_TROOPERS;
     const free: 'l' | 'r' = st.agarra === 'l' ? 'r' : 'l';
     const sgn = (s: 'l' | 'r') => (s === 'r' ? 1 : -1);
@@ -404,11 +414,15 @@ class ShipTrooper {
       }
       return k * k * (3 - 2 * k);
     };
+    const clip = this.rifle ? getClip(T.animacion) : undefined;
+    const gripQ = clip ? CommandoModel.gripRotation() : null;
     this.rig.reset();
+    if (clip && gripQ) applyClip(this.rig, clip, t + phase, true);
     this.group.updateMatrixWorld(true);
     const right = new THREE.Vector3(1, 0, 0).transformDirection(this.group.matrixWorld);
     const fwd = new THREE.Vector3(0, 0, -1).transformDirection(this.group.matrixWorld);
     const up = new THREE.Vector3(0, 1, 0).transformDirection(this.group.matrixWorld);
+    if (clip && gripQ) { this.poseAnimated(gripQ, free, up, fwd, right, gesture, sgn); return; }
 
     // 1) Cadera: algo más baja (rodillas dobladas), desplazada hacia la pierna de apoyo, inclinada y con un balanceo suave
     const swayX = Math.sin(t * 0.9 + phase) * 0.025, swayZ = Math.sin(t * 1.3 + phase) * 0.015;
@@ -470,6 +484,39 @@ class ShipTrooper {
     this.rig.root.updateMatrixWorld(true);
   }
 
+  /** Opción B: el cuerpo ya está en la postura de la animación; aquí van la mano en el asa, los gestos de la cabeza y el arma en la mano derecha. */
+  private poseAnimated(gripQ: THREE.Quaternion, free: 'l' | 'r', up: THREE.Vector3, fwd: THREE.Vector3, right: THREE.Vector3,
+    gesture: (tipo: string) => number, sgn: (s: 'l' | 'r') => number) {
+    const st = this.set, B = this.B, T = SHIP_TROOPERS;
+    void fwd;
+    // torso hacia la puerta y cabeza mirando abajo, al cañón (como en la postura por código); encima, asiente y mira al compañero
+    const lean = THREE.MathUtils.degToRad(T.torso);
+    turnWorld(this.b(B.spine), right, -lean * 0.5);
+    turnWorld(this.b(B.chest), right, -lean * 0.5);
+    turnWorld(this.b(B.neck), right, -THREE.MathUtils.degToRad(T.cabeza) * 0.4);
+    turnWorld(this.b(B.head), right, -THREE.MathUtils.degToRad(T.cabeza) * 0.6);
+    const nod = gesture('asiente') * Math.sin((this.lastFt % 0.7) / 0.7 * Math.PI * 2) * 0.18;
+    const look = gesture('mira');
+    turnWorld(this.b(B.head), right, nod + look * 0.25);
+    turnWorld(this.b(B.head), up, look * sgn(st.agarra) * 0.6);
+    // brazo del asa, como antes
+    const asa = this.W(sgn(st.agarra) * T.asa[0], T.asa[1], T.asa[2]);
+    reach(this.b(B.arm(st.agarra)), this.b(B.fore(st.agarra)), this.b(B.hand(st.agarra)), asa, this.W(sgn(st.agarra) * 0.8, 1.3, -0.3));
+    aimBone(this.b(B.hand(st.agarra)), this.b(B.finger(st.agarra, 'middle', 1)), up.clone().addScaledVector(fwd, 0.3));
+    this.fist(st.agarra, 1);
+    // arma: el centro del mango en la palma de la mano libre, con el mismo agarre que el comando de las animaciones
+    const wrist = this.b(B.hand(free)), mid = this.b(B.finger(free, 'middle', 1));
+    const palm = wrist.getWorldPosition(new THREE.Vector3()).lerp(mid.getWorldPosition(new THREE.Vector3()), 0.55);
+    const qWorld = wrist.getWorldQuaternion(new THREE.Quaternion()).multiply(gripQ);
+    const gq = this.group.getWorldQuaternion(new THREE.Quaternion());
+    this.rifle!.quaternion.copy(gq.invert().multiply(qWorld));
+    const gs = this.group.getWorldScale(new THREE.Vector3()).x;
+    const off = DC17_GRIP.clone().multiplyScalar(this.rifleScale * gs).applyQuaternion(qWorld);
+    this.rifle!.position.copy(this.group.worldToLocal(palm.sub(off)));
+    this.rifle!.updateMatrixWorld(true);
+    this.rig.root.updateMatrixWorld(true);
+  }
+
   /** Cierra los dedos de una mano (la palma es el lado donde queda el pulgar). `amount` 0..1; `index` = deja el índice estirado. */
   private fist(s: 'l' | 'r', amount: number, index = false) {
     const B = this.B;
@@ -526,7 +573,10 @@ export function buildShipTroopers(heights: { clon: number; comando: number }, ga
 // Mismas posturas que el provisional (agachado, asomarse, golpe al casco), pero girando los huesos del modelo:
 // las manos van al bláster (o al casco) y los pies al suelo con IK; el tronco se inclina y la cabeza mira al frente.
 /** Dónde lleva el bláster respecto al pecho (m, en su marco: x derecha, y arriba, z hacia atrás) y cuánto apunta hacia abajo (rad). */
-export const RIFLE_HOLD = { x: 0.14, y: -0.16, z: -0.34, bajoAgachado: 0.35, bajoDePie: 0.12, largo: 0.85 };
+/** Centro del mango del DC-17m (en las medidas del modelo del arma; medido en tools/anim-preview, api.gun()). */
+export const DC17_GRIP = new THREE.Vector3(0, -0.17, 0.19);
+
+export const RIFLE_HOLD = { x: 0.14, y: -0.16, z: -0.34, bajoAgachado: 0.35, bajoDePie: 0.12, largo: 0.7 }; // largo: 70 cm (Víctor), igual que el comandante de la cañonera
 
 export class CommandoModel {
   readonly group = new THREE.Group();
@@ -534,6 +584,8 @@ export class CommandoModel {
   private rifle = new THREE.Group();
   private gripR = new THREE.Object3D();
   private gripL = new THREE.Object3D();
+  /** Centro del mango (donde va la palma de la mano derecha en las animaciones de Mixamo). */
+  private gripHand = new THREE.Object3D();
   private right = new THREE.Vector3();
   private v = new THREE.Vector3();
 
@@ -555,15 +607,99 @@ export class CommandoModel {
       // agarres: los mismos puntos que usan los brazos del jugador (mango y empuñadura delantera)
       this.gripR.position.set(0.02, -0.2, 0.15).multiplyScalar(s); // empuñadura del DC-17m
       this.gripL.position.set(-0.02, -0.21, -0.32).multiplyScalar(s); // bajo la parte delantera
+      this.gripHand.position.copy(DC17_GRIP).multiplyScalar(s); // centro del mango
     } else {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, RIFLE_HOLD.largo), lambert(0x2b2d30));
       this.rifle.add(mesh);
       this.gripR.position.set(0, -0.08, 0.2);
       this.gripL.position.set(0, -0.06, -0.15);
+      this.gripHand.position.set(0, -0.08, 0.2);
     }
-    this.rifle.add(this.gripR, this.gripL);
+    this.rifle.add(this.gripR, this.gripL, this.gripHand);
     this.group.add(this.rifle);
     this.pose(1, 0, 0);
+  }
+
+  /**
+   * Postura de una animación de Mixamo (src/anim/mixamo.ts) en el segundo `t`, con el bláster en las manos:
+   * el arma se coloca en la mano derecha apuntando hacia la izquierda, y la mano izquierda se ajusta a su empuñadura delantera
+   * (`leftOnGun`: 1 = encajada del todo, 0 = como venga en la animación).
+   */
+  animate(c: BakedClip, t: number, loop = false, leftOnGun = 1) {
+    this.rig.reset();
+    applyClip(this.rig, c, t, loop);
+    this.holdRifle(leftOnGun);
+  }
+
+  /**
+   * Agarre del bláster en la mano derecha (el arma «pegada» a la muñeca, como en cualquier juego). Se calcula una vez con una postura de
+   * referencia en la que el arma apunta recta al frente (`calibrateGrip`); hasta entonces se coloca entre las dos manos.
+   */
+  private static grip: THREE.Matrix4 | null = null;
+
+  /** Toma como referencia la postura de `c` en el segundo `t`: el arma recta al frente y horizontal, con el mango en la mano derecha. */
+  calibrateGrip(c: BakedClip, t: number) {
+    this.rig.reset();
+    applyClip(this.rig, c, t, false);
+    this.group.updateMatrixWorld(true);
+    const b = this.rig.bones;
+    const fwd = new THREE.Vector3(0, 0, -1).transformDirection(this.group.matrixWorld);
+    CommandoModel.grip = null;
+    this.placeRifleBetween(fwd);
+    CommandoModel.grip = b.rightwrist.matrixWorld.clone().invert().multiply(this.rifle.matrixWorld);
+  }
+
+  /** Giro del arma respecto a la muñeca derecha (para el comandante de la cañonera), o null si aún no se ha calculado. */
+  static gripRotation() {
+    if (!CommandoModel.grip) return null;
+    const p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+    CommandoModel.grip.decompose(p, q, sc);
+    return q;
+  }
+
+  /** Solo para pruebas: los huesos del comando. */
+  get debugBones() { return this.rig.bones;
+  }
+
+  /** Coloca el bláster en la mano derecha y lleva la izquierda a la empuñadura delantera (`leftOnGun` 0..1). */
+  private holdRifle(leftOnGun: number) {
+    const b = this.rig.bones;
+    if (CommandoModel.grip) {
+      this.group.updateMatrixWorld(true);
+      const m = this.group.matrixWorld.clone().invert().multiply(b.rightwrist.matrixWorld).multiply(CommandoModel.grip);
+      m.decompose(this.rifle.position, this.rifle.quaternion, this.rifle.scale);
+      this.rifle.rotation.setFromQuaternion(this.rifle.quaternion);
+      this.rifle.updateMatrixWorld(true);
+    } else {
+      this.placeRifleBetween(b.leftwrist.getWorldPosition(new THREE.Vector3()).sub(b.rightwrist.getWorldPosition(new THREE.Vector3())));
+    }
+    if (leftOnGun > 0) {
+      const wl = b.leftwrist.getWorldPosition(new THREE.Vector3());
+      const target = wl.lerp(this.gripL.getWorldPosition(new THREE.Vector3()), leftOnGun);
+      reach(b.leftarm, b.leftelbow, b.leftwrist, target, b.leftelbow.getWorldPosition(new THREE.Vector3())); // el codo se dobla hacia donde ya estaba
+    }
+  }
+
+  /** Centro de la palma derecha (entre la muñeca y el nudillo del dedo corazón). */
+  private palmR() {
+    const b = this.rig.bones;
+    return b.rightwrist.getWorldPosition(new THREE.Vector3()).lerp(b.middlefinger1r.getWorldPosition(new THREE.Vector3()), 0.55);
+  }
+
+  /** Arma apuntando a `dir` (en el mundo), horizontal de lado, con el centro del mango en la palma derecha. */
+  private placeRifleBetween(dir: THREE.Vector3) {
+    const fwd = dir.clone().normalize();
+    const palm = this.palmR();
+    const up = new THREE.Vector3(0, 1, 0).addScaledVector(fwd, -fwd.y).normalize();
+    const z = fwd.clone().negate(), x = new THREE.Vector3().crossVectors(up, z);
+    const qWorld = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, up, z));
+    this.group.updateMatrixWorld(true);
+    const gq = this.group.getWorldQuaternion(new THREE.Quaternion());
+    this.rifle.quaternion.copy(gq.invert().multiply(qWorld));
+    this.rifle.rotation.setFromQuaternion(this.rifle.quaternion);
+    this.rifle.scale.set(1, 1, 1);
+    this.rifle.position.copy(this.group.worldToLocal(palm.sub(this.gripHand.position.clone().applyQuaternion(qWorld))));
+    this.rifle.updateMatrixWorld(true);
   }
 
   /** Igual que el provisional: `crouch` 1 = agachado → 0 = de pie; `peek` = se asoma; `tap` = mano izquierda al casco. */

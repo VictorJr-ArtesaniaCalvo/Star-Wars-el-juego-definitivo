@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { terrainHeight } from './terrain';
+import { caveKeepOut } from './cave';
 import { bakeSunShadow } from './sunShadow';
 import { bakeBaseAO, type Foot } from './contact';
 import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, rockJointsTexture, rockTexture, slabsTexture, strataTexture } from './materials';
@@ -52,11 +53,20 @@ export class Builder {
     geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
   }
 
+  /** ¿Taparía esta pieza (ya colocada) la entrada de la cueva? Entonces no se pone (el resto del mapa no cambia). */
+  private overCave(g: THREE.BufferGeometry) {
+    g.computeBoundingBox();
+    const b = g.boundingBox!;
+    const r = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) * 0.4;
+    return caveKeepOut((b.min.x + b.max.x) / 2, (b.min.z + b.max.z) / 2, r, b.min.y);
+  }
+
   /** Pieza con forma libre (rocas). Su parte sólida es su envolvente. */
   addHull(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, color: number, shade = 1, solid = true, spire = false) {
     const g = geo.index ? geo.toNonIndexed() : geo;
     g.userData = geo.userData;
     g.applyMatrix4(matrix);
+    if (this.overCave(g)) return;
     if (!g.userData.keepNormals) g.computeVertexNormals(); // las rocas traen su sombreado suave ya calculado
     g.deleteAttribute('uv');
     this.paint(g, color, shade);
@@ -85,6 +95,7 @@ export class Builder {
   addStrataHull(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, palette: number[], bandHeight: number, solid = true) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.applyMatrix4(matrix);
+    if (this.overCave(g)) return;
     g.computeVertexNormals();
     g.deleteAttribute('uv');
     const p = g.attributes.position;
@@ -122,6 +133,7 @@ export class Builder {
   addDecor(geo: THREE.BufferGeometry, matrix: THREE.Matrix4, color: number, shade = 1, tex = 0) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.applyMatrix4(matrix);
+    if (this.overCave(g)) return;
     g.computeVertexNormals();
     g.deleteAttribute('uv');
     this.paint(g, color, shade);

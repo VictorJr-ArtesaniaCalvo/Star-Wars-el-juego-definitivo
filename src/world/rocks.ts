@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Builder, place } from './builder';
 import { slabGeometry } from './scatter';
 import { beadedSpire } from './landmarks';
+import { caveKeepOut } from './cave';
 import { METAL_WALL_SPOTS } from './wreckage';
 import { CANYON_HALF_L, CANYON_HALF_W, crashFieldOriginal, crashMatrix, floorHalfWidth, makeRng, terrainHeight, WORLD_SEED } from './terrain';
 
@@ -281,4 +282,6 @@ export function buildRocks(b: Builder) {
     const side = rng() < 0.5 ? -1 : 1;
     spireCluster(range(-70, 70), side * range(CANYON_HALF_L + 8, CANYON_HALF_L + 36), range(1.0, 1.5), true);
   }
+  // las piezas que tapaban la cueva no se pusieron (Builder.overCave): fuera también de la lista de obstáculos
+  for (let i = OBSTACLES.length - 1; i >= 0; i--) if (caveKeepOut(OBSTACLES[i].x, OBSTACLES[i].z, 0)) OBSTACLES.splice(i, 1);
 }

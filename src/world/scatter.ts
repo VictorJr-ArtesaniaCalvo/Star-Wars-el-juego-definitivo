@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { caveKeepOut } from './cave';
 import { CANYON_HALF_L, CANYON_HALF_W, crashFieldOriginal, makeRng, terrainHeight } from './terrain';
 import { applyWorldTextures, groundExtraTexture, groundTexture, pitsTexture, rockJointsTexture, rockTexture, slabRockTexture, slabsTexture, strataTexture } from './materials';
 import type RAPIER from '@dimforge/rapier3d-compat';
@@ -245,6 +246,7 @@ export class Ledges {
       if (Math.hypot(x + 2.5, z - 3.2) < 20 || crashFieldOriginal(x, z).h < -0.25) continue;
       if (placed.some(([px, pz]) => Math.hypot(px - x, pz - z) < 14)) continue;
       placed.push([x, z]);
+      const skip = caveKeepOut(x, z, 4.5); // delante de la cueva no (se gasta el mismo azar para que las demás no cambien)
       const yaw = range(0, Math.PI * 2);
       const layers = 2 + Math.floor(rng() * 3);
       let rx = range(2.4, 4.2), y = terrainHeight(x, z) - 0.3, ox = 0, oz = 0;
@@ -257,11 +259,13 @@ export class Ledges {
         g.applyMatrix4(m4);
         const gp = g.attributes.position.array as Float32Array;
         const desc = rapier.ColliderDesc.convexHull(new Float32Array(gp));
-        if (desc) this.colliders.push(physics.createCollider(desc));
+        if (desc && !skip) this.colliders.push(physics.createCollider(desc));
         col.copy(LEDGE_COLORS[Math.floor(rng() * LEDGE_COLORS.length)]).multiplyScalar(range(0.85, 1.1));
-        for (let i = 0; i < gp.length; i += 3) C.push(col.r, col.g, col.b);
-        for (const v of gp) P.push(v);
-        for (const v of g.attributes.normal.array as Float32Array) N.push(v);
+        if (!skip) {
+          for (let i = 0; i < gp.length; i += 3) C.push(col.r, col.g, col.b);
+          for (const v of gp) P.push(v);
+          for (const v of g.attributes.normal.array as Float32Array) N.push(v);
+        }
         g.dispose();
         y += thick * 0.8; rx *= range(0.62, 0.85); ox += range(-0.5, 0.5); oz += range(-0.5, 0.5);
       }
