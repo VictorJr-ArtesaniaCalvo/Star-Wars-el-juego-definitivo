@@ -93,6 +93,11 @@ export class GrenadeSystem {
     }
   }
 
+  /** Dónde están las granadas armadas (para que los droides cercanos puedan avisar). */
+  positions(): THREE.Vector3[] {
+    return this.pool.filter((g) => g.active).map((g) => g.pos);
+  }
+
   /** ¿Hay alguna granada en el aire? (para pruebas) */
   get inFlight() {
     return this.pool.filter((g) => g.active).length;

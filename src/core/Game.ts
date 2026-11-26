@@ -36,6 +36,8 @@ import { Cinematic } from '../cinematic/Cinematic';
 import { loadCommandoModel, loadTrooperModel } from '../player/commandoModel';
 import { ANIM_CLIPS, loadClips } from '../anim/mixamo';
 import { HandTuner } from '../ui/HandTuner';
+import { DroidVoices } from '../audio/DroidVoices';
+import { DroidVoiceTuner } from '../ui/DroidVoiceTuner';
 import { VoiceTuner } from '../ui/VoiceTuner';
 import { COMANDO } from '../cinematic/script';
 import { currentZone, groundHeight, setZone } from '../world/zone';
@@ -109,6 +111,12 @@ export class Game {
   private ads = false;
   private adsZoom = 0;
   private audio = new AudioEngine();
+  /** Voces de los droides (B1 y, cuando haya archivos, B2): src/audio/DroidVoices.ts. */
+  private droidVoices = new DroidVoices();
+  private droidsTalk = false;
+  private droidVoiceTuner = new DroidVoiceTuner({
+    test: (dist) => { this.audio.resume(); const c = this.camera.position; this.droidVoices.test(dist, { x: c.x, y: c.y, z: c.z, yaw: this.yaw }); },
+  });
   private composer: EffectComposer | null = null;
   private prevLocked = false;
   private grenadeSys!: GrenadeSystem;
@@ -149,6 +157,7 @@ export class Game {
       onPlay: () => (this.mode === 'paused' ? this.resume() : this.playFromMenu()),
       onTuneHands: () => this.openHandTuner(),
       onTuneVoice: () => { this.audio.resume(); this.voiceTuner.show(); },
+      onTuneDroidVoice: () => { this.audio.resume(); this.droidVoiceTuner.show(); },
       onCinematic: (shot) => { if (this.mode === 'menu' || this.mode === 'gameover') this.startRun(true, shot); },
       onArenaCinematic: (shot) => this.testArenaCinematic(shot),
       onQuit: () => this.quitToMenu(),
@@ -190,6 +199,7 @@ export class Game {
     this.physics = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.physics.timestep = TICK;
     this.audio.init();
+    void this.droidVoices.load(import.meta.env.BASE_URL);
     setWallDetail(this.settings.data.quality !== 'low'); // la forma de las paredes se fija al cargar (baja = recta)
     this.builtWallDetail = this.settings.data.quality !== 'low';
     this.world = new World(this.scene, RAPIER, this.physics, { skyFire: (x, y, z) => this.audio.distantBoom(x, y, z) });
@@ -210,7 +220,10 @@ export class Game {
       playerCollider: () => pl.collider.handle,
       damagePlayer: (amount, fx, fz) => this.damagePlayer(amount, fx, fz),
       audio: (kind, x, y, z, dist) => this.audio.enemyShot(kind, x, y, z, dist),
-      died: (kind, x, z) => { if (Math.random() < MEDKIT.chance[kind]) this.medkits.drop(x, z, MEDKIT.heal[kind]); },
+      died: (kind, x, z) => {
+        if (Math.random() < MEDKIT.chance[kind]) this.medkits.drop(x, z, MEDKIT.heal[kind]);
+        this.droidVoices.died(x, z, this.enemies.droids, pl.state); // un compañero cercano puede decir «baja» (cuando haya esa frase)
+      },
       appear: (kind, x, y, z) => { if (kind === 'b1' || kind === 'b2') this.audio.droidAppear(x, y, z); },
     });
     this.waves = new WaveManager(this.enemies, {
@@ -869,6 +882,10 @@ export class Game {
     this.last = t;
 
     const inp = this.input.poll(dt, this.settings.data.sensitivity);
+    // los droides solo hablan en partida: en las cinemáticas, el menú o al perder, callan y olvidan lo que habían visto
+    const talk = this.mode === 'playing' || this.mode === 'paused';
+    if (!talk && this.droidsTalk) this.droidVoices.reset();
+    this.droidsTalk = talk;
     // ambiente: cañón, túnel (en la toma del túnel del paso a la arena) o arena; el cambio se hace con fundido cruzado
     this.audio.setAmbienceScene(currentZone() === 'canyon' ? 'canyon' : this.mode === 'cinematic' && this.activeCine === 'arena' && this.cine2.shotId === 'tunel' ? 'tunnel' : 'arena');
     if (inp.pausePressed) {
@@ -939,6 +956,7 @@ export class Game {
         this.localPlayer.step(cmd, TICK);
         if (this.localPlayer.didJump) { this.localPlayer.didJump = false; this.jumpBuffer = 0; cmd.jump = false; }
         this.enemies.update(TICK);
+        this.droidVoices.update(TICK, this.enemies.droids, this.enemies.context, this.grenadeSys.positions()); // voces de los droides
         this.medkits.update(TICK, this.localPlayer.state.x, this.localPlayer.state.y, this.localPlayer.state.z, true, (heal) => {
           const pl = this.state.players[0];
           pl.health = Math.min(100, pl.health + heal);

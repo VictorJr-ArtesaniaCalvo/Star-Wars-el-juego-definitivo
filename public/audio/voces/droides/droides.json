@@ -1,0 +1,18 @@
+{
+ "b1": {
+  "avistado": [
+   "b1_avistado_1",
+   "b1_avistado_2"
+  ],
+  "buscando": [
+   "b1_buscando_1",
+   "b1_buscando_2",
+   "b1_buscando_3",
+   "b1_buscando_4"
+  ],
+  "recibido": [
+   "b1_recibido_1",
+   "b1_recibido_2"
+  ]
+ }
+}

@@ -36,6 +36,7 @@ src/
   cinematic/          Cinemática inicial: script.ts (GUION: tomas, cámaras, tiempos, diálogos; todo ajustable), Cinematic.ts (reproductor),
                       actors.ts (LAAT en vuelo con la puerta abierta, piernas de clones, comando PROVISIONAL, B1 en silueta).
   audio/Voices.ts     Voces con filtro de radio de casco clon (Web Audio). audio/CineSounds.ts: motor, golpe en el casco, fuego.
+  audio/DroidVoices.ts Voces de los droides: cuándo hablan, reglas para no repetirse, voz con dirección desde el droide y filtro robótico.
   audio/Ambience.ts   Ambiente con los audios de Víctor: fondos en bucle con fundido cruzado de igual potencia, cambio de escena cruzado y ráfagas grabadas.
   sim/, net/          Tipos de estado y reserva de ideas para multijugador (no usado).
 src/world/ (lo más importante del escenario)
