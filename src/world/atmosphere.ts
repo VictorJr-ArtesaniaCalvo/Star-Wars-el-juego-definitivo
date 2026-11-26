@@ -32,13 +32,10 @@ export function glowTexture(): THREE.Texture {
   return new THREE.CanvasTexture(c);
 }
 
-const smooth = (a: number, b: number, v: number) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export class Atmosphere {
   private embers: THREE.Points;
   private emberVel: Float32Array;
-  /** Fuerza de la ráfaga de viento y arena actual (0 = calma, 1 = tormenta). */
-  gust = 0;
   private focus = new THREE.Vector3();
   private fires: Array<{ sprite: THREE.Sprite; size: number; phase: number }> = [];
   private lights: Array<{ sprite: THREE.Sprite; rate: number; phase: number; steady: boolean }> = [];
@@ -125,7 +122,7 @@ export class Atmosphere {
     this.embers.frustumCulled = false;
     scene.add(this.embers);
 
-    // (el polvo bajo y las ráfagas de arena visibles se han quitado; el sonido del viento sigue)
+    // (el polvo en el aire y las ráfagas de viento están en desertAir.ts)
 
   }
 
@@ -136,10 +133,7 @@ export class Atmosphere {
 
   tick(dt: number) {
     this.t += dt;
-    // Ráfagas: cada 43 s sube el viento durante unos segundos (más polvo, más rápido y más brasas) y vuelve la calma
-    const c = (this.t + 30) % 43;
-    this.gust = smooth(0, 3, c) * (1 - smooth(10, 15, c));
-    const g = 0; // las brasas ya no reaccionan a las ráfagas (solo las oye el sonido del viento)
+    const g = 0; // las brasas no reaccionan a las ráfagas
     // Brasas: suben y derivan con el viento; las que se alejan reaparecen al otro lado
     const pos = this.embers.geometry.attributes.position as THREE.BufferAttribute;
     const a = pos.array as Float32Array;

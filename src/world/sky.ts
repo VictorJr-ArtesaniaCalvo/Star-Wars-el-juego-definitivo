@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { DesertFog } from './desertFog';
 
 // Neblina y horizonte: ámbar dorado, como el aire polvoriento de Geonosis.
 // Neblina y horizonte: ámbar pálido y apagado (lo lejano se vuelve pálido; lo cercano queda más intenso y oscuro)
@@ -67,7 +68,8 @@ export function buildSky(scene: THREE.Scene) {
   sky.frustumCulled = false;
   scene.add(sky);
 
-  scene.fog = new THREE.Fog(FOG_COLOR, 26, 150);
+  // niebla del desierto: la de distancia de siempre + polvo a ras de suelo (ver desertFog.ts). En Ultra, World.setQuality pone la lineal de antes.
+  scene.fog = new DesertFog(FOG_COLOR, 26, 150) as unknown as THREE.FogExp2;
 
   // luz ambiente fría y apagada (marrón violáceo): es el color de las sombras; el sol, amarillo pálido e intenso, pone el calor
   // cielo azul violáceo arriba y rebote naranja del suelo abajo (esa luz de rebote ilumina las caras en sombra)

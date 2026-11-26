@@ -880,6 +880,8 @@ export class Game {
         this.effects.update(dt);
         this.world.tick(dt);
         this.audio.setWindLevel(this.world.gust);
+        const gustHit = this.world.consumeGust(); // golpe de viento al empezar cada ráfaga
+        if (gustHit > 0) this.audio.windGust(gustHit);
         this.world.follow(this.camera.position);
         const f = this.camera.getWorldDirection(this.v3);
         this.audio.listener(this.camera.position.x, this.camera.position.y, this.camera.position.z, Math.atan2(-f.x, -f.z), Math.asin(Math.max(-1, Math.min(1, f.y))));
@@ -966,6 +968,8 @@ export class Game {
       this.effects.update(dt);
       this.world.tick(dt);
       this.audio.setWindLevel(this.world.gust);
+      const gustHit = this.world.consumeGust(); // golpe de viento al empezar cada ráfaga
+      if (gustHit > 0) this.audio.windGust(gustHit);
       this.viewModel.update(dt, this.blaster.heat, this.adsZoom);
       this.dirty = true;
     }

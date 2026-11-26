@@ -72,6 +72,7 @@ Las partidas con estas opciones no cuentan para el récord.
 
 ## Sonido y calidad gráfica
 
+- **Ambiente del desierto:** polvo en suspensión (más denso a ras de suelo), láminas de polvo que cruzan con el viento, ráfagas al azar con estelas de arena y golpe de viento, remolinos a lo lejos, motas de polvo cerca y, en la arena, haces de luz con polvo. Según la calidad gráfica (en baja, solo la niebla y alguna ráfaga).
 - **Sonido:** viento del desierto, cañonazos lejanos de las naves, disparos del bláster, disparos de los droides (con dirección: si te disparan por la espalda, suena por detrás), aviso de sobrecalentamiento y granadas. Todo se genera por código (originales, sin derechos de autor). Volumen ajustable en el menú. La música no está incluida.
   En iPhone el sonido empieza al pulsar JUGAR, y **el interruptor lateral de silencio lo apaga** (desactívalo).
 - **Calidad gráfica:** Baja, Media, Alta y **Ultra** (sombras más nítidas, resplandor en las luces fuertes y resolución máxima; la que más calienta el móvil).

@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import type RAPIER from '@dimforge/rapier3d-compat';
 import { Builder } from './builder';
 import { Atmosphere } from './atmosphere';
+import { DesertAir } from './desertAir';
+import type { DesertFog } from './desertFog';
 import { buildDroidWreck, WRECK_FIRES, WRECK_LIGHTS } from './wreck';
 import { GUNSHIP_FIRES, GUNSHIP_LIGHTS, CrashFx } from './crashFx';
 import { laatReady } from './laat';
@@ -28,6 +30,7 @@ export class World {
   private fill: THREE.DirectionalLight;
   private skyMat: THREE.ShaderMaterial;
   private atmosphere: Atmosphere;
+  private air: DesertAir;
   private skyLife: SkyLife;
   private crashFx: CrashFx | null = null;
   private scatter: Scatter;
@@ -43,7 +46,7 @@ export class World {
   canyon = true;
 
   constructor(
-    private scene: THREE.Scene,
+    scene: THREE.Scene,
     rapier: typeof RAPIER,
     physics: RAPIER.World,
     hooks: { skyFire?: (x: number, y: number, z: number) => void } = {},
@@ -81,6 +84,9 @@ export class World {
     this.canyonObjects = scene.children.filter((o) => !before.has(o) && !skyObjects.has(o));
     physics.forEachCollider((c) => { if (!collidersBefore.has(c.handle)) this.canyonColliders.push(c.handle); });
     physics.forEachRigidBody((b) => { if (!bodiesBefore.has(b.handle)) this.canyonBodies.push(b.handle); });
+    // polvo y viento del desierto: después de apuntar lo del cañón, porque sigue en la arena
+    const desert = scene.fog as unknown as DesertFog;
+    this.air = new DesertAir(scene, { desert, linear: new THREE.Fog(desert.color, desert.near, desert.far) });
   }
 
   /**
@@ -108,8 +114,10 @@ export class World {
     this.wallBlocks = null;
   }
 
-  /** Fuerza de la ráfaga de viento y arena (0 a 1). */
-  get gust() { return this.canyon ? this.atmosphere.gust : 0; }
+  /** Fuerza de la ráfaga de viento y arena (0 a 1), en el cañón y en la arena. */
+  get gust() { return this.air.gust; }
+  /** Si acaba de empezar una ráfaga, su fuerza (para el golpe de viento); si no, 0. */
+  consumeGust() { return this.air.consumeGust(); }
 
   setQuality(q: Quality) {
     const cfg = QUALITY[q];
@@ -119,7 +127,7 @@ export class World {
       this.sun.shadow.map?.dispose();
       (this.sun.shadow as unknown as { map: unknown }).map = null;
     }
-    (this.scene.fog as THREE.Fog).far = cfg.viewDistance;
+    this.air.setQuality(q, cfg.viewDistance); // niebla (la del desierto o, en Ultra, la de antes), polvo y ráfagas
     if (this.canyon) {
       this.crashFx?.setQuality(q);
       this.scatter.setQuality(q);
@@ -136,6 +144,7 @@ export class World {
   tick(dt: number) {
     this.time += dt;
     this.skyMat.uniforms.time.value = this.time;
+    this.air.tick(dt);
     if (!this.canyon) return;
     this.atmosphere.tick(dt);
     this.skyLife.update(dt);
@@ -146,6 +155,7 @@ export class World {
   /** El cielo y la luz del sol acompañan al jugador. */
   follow(p: THREE.Vector3) {
     this.sky.position.copy(p);
+    this.air.follow(p);
     if (this.canyon) {
       this.atmosphere.follow(p);
       this.scatter.follow(p);

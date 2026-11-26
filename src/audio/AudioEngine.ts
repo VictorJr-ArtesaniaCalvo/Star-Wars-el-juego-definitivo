@@ -315,8 +315,16 @@ export class AudioEngine {
   /** Coloca al oyente donde está la cámara y mirando hacia donde mira. */
   listener(x: number, y: number, z: number, yaw: number, pitch: number) {
     Howler.pos(x, y, z);
+    this.ear.set(x, y, z);
     const cp = Math.cos(pitch);
     Howler.orientation(-Math.sin(yaw) * cp, Math.sin(pitch), -Math.cos(yaw) * cp, 0, 1, 0);
+  }
+  private ear = { x: 0, y: 0, z: 0, set(x: number, y: number, z: number) { this.x = x; this.y = y; this.z = z; } };
+
+  /** Golpe de viento de una ráfaga (`k` = su fuerza, 0–1): llega desde el oeste, de donde sopla el viento. */
+  windGust(k: number) {
+    const e = this.ear;
+    this.play('gust', Math.min(1, 0.55 * k + 0.15) * WIND_VOLUME * 2.2, 0.92 + Math.random() * 0.16, [e.x - 14, e.y + 2, e.z], 10);
   }
 
   private pick(id: SoundId) {

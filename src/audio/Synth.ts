@@ -210,6 +210,27 @@ function wind(): Float32Array {
   return out;
 }
 
+/** Golpe de viento de una ráfaga (3,4 s): soplo de aire que crece, silba un poco y se va. */
+function gust(seed: number): Float32Array {
+  const r = rngFrom(1100 + seed), D = 3.4, b = buf(D);
+  let lp = 0, lp2 = 0, bp1 = 0, bp2 = 0;
+  const peak = 0.9 + seed * 0.25; // cuándo es más fuerte (s)
+  for (let i = 0; i < b.length; i++) {
+    const t = i / SR;
+    const env = t < peak ? Math.sin((Math.PI / 2) * (t / peak)) ** 2 : Math.exp(-(t - peak) * 1.7);
+    const w = r() * 2 - 1;
+    const k = 0.02 + 0.07 * env; // más fuerte = más agudo
+    lp += k * (w - lp);
+    lp2 += 0.35 * (lp - lp2);
+    const fc = 380 + 420 * env + 60 * Math.sin(TAU * t * 1.3 + seed);
+    const q = (TAU * fc) / SR;
+    bp1 += q * bp2;
+    bp2 += q * (w * 0.2 - bp1 - bp2 * 0.08);
+    b[i] = (lp2 * 6 + bp1 * 0.08) * env;
+  }
+  return finish(b, 1.1, 0.3);
+}
+
 /** Convierte las muestras en un archivo WAV (16 bits, mono) y devuelve su dirección en memoria. */
 function toWavUrl(samples: Float32Array): string {
   const n = samples.length;
@@ -225,7 +246,7 @@ function toWavUrl(samples: Float32Array): string {
 }
 
 export type SoundId =
-  | 'blaster' | 'b1' | 'b2' | 'deka' | 'overheat' | 'ready' | 'whoosh' | 'tink' | 'explosion' | 'boom' | 'wind';
+  | 'blaster' | 'b1' | 'b2' | 'deka' | 'overheat' | 'ready' | 'whoosh' | 'tink' | 'explosion' | 'boom' | 'wind' | 'gust';
 
 export interface SynthSet {
   /** Variantes de cada sonido (así los disparos seguidos no suenan idénticos). */
@@ -252,6 +273,7 @@ export function synthesizeAll(): SynthSet {
   add('overheat', overheat());
   add('ready', ready());
   add('whoosh', whoosh());
+  add('gust', gust(0), gust(1), gust(2));
   add('tink', tink());
   add('explosion', explosion());
   add('boom', distantBoom());
