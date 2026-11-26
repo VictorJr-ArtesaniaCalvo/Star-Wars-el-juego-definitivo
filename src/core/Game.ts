@@ -139,10 +139,11 @@ export class Game {
     this.hud = new Hud(() => this.pause());
     this.gameOver = new GameOver(() => this.startRun(), () => this.quitToMenu());
 
-    // Música de la pantalla principal: empieza con el primer toque (iOS no deja sonar antes)
+    // Música de la pantalla principal: empieza con el primer toque (iOS no deja sonar antes). Ojo: en el iPhone solo vale
+    // al LEVANTAR el dedo (touchend/click); al apoyarlo (pointerdown/touchstart) iOS no deja que suene.
     const menuTouch = () => { if (this.mode === 'menu' && !this.wipe.busy) this.audio.startMenuMusic(); };
-    document.addEventListener('pointerdown', menuTouch, true);
-    document.addEventListener('keydown', menuTouch, true);
+    for (const ev of ['touchend', 'pointerup', 'click', 'keydown']) document.addEventListener(ev, menuTouch, true);
+    this.setupTapStart();
 
     this.settings.onChange(() => this.applySettings());
     window.addEventListener('resize', () => this.resize());
@@ -317,6 +318,30 @@ export class Game {
     }
     this.waves.start(s.testRound);
     this.resume();
+  }
+
+  /**
+   * «TOCA PARA EMPEZAR»: lo primero al abrir. Ese toque arranca la música de la pantalla principal (el iPhone no deja sonar antes)
+   * y la pantalla se funde dejando ver el menú. Sigue tapando unos instantes mientras se funde, para que el mismo toque no pulse un botón.
+   */
+  private setupTapStart() {
+    const el = document.getElementById('tapStart');
+    if (!el) return;
+    if (!matchMedia('(pointer: coarse)').matches) document.getElementById('tapHint')!.textContent = 'PULSA PARA EMPEZAR';
+    let done = false;
+    const go = (e: Event) => {
+      if (done) return;
+      done = true;
+      e.preventDefault();
+      this.audio.unlock();
+      this.audio.startMenuMusic();
+      el.classList.add('out');
+      document.removeEventListener('keydown', go);
+      window.setTimeout(() => el.remove(), 750);
+    };
+    el.addEventListener('touchend', go);
+    el.addEventListener('click', go);
+    document.addEventListener('keydown', go);
   }
 
   /**

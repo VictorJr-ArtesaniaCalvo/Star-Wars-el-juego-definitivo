@@ -363,3 +363,20 @@ h1.red { color: #ff7a60; }
 #wipe.sweep .bar { transform: translateX(calc(-1 * var(--feather))); }
 #wipe.done .bar { transition: none; background: #000; }
 #wipe.reveal { opacity: 0; }
+
+/* «TOCA PARA EMPEZAR»: lo primero al abrir el juego; ese toque deja sonar la música de la pantalla principal (iOS no deja antes) */
+#tapStart {
+  position: fixed; inset: 0; z-index: 11; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse 70% 60% at 50% 46%, rgba(0,0,0,.15), rgba(0,0,0,.7)), #000 url(/menu-fondo.jpg) center / cover no-repeat;
+  cursor: pointer; transition: opacity .7s ease-out; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+}
+#tapStart.out { opacity: 0; }
+#tapStart .tapTitle { text-align: center; }
+#tapStart h1 { font-size: clamp(34px, 7vw, 64px); letter-spacing: .3em; margin-right: -.3em; text-shadow: 0 0 22px rgba(255, 120, 50, .55), 0 2px 6px #000; }
+#tapStart h2 { font-size: clamp(12px, 1.8vw, 16px); letter-spacing: .5em; margin-right: -.5em; text-shadow: 0 2px 6px #000; }
+#tapHint {
+  position: absolute; bottom: calc(14% + env(safe-area-inset-bottom)); left: 0; right: 0; margin: 0; text-align: center;
+  font-size: clamp(12px, 1.7vw, 15px); letter-spacing: .45em; color: #ffe8d0; text-shadow: 0 0 10px rgba(255, 140, 60, .7), 0 2px 4px #000;
+  animation: tapPulse 2.2s ease-in-out infinite;
+}
+@keyframes tapPulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
