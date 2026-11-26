@@ -235,7 +235,7 @@ export class Game {
       onEnd: (at) => this.endArenaCinematic(at),
       onPreviewEnd: () => this.endArenaPreview(),
     });
-    this.cine2.voices.preload(ArenaCinematic.voiceIds()); // c2_piloto_1, c2_piloto_2, c2_comando (aún sin grabar: subtítulos)
+    this.cine2.voices.preload(ArenaCinematic.voiceIds()); // c2_piloto_1, c2_piloto_2, c2_comando
     void loadLaatSounds(import.meta.env.BASE_URL); // sonidos grabados de la cañonera (pasada rasante e interior en vuelo)
     this.physics.step();
 

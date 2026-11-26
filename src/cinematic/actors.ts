@@ -347,8 +347,8 @@ export interface TrooperSetup {
 
 /** Ajustes de los dos soldados (metros, en el sistema de cada soldado: x a su derecha, y arriba desde el suelo, z hacia atrás; −z = hacia la puerta). */
 export const SHIP_TROOPERS = {
-  soldado: { kind: 'clone', agarra: 'r', apoyo: 'r', arma: false, gestos: [{ tipo: 'mira', desde: 0.35, hasta: 1.15 }, { tipo: 'señala', desde: 1.55, hasta: 3.5 }] } as TrooperSetup, // «Comandante,» → mira al compañero; «…cañonera derribada…» → señala abajo
-  comandante: { kind: 'commando', agarra: 'l', apoyo: 'l', arma: true, gestos: [{ tipo: 'mira', desde: 4.3, hasta: 5.2 }, { tipo: 'asiente', desde: 6.9, hasta: 7.6 }, { tipo: 'asiente', desde: 7.9, hasta: 8.6 }] } as TrooperSetup, // mira al soldado al empezar; asiente en «No podemos bajar» y «seguimos rumbo»
+  soldado: { kind: 'clone', agarra: 'r', apoyo: 'r', arma: false, gestos: [{ tipo: 'mira', desde: 0.35, hasta: 1.15 }, { tipo: 'señala', desde: 1.5, hasta: 3.7 }] } as TrooperSetup, // «Comandante,» (0,4–1,1) → mira al compañero; «…cañonera derribada… sector siete» (1,3–3,7) → señala abajo
+  comandante: { kind: 'commando', agarra: 'l', apoyo: 'l', arma: true, gestos: [{ tipo: 'mira', desde: 4.5, hasta: 5.4 }, { tipo: 'asiente', desde: 7.8, hasta: 8.5 }, { tipo: 'asiente', desde: 9.0, hasta: 9.7 }] } as TrooperSetup, // su voz empieza en 4,5: mira al soldado al empezar; asiente en «No podemos bajar» (7,8–8,7) y «seguimos rumbo» (9,0–9,7)
   /** Dónde queda la mano que agarra el asa (por delante y por encima de la cabeza). */
   asa: [0.15, 1.95, -0.25] as [number, number, number],
   /** Pies: separación entre ellos, cuánto se adelanta uno y cuánto se retrasa el otro. */

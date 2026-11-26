@@ -2,7 +2,8 @@ VOCES DE LAS CINEMÁTICAS
 ========================
 
 Los MP3 de esta carpeta se generan con  sh tools/prepare-voices.sh  a partir de las grabaciones originales del iPhone
-(assets/audio/voces/*.m4a): recorta los silencios, iguala el volumen (−16 LUFS) y baja un poco el tono del comandante.
+(assets/audio/voces/, .mp3 o .m4a; manda el .mp3): recorta los silencios, iguala el volumen (−16 LUFS) y baja un poco el tono del comandante.
+También escribe duraciones.txt (cuánto dura cada voz ya recortada): las tomas se alargan para que quepa entera + medio segundo.
 
   soldado-1.mp3     SOLDADO (radio, toma 2A):     «Comandante, tenemos una cañonera derribada en el sector siete.»   ← t2a_soldado.m4a
   comandante-1.mp3  COMANDANTE (radio, toma 2B):  «Parece que nuestros compañeros no han tenido la misma suerte. No podemos bajar, seguimos rumbo.»   ← t2b_comandante.m4a
@@ -13,11 +14,10 @@ y se puede ajustar de oído en el modo de pruebas: «AJUSTAR FILTRO DE RADIO (VO
 Si falta alguno, esa frase sale solo con subtítulo (y suenan igualmente el clic y la estática de la radio).
 Los textos, los nombres de archivo y el momento en que suena cada frase están en src/cinematic/script.ts.
 
-CINEMÁTICA DE PASO A LA ARENA (al acabar la ronda 6) — AÚN SIN GRABAR (de momento salen solo los subtítulos)
-Grábalas con el iPhone y déjalas en assets/audio/voces/ con estos nombres (.m4a); luego  sh tools/prepare-voices.sh  crea los MP3:
+CINEMÁTICA DE PASO A LA ARENA (al acabar la ronda 6) — grabadas por Víctor
 
-  c2_piloto_1   PILOTO (filtro «piloto», más sucio; toma 3A):  «Comando, aquí cañonera Tres-Siete, ¿me recibe? No podemos aterrizar ahí.»
-  c2_piloto_2   PILOTO (filtro «piloto»; toma 3B):             «Llegue a la arena por los túneles. Allí le cubriremos y le sacaremos.»
-  c2_comando    TÚ (casco; toma 4):                           «Recibido. Voy para allá.»
+  c2_piloto_1.mp3   PILOTO (filtro «piloto», más sucio; toma 3A):  «Comando, aquí cañonera Tres-Siete, ¿me recibe? No podemos aterrizar ahí.»   ← c2_piloto_1.mp3
+  c2_piloto_2.mp3   PILOTO (filtro «piloto»; toma 3B):             «Llegue a la arena por los túneles. Allí le cubriremos y le sacaremos.»   ← c2_piloto_2.mp3
+  c2_comando.mp3    TÚ (casco; toma 4):                           «Recibido. Voy para allá.»   ← c2_comando.mp3
 
 Los textos y los momentos están en src/cinematic/script2.ts. El filtro «piloto» se ajusta en RADIO_FILTERS (src/audio/Voices.ts).

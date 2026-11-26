@@ -91,8 +91,8 @@ export const VUELO = {
   /** Pasada en línea recta a lo largo del cañón, de sur a norte, por el lado derecho: la puerta abierta (lado izquierdo de la nave) da a la cañonera estrellada. */
   inicio: [20, 100] as [number, number],
   fin: [20, -32] as [number, number],
-  /** Segundos que tarda (lo que duran las tomas 2A y 2B juntas): 132 m en 11 s ≈ 43 km/h; la cañonera estrellada queda de través hacia el segundo 8,5. */
-  duracion: 11,
+  /** Segundos que tarda (lo que duran las tomas 2A y 2B juntas, 4,2 + 7): 132 m en 11,2 s ≈ 42 km/h; la cañonera estrellada queda de través hacia el segundo 8,6. */
+  duracion: 11.2,
   /** Altura sobre el suelo del cráter (m) e inclinación lateral (grados). */
   altura: 22,
   alabeo: 5,
@@ -121,7 +121,7 @@ export const TOMAS: Toma[] = [
   },
   {
     nombre: '2A · La cañonera en vuelo, desde fuera',
-    duracion: 4,
+    duracion: 4.2, // la voz del soldado (3,3 s) entera + medio segundo (antes 4)
     cabina: 0,
     fundidoEntrada: 0.7,
     actores: ['canonera', 'piernas'], // 'piernas' = los dos soldados de la puerta (clon normal y comando)
@@ -137,12 +137,12 @@ export const TOMAS: Toma[] = [
       { en: 0, tipo: 'motor', encender: true },
     ],
     dialogos: [
-      { en: 0.4, quien: 'SOLDADO', texto: 'Comandante, tenemos una cañonera derribada en el sector siete.', voz: 'soldado-1', filtro: 'radio', dura: 3.3 },
+      { en: 0.4, quien: 'SOLDADO', texto: 'Comandante, tenemos una cañonera derribada en el sector siete.', voz: 'soldado-1', filtro: 'radio', dura: 3.3 }, // dura 3,3 s ya recortada
     ],
   },
   {
     nombre: '2B · Desde dentro, mirando a la cañonera estrellada',
-    duracion: 7,
+    duracion: 7, // la voz del comandante (5,2 s) ya cabe con margen: no cambia
     cabina: 1,
     actores: ['canonera', 'piernas'],
     camara: {
@@ -158,7 +158,7 @@ export const TOMAS: Toma[] = [
       { en: 6.6, tipo: 'motor', encender: false },
     ],
     dialogos: [
-      { en: 0.3, quien: 'COMANDANTE', texto: 'Parece que nuestros compañeros no han tenido la misma suerte. No podemos bajar, seguimos rumbo.', voz: 'comandante-1', filtro: 'radio', dura: 4.4 },
+      { en: 0.3, quien: 'COMANDANTE', texto: 'Parece que nuestros compañeros no han tenido la misma suerte. No podemos bajar, seguimos rumbo.', voz: 'comandante-1', filtro: 'radio', dura: 5.2 }, // dura 5,2 s ya recortada
     ],
   },
   {
@@ -188,7 +188,7 @@ export const TOMAS: Toma[] = [
   },
   {
     nombre: '5 · El comando tras la cobertura',
-    duracion: 6,
+    duracion: 7.9, // la voz del comando (5,4 s, empieza en 2,05) entera + medio segundo (antes 6); la cámara se estira con la toma
     actores: ['comando'],
     camara: {
       tipo: 'recorrido',
@@ -205,7 +205,7 @@ export const TOMAS: Toma[] = [
       { en: 1.55, golpe: 0.92 },
       { en: 1.65, golpe: 1 },
       { en: 2.1, golpe: 0 },
-      { en: 3.6, asoma: 0.6 },
+      { en: 4.2, asoma: 0.6 }, // a media frase (estirado con la voz, antes 3,6)
     ],
     eventos: [
       { en: 1.25, tipo: 'golpeCasco' },
@@ -213,7 +213,7 @@ export const TOMAS: Toma[] = [
       { en: 1.4, tipo: 'estatica', dura: 0.6, filtro: 'casco' },
     ],
     dialogos: [
-      { en: 2.05, quien: 'TÚ', texto: 'Rayos... las comunicaciones están fritas. Tendré que apañármelas solo.', voz: 'comando-1', filtro: 'casco', dura: 3.8 },
+      { en: 2.05, quien: 'TÚ', texto: 'Rayos... las comunicaciones están fritas. Tendré que apañármelas solo.', voz: 'comando-1', filtro: 'casco', dura: 5.4 }, // dura 5,4 s ya recortada
     ],
   },
   {

@@ -14,6 +14,10 @@ import { caveMouth } from '../world/cave';
 import { commandoModelReady } from '../player/commandoModel';
 import { clipDuration, getClip, type BakedClip } from '../anim/mixamo';
 import { ARENA_B, ARENA_SUN } from '../world/arena/layout';
+
+/** Duración de una toma del guion (por su id). Las vueltas de la cañonera duran lo que las tomas 3A y 3B juntas (se adaptan a las voces). */
+const durOf = (id: string) => TOMAS2.find((q) => q.id === id)!.duracion;
+const orbitTime = () => durOf('radioA') + durOf('radioB');
 import { ARENA2, CARRERA, COMANDO2, DROIDES_CAÑON, SALIDA2, TOMAS2, VOCES2, VUELO2, type Evento2, type Toma2 } from './script2';
 
 // ============================================================================
@@ -554,11 +558,11 @@ export class ArenaCinematic {
         this.enemyFire(head(cx, cz), 2.2, 0.1, 0.28);
         // de lado, algo girada hacia el norte: los disparos azules y rojos cruzan la imagen
         this.look(this.G(cx + 3.7, 1.15, cz + 0.7), this.G(cx - 0.4, 1.05, cz - 2.5));
-        this.orbitShip(u - 4, true); // la cañonera, lejos, ya vuelve hacia aquí
+        this.orbitShip(u - durOf('combate'), true); // la cañonera, lejos, ya vuelve hacia aquí
         break;
       }
       case 'radioA': case 'radioB': {
-        const k = s.id === 'radioA' ? u : 4 + u;
+        const k = s.id === 'radioA' ? u : durOf('radioA') + u; // segundos desde que empezó la toma 3A
         this.place(cmd.group, cx, cz, 0);
         this.showCanyonDroids(this.t);
         // deja de disparar: de la postura de disparo pasa a la de rodilla en tierra; la mano al casco; mira al cielo siguiendo a la nave
@@ -573,7 +577,7 @@ export class ArenaCinematic {
           lookUp: lookK * Math.min(0.8, elev * 0.85),
           lookSide: lookK * Math.max(-0.9, Math.min(0.9, az * 0.6)),
         });
-        if (k < 2.5) this.enemyFire(head(cx, cz), 3.0, 0.55, 1.2); else this.distantFire(dt);
+        if (k < 2.5 * durOf('radioA') / 4) this.enemyFire(head(cx, cz), 3.0, 0.55, 1.2); else this.distantFire(dt); // los disparos cercanos paran a media toma 3A
         if (s.id === 'radioA') {
           const e = smooth(u / s.duracion);
           this.look(this.G(cx + 1.25 - 0.25 * e, 1.38, cz - 2.75 + 0.4 * e), this.G(cx, 1.12, cz));
@@ -588,7 +592,7 @@ export class ArenaCinematic {
       }
       case 'respuesta': {
         this.showCanyonDroids(this.t);
-        this.orbitShip(8 + u, true);
+        this.orbitShip(orbitTime() + u, true);
         this.distantFire(dt);
         // se levanta (la mano baja del casco) y arranca a correr hacia la cueva
         const kt = Math.max(0, u - 0.3);
@@ -817,7 +821,7 @@ export class ArenaCinematic {
   /** Vueltas sobre el cañón (tomas 2 a 4): `k` segundos desde que empezó la toma 3A (antes, negativo). Devuelve dónde está. */
   private orbitShip(k: number, show: boolean) {
     const O = VUELO2.orbita, ship = this.ship!;
-    const e = k / 8; // de 3A a 3B
+    const e = k / orbitTime(); // de 3A a 3B (lo que duren las dos juntas)
     const ang = THREE.MathUtils.degToRad(lerp(O.giroDesde, O.giroHasta, e));
     const [cxo, czo] = O.centro;
     const pos = new THREE.Vector3(cxo + Math.cos(ang) * O.radio, this.gh(COMANDO2.x, COMANDO2.z) + O.altura + Math.sin(k * 0.7) * 0.6, czo + Math.sin(ang) * O.radio);

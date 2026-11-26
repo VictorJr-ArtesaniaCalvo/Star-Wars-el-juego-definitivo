@@ -79,7 +79,7 @@ export const VUELO2 = {
   /** Cámara de la pasada: muy baja junto a unas rocas (al este del cráter), mirando hacia donde viene la nave. */
   camara: [10, 0.55, 14] as [number, number, number],
   /** Vueltas sobre el cañón: centro, radio, altura (m) y ángulos (grados, 0 = este, 90 = sur) al empezar y acabar la toma 3B. */
-  // círculo ancho, rápido (150° en 8 s, unos 13 m/s) y muy inclinado en el giro, ladeada hacia dentro del círculo (Víctor)
+  // círculo ancho (150° durante las tomas 3A y 3B juntas: 10,5 s, unos 10 m/s) y muy inclinado en el giro, ladeada hacia dentro del círculo (Víctor)
   orbita: { centro: [0, -24] as [number, number], radio: 40, altura: 36, giroDesde: 100, giroHasta: 250, alabeo: 40 },
 };
 
@@ -129,32 +129,32 @@ export const TOMAS2: Toma2[] = [
   {
     id: 'radioA',
     nombre: '3A · La radio vuelve: mira al cielo',
-    duracion: 4,
+    duracion: 5.9, // la primera frase del piloto (4,6 s, empieza en 0,8) entera + medio segundo (antes 4)
     angulo: 40,
     temblor: 0.08,
-    eventos: [{ en: 0.05, tipo: 'radioVuelve', dura: 4.4 }],
+    eventos: [{ en: 0.05, tipo: 'radioVuelve', dura: 6.4 }], // la estática se va limpiando durante toda la frase (antes 4,4)
     dialogos: [
-      { en: 0.8, quien: 'PILOTO', texto: 'Comando, aquí cañonera Tres-Siete, ¿me recibe? No podemos aterrizar ahí.', voz: 'c2_piloto_1', filtro: 'piloto', dura: 3.4 },
+      { en: 0.8, quien: 'PILOTO', texto: 'Comando, aquí cañonera Tres-Siete, ¿me recibe? No podemos aterrizar ahí.', voz: 'c2_piloto_1', filtro: 'piloto', dura: 4.6 }, // dura 4,6 s ya recortada
     ],
   },
   {
     id: 'radioB',
     nombre: '3B · La cañonera gira sobre el cañón (desde abajo)',
-    duracion: 4,
+    duracion: 4.6, // la segunda frase del piloto (3,6 s, empieza en 0,45) entera + medio segundo (antes 4)
     angulo: 58,
     temblor: 0.06,
     dialogos: [
-      { en: 0.45, quien: 'PILOTO', texto: 'Llegue a la arena por los túneles. Allí le cubriremos y le sacaremos.', voz: 'c2_piloto_2', filtro: 'piloto', dura: 3.3 },
+      { en: 0.45, quien: 'PILOTO', texto: 'Llegue a la arena por los túneles. Allí le cubriremos y le sacaremos.', voz: 'c2_piloto_2', filtro: 'piloto', dura: 3.6 }, // dura 3,6 s ya recortada
     ],
   },
   {
     id: 'respuesta',
     nombre: '4 · Respuesta y se levanta',
-    duracion: 2.5,
+    duracion: 2.5, // «Recibido. Voy para allá.» (1,7 s, empieza en 0,1) ya cabe con margen: no cambia
     angulo: 44,
     temblor: 0.08,
     dialogos: [
-      { en: 0.1, quien: 'TÚ', texto: 'Recibido. Voy para allá.', voz: 'c2_comando', filtro: 'casco', dura: 1.5 },
+      { en: 0.1, quien: 'TÚ', texto: 'Recibido. Voy para allá.', voz: 'c2_comando', filtro: 'casco', dura: 1.7 }, // dura 1,7 s ya recortada
     ],
   },
   {
