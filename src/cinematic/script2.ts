@@ -79,7 +79,7 @@ export const VUELO2 = {
   /** Cámara de la pasada: muy baja junto a unas rocas (al este del cráter), mirando hacia donde viene la nave. */
   camara: [10, 0.55, 14] as [number, number, number],
   /** Vueltas sobre el cañón: centro, radio, altura (m) y ángulos (grados, 0 = este, 90 = sur) al empezar y acabar la toma 3B. */
-  // círculo ancho, rápido (150° en 8 s, unos 13 m/s) y muy inclinado en el giro (Víctor)
+  // círculo ancho, rápido (150° en 8 s, unos 13 m/s) y muy inclinado en el giro, ladeada hacia dentro del círculo (Víctor)
   orbita: { centro: [0, -24] as [number, number], radio: 40, altura: 36, giroDesde: 100, giroHasta: 250, alabeo: 40 },
 };
 

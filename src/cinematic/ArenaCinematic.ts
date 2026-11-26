@@ -823,7 +823,7 @@ export class ArenaCinematic {
     const pos = new THREE.Vector3(cxo + Math.cos(ang) * O.radio, this.gh(COMANDO2.x, COMANDO2.z) + O.altura + Math.sin(k * 0.7) * 0.6, czo + Math.sin(ang) * O.radio);
     const dirSign = O.giroHasta >= O.giroDesde ? 1 : -1;
     const tangent = new THREE.Vector3(-Math.sin(ang), 0, Math.cos(ang)).multiplyScalar(dirSign);
-    this.orient(ship, pos, tangent, -dirSign * THREE.MathUtils.degToRad(O.alabeo));
+    this.orient(ship, pos, tangent, dirSign * THREE.MathUtils.degToRad(O.alabeo)); // ladeada hacia dentro del círculo, como un avión al girar (Víctor)
     ship.visible = show;
     return pos;
   }
