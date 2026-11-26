@@ -81,6 +81,8 @@ Todas de dominio público (CC0 1.0); se citan por cortesía. Detalles completos 
 - **Música** (`public/audio/musica.mp3`): «Separatist March», aportada por el autor del proyecto (el archivo original era el audio de un vídeo, `Separatist_March.mp4`;
   se ha igualado de volumen y recortado a MP3 de 96 kbps). **Autoría y derechos por confirmar.** Si el proyecto se hiciera público de forma más amplia o comercial,
   conviene confirmar que se puede usar o sustituirla. En el juego se puede bajar o quitar desde el menú (Música).
+- **Música de la pantalla principal** (`public/audio/menu.mp3`): aportada por el autor del proyecto (audio de un vídeo, `videoplayback.mp4`);
+  igualada de volumen, recortado el final y pasada a MP3 de 80 kbps. **Autoría y derechos por confirmar** (mismas condiciones que la anterior).
 
 ## Star Wars
 Star Wars, Geonosis y los personajes y vehículos que aparecen son marcas y propiedad de Lucasfilm Ltd. / Disney.

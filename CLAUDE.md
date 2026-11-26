@@ -17,6 +17,8 @@ Detalle técnico completo en **NOTAS.md** (estructura, decisiones, cómo probar)
 - Altura de los droides (pedida por Víctor, de los pies a lo alto de la cabeza): B1 1,93 m, B2 1,93 m, droideka 1,83 m desplegado (en bola, en proporción). Un solo sitio: `src/enemies/sizes.ts`.
 - Viento de fondo bajado dos veces al 60 % (36 % del original; partida y cinemática): `WIND_VOLUME` en `src/audio/AudioEngine.ts`.
 - **Pantalla principal** (sale siempre al abrir): fondo del planeta Geonosis (`public/menu-fondo.jpg`, imagen de Víctor) y botones JUGAR (empieza siempre con la cinemática, que se puede omitir), AJUSTES (pantalla propia, en dos columnas) y AGRADECIMIENTOS. En pausa: CONTINUAR, AJUSTES y ABANDONAR PARTIDA.
+  - Música propia (`public/audio/menu.mp3`, canción de Víctor, 11 min, en bucle) que empieza con el primer toque (iOS no deja antes) y vuelve al abandonar partida.
+  - Al pulsar JUGAR: **cortinilla a negro de derecha a izquierda** al estilo Star Wars (punta difuminada, 1,1 s, `src/ui/Wipe.ts`) mientras la música se apaga poco a poco; luego la cinemática.
 - **HUD**: el indicador de ronda y droides se aparta mientras sale un aviso de ronda (que sale justo bajo la brújula); brújula un 10 % más pequeña; sin indicador «DE PIE/AGACHADO»; barra del bláster sin texto, más fina y más abajo.
 - Menú oculto de pruebas (5 toques en el título): ronda, invencible, FPS, ver cada toma de la cinemática, **panel de manos/arma** y **panel del filtro de radio**, ambos con «Copiar valores».
 

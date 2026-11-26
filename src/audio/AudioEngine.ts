@@ -3,6 +3,9 @@ import { synthesizeAll, type SoundId, type SynthSet } from './Synth';
 
 export type Sfx = 'b1' | 'b2' | 'droideka';
 
+/** Una música: un <audio> en streaming con su control de volumen. */
+interface Track { el: HTMLAudioElement; gain: GainNode | null; graph: boolean; wanted: boolean }
+
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
 /** Volumen del viento de fondo (1 = el primero). Víctor lo bajó al 60 % y luego otra vez al 60 % (0,6 × 0,6): sonaba estridente. */
@@ -13,7 +16,7 @@ const MUSIC_BASE = 0.7;
 /**
  * Sonido del juego: ambiente (viento y cañonazos lejanos), disparos y granadas.
  * Los disparos enemigos y las explosiones suenan «con dirección» (si te disparan por la espalda, suena por detrás).
- * La música (public/audio/musica.mp3) va aparte de los efectos, con su propio volumen: se lee como un archivo en streaming (no se decodifica entera en memoria,
+ * Hay dos músicas: la de la partida (public/audio/musica.mp3) y la de la pantalla principal (public/audio/menu.mp3). Van aparte de los efectos, con su propio volumen: se lee como un archivo en streaming (no se decodifica entera en memoria,
  * que en el iPhone pesaría más de 100 MB) y se pasa por un control de volumen de Web Audio, porque el volumen del propio <audio> no funciona en iOS.
  */
 export class AudioEngine {
@@ -38,7 +41,10 @@ export class AudioEngine {
   private sfxVol = 1;
   private musicVol = 0.5;
   private paused = false; // en pausa/menú: los efectos callan y la música baja
-  private music: { el: HTMLAudioElement; gain: GainNode | null; graph: boolean; wanted: boolean } | null = null;
+  private music: Track | null = null; // la de la partida (y la cinemática)
+  private menuMusic: Track | null = null; // la de la pantalla principal
+  private menuFade = 1; // la de la pantalla principal se apaga poco a poco al pulsar JUGAR (de 1 a 0)
+  private menuFadeTimer = 0;
   /** Solo para pruebas */
   stats: SynthSet['stats'] = {};
   played: Record<string, number> = {};
@@ -71,29 +77,37 @@ export class AudioEngine {
       this.b1Clips.push(clip);
     }
     Howler.autoSuspend = false;
-    // Música: archivo en streaming, en bucle; sin cargar hasta que se necesite
-    const el = new Audio(`${base}audio/musica.mp3`);
-    el.loop = true;
-    el.preload = 'none';
-    this.music = { el, gain: null, graph: false, wanted: false };
+    // Músicas: archivos en streaming, en bucle; sin cargar hasta que se necesiten
+    const track = (file: string): Track => {
+      const el = new Audio(`${base}audio/${file}`);
+      el.loop = true;
+      el.preload = 'none';
+      return { el, gain: null, graph: false, wanted: false };
+    };
+    this.music = track('musica.mp3');
+    this.menuMusic = track('menu.mp3');
     // Al salir de la app (o cambiar de pestaña) la música se detiene; al volver, sigue
     document.addEventListener('visibilitychange', () => {
-      const m = this.music;
-      if (!m) return;
-      if (document.hidden) m.el.pause();
-      else if (m.wanted) void m.el.play().catch(() => undefined);
+      for (const m of [this.music, this.menuMusic]) {
+        if (!m) continue;
+        if (document.hidden) m.el.pause();
+        else if (m.wanted) void m.el.play().catch(() => undefined);
+      }
     });
     this.applyVolumes();
   }
 
   private applyVolumes() {
     Howler.volume(this.paused ? 0 : this.volume * this.sfxVol);
-    const m = this.music;
-    if (m) {
-      const g = Math.min(1, this.volume * this.musicVol * MUSIC_BASE * (this.paused ? 0.6 : 1));
-      if (m.gain) m.gain.gain.value = g;
-      else m.el.volume = g; // si no hay Web Audio (en iOS esto no tendría efecto, pero allí sí hay)
-    }
+    const g = Math.min(1, this.volume * this.musicVol * MUSIC_BASE);
+    this.setTrackGain(this.music, g * (this.paused ? 0.6 : 1));
+    this.setTrackGain(this.menuMusic, g * this.menuFade);
+  }
+
+  private setTrackGain(m: Track | null, g: number) {
+    if (!m) return;
+    if (m.gain) m.gain.gain.value = g;
+    else m.el.volume = Math.max(0, Math.min(1, g)); // si no hay Web Audio (en iOS esto no tendría efecto, pero allí sí hay)
   }
 
   /** Volumen general. */
@@ -114,26 +128,91 @@ export class AudioEngine {
     this.applyVolumes();
   }
 
+  /**
+   * Desbloquea el sonido en el momento del toque (iOS solo deja sonar si se pide justo al tocar), sin que suene nada todavía.
+   * Se usa al pulsar JUGAR: la cinemática (y su música) empieza un segundo después, al acabar la cortinilla.
+   */
+  unlock() {
+    const ctx = Howler.ctx;
+    if (ctx && ctx.state !== 'running') void ctx.resume();
+    const m = this.music;
+    if (m && m.el.paused && !m.wanted) {
+      m.el.muted = true;
+      void m.el.play().then(() => { if (!m.wanted) m.el.pause(); m.el.muted = false; }).catch(() => { m.el.muted = false; });
+    }
+  }
+
+  /** Pasa el <audio> por un control de volumen de Web Audio (la primera vez que suena). */
+  private connect(m: Track) {
+    if (m.graph) return;
+    m.graph = true;
+    const ctx = Howler.ctx;
+    try {
+      if (ctx) {
+        const src = ctx.createMediaElementSource(m.el);
+        const gain = ctx.createGain();
+        src.connect(gain);
+        gain.connect(ctx.destination);
+        m.gain = gain;
+        m.el.volume = 1; // el volumen lo manda ahora el control de Web Audio (si no, se multiplicaría dos veces)
+      }
+    } catch {
+      m.gain = null; // sin Web Audio: se usa el volumen del propio <audio>
+    }
+  }
+
+  /**
+   * Música de la pantalla principal: empieza desde el principio (tras un toque del jugador: iOS no deja sonar antes)
+   * y para la de la partida, si sonaba.
+   */
+  startMenuMusic() {
+    const m = this.menuMusic;
+    if (!m || m.wanted) return;
+    this.stopMusic();
+    window.clearInterval(this.menuFadeTimer);
+    this.menuFade = 1;
+    this.connect(m);
+    m.wanted = true;
+    m.el.currentTime = 0;
+    this.applyVolumes();
+    const ctx = Howler.ctx;
+    if (ctx && ctx.state !== 'running') void ctx.resume();
+    if (!document.hidden) void m.el.play().catch(() => { m.wanted = false; }); // si iOS no la deja aún, se intenta en el próximo toque
+  }
+
+  /** Apaga poco a poco la música de la pantalla principal (al pulsar JUGAR, a la vez que la cortinilla). */
+  fadeOutMenuMusic(seconds: number) {
+    const m = this.menuMusic;
+    if (!m || !m.wanted) return;
+    m.wanted = false;
+    window.clearInterval(this.menuFadeTimer);
+    const t0 = performance.now();
+    this.menuFadeTimer = window.setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / (seconds * 1000));
+      this.menuFade = (1 - k) * (1 - k); // baja suave (el oído nota más el final)
+      this.applyVolumes();
+      if (k >= 1) {
+        window.clearInterval(this.menuFadeTimer);
+        if (!m.wanted) m.el.pause();
+      }
+    }, 30);
+  }
+
+  /** Para la música de la partida (al volver a la pantalla principal). */
+  stopMusic() {
+    const m = this.music;
+    if (!m || !m.wanted) return;
+    m.wanted = false;
+    m.el.pause();
+    m.el.currentTime = 0;
+  }
+
   /** Arranca la música (en bucle). Debe llamarse tras un toque del jugador: iOS no deja sonar antes. */
   startMusic() {
     const m = this.music;
     if (!m) return;
     const ctx = Howler.ctx;
-    if (!m.graph) {
-      m.graph = true;
-      try {
-        if (ctx) {
-          const src = ctx.createMediaElementSource(m.el);
-          const gain = ctx.createGain();
-          src.connect(gain);
-          gain.connect(ctx.destination);
-          m.gain = gain;
-          m.el.volume = 1; // el volumen lo manda ahora el control de Web Audio (si no, se multiplicaría dos veces)
-        }
-      } catch {
-        m.gain = null; // sin Web Audio: se usa el volumen del propio <audio>
-      }
-    }
+    this.connect(m);
     m.wanted = true;
     this.applyVolumes();
     if (ctx && ctx.state !== 'running') void ctx.resume();

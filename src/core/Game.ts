@@ -18,6 +18,7 @@ import { TICK, type GameState, type InputCommand } from '../sim/types';
 import { GameOver } from '../ui/GameOver';
 import { Hud } from '../ui/Hud';
 import { Menu } from '../ui/Menu';
+import { Wipe, WIPE_TIME } from '../ui/Wipe';
 import { b1Params, b2Params, droidekaParams, WaveManager } from '../waves/WaveManager';
 import { SPAWN } from '../world/defenseZone';
 import { setWallDetail } from '../world/terrain';
@@ -64,6 +65,7 @@ export class Game {
   private world!: World;
   private input: InputManager;
   private menu: Menu;
+  private wipe = new Wipe();
   private hud: Hud;
   private gameOver: GameOver;
   private waves!: WaveManager;
@@ -124,18 +126,23 @@ export class Game {
 
     this.input = new InputManager(canvas, document.getElementById('touch')!);
     this.menu = new Menu(this.settings, {
-      onPlay: () => (this.mode === 'paused' ? this.resume() : this.startRun(true)),
+      onPlay: () => (this.mode === 'paused' ? this.resume() : this.playFromMenu()),
       onTuneHands: () => this.openHandTuner(),
       onTuneVoice: () => { this.audio.resume(); this.voiceTuner.show(); },
       onCinematic: (shot) => { if (this.mode === 'menu' || this.mode === 'gameover') this.startRun(true, shot); },
       onQuit: () => this.quitToMenu(),
       onGoRound: (round) => this.jumpToRound(round),
       onArena: () => (this.mode === 'paused' ? this.jumpToRound(this.settings.data.testRound) : this.mode === 'menu' || this.mode === 'gameover' ? this.startRun(true) : undefined),
-      onMusicTouch: () => this.audio.startMusic(), // un toque del jugador: ya puede sonar (iOS)
+      onMusicTouch: () => (this.mode === 'menu' ? this.audio.startMenuMusic() : this.audio.startMusic()), // un toque del jugador: ya puede sonar (iOS)
       onSfxPreview: () => this.audio.previewSfx(),
     });
     this.hud = new Hud(() => this.pause());
     this.gameOver = new GameOver(() => this.startRun(), () => this.quitToMenu());
+
+    // Música de la pantalla principal: empieza con el primer toque (iOS no deja sonar antes)
+    const menuTouch = () => { if (this.mode === 'menu' && !this.wipe.busy) this.audio.startMenuMusic(); };
+    document.addEventListener('pointerdown', menuTouch, true);
+    document.addEventListener('keydown', menuTouch, true);
 
     this.settings.onChange(() => this.applySettings());
     window.addEventListener('resize', () => this.resize());
@@ -257,6 +264,7 @@ export class Game {
    * `cineShot`: ver la cinemática desde esa toma (botón del menú o modo de pruebas), aunque ya se haya visto.
    */
   private startRun(fromMenu = false, cineShot?: number) {
+    this.audio.fadeOutMenuMusic(0.6); // por si se empieza desde el modo de pruebas, sin cortinilla
     const s = this.settings.data;
     const arenaStart = s.testRound >= ARENA_ROUND && cineShot === undefined;
     // El cañón se borró al pasar a la arena: para volver a él se recarga el juego (el menú vuelve a salir; la cinemática no se repite).
@@ -309,6 +317,19 @@ export class Game {
     }
     this.waves.start(s.testRound);
     this.resume();
+  }
+
+  /**
+   * JUGAR en la pantalla principal: cortinilla a negro de derecha a izquierda (al estilo Star Wars) y, ya en negro, empieza la partida.
+   * El sonido se desbloquea en el mismo toque (iOS no deja sonar después).
+   */
+  private playFromMenu() {
+    if (this.wipe.busy) return;
+    this.audio.unlock();
+    this.audio.fadeOutMenuMusic(WIPE_TIME); // la música baja poco a poco mientras cruza la cortina
+    this.wipe.run(() => {
+      if (this.mode === 'menu' || this.mode === 'gameover') this.startRun(true);
+    });
   }
 
   /** Vuelve a cargar el juego para tener otra vez el cañón (se borró al pasar a la arena): sale la pantalla principal. */
@@ -484,6 +505,7 @@ export class Game {
     this.gameOver.hide();
     this.mode = 'menu';
     this.menu.show(false);
+    this.audio.startMenuMusic(); // vuelve la música de la pantalla principal (para la de la partida)
     this.dirty = true;
   }
 
