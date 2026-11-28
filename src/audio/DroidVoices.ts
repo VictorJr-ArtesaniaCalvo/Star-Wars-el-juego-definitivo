@@ -23,25 +23,25 @@ import type { Droid } from '../enemies/Droid';
 /** Valores ajustables (panel del modo de pruebas: «AJUSTAR VOCES DE LOS DROIDES», con «Copiar valores»). */
 export const DROID_VOICE = {
   /** Distancia máxima (m) a la que un droide puede hablar. */
-  distancia: 15,
+  distancia: 19,
   /** Espera entre una frase y la siguiente, de cualquier droide (s, al azar entre los dos). */
-  esperaMin: 6,
-  esperaMax: 10,
+  esperaMin: 4,
+  esperaMax: 7.5,
   /** Espera de cada frase antes de poder repetirse (s). */
-  esperaAvistado: 12,
-  esperaBuscando: 20,
-  esperaRecibido: 15,
-  esperaOtras: 12,
+  esperaAvistado: 8,
+  esperaBuscando: 8,
+  esperaRecibido: 10,
+  esperaOtras: 9,
   /** Probabilidad de que una situación dé frase (0 a 1). */
-  probabilidad: 0.4,
+  probabilidad: 0.9,
   /** Intensidad del filtro robótico (0 a 1). */
-  filtro: 0.6,
+  filtro: 0,
   /** Tono (1 = el de la grabación; más = más agudo). Cada frase varía además ±3 % al azar. */
-  tono: 1.06,
+  tono: 1,
   /** Volumen de la voz (a 3 m del droide; más lejos baja). */
   volumen: 1.5,
   /** Segundos sin ver al jugador para decir «buscando», y para que volver a verlo cuente como «avistado». */
-  perdido: 5,
+  perdido: 2.5,
 };
 export type DroidVoiceKey = keyof typeof DROID_VOICE;
 
